@@ -3,6 +3,7 @@
 A self-hosted messenger with group chats, voice/video calls, file sharing, and full admin controls.
 
 ![4 Messenger](https://img.shields.io/badge/4-Messenger-4F46E5?style=for-the-badge)
+<a href=https://www.wordhippo.com/what-is/the-meaning-of/filipino-word-0ba8b47f1211bd6213a5062b906ab776545b6fc4.html>balakin<a>
 
 ## Features
 
