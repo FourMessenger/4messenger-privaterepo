@@ -35,7 +35,6 @@ export const translations = {
     noSavedServers: 'No saved servers',
     connectionError: 'Connection Error',
     features: {
-      encrypted: 'End-to-End Encrypted',
       groups: 'Groups & Channels',
       selfHosted: 'Self-Hosted'
     },
@@ -353,7 +352,6 @@ export const translations = {
     noSavedServers: 'Нет сохранённых серверов',
     connectionError: 'Ошибка подключения',
     features: {
-      encrypted: 'Сквозное шифрование',
       groups: 'Группы и каналы',
       selfHosted: 'Самостоятельный хостинг'
     },

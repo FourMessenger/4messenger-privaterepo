@@ -1,6 +1,6 @@
 # 4 Messenger
 
-A secure, self-hosted messenger with end-to-end encryption, group chats, voice/video calls, file sharing, and full admin controls.
+A self-hosted messenger with group chats, voice/video calls, file sharing, and full admin controls.
 
 ![4 Messenger](https://img.shields.io/badge/4-Messenger-4F46E5?style=for-the-badge)
 

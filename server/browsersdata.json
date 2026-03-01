@@ -3,51 +3,6 @@
     "firstSeen": "2026-02-13T19:53:25.035Z",
     "visits": [
       {
-        "timestamp": "2026-02-14T08:19:54.633Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0",
-        "acceptLanguage": "en-US,en;q=0.9",
-        "referer": "http://localhost:5173/",
-        "screenWidth": 1280,
-        "screenHeight": 720,
-        "colorDepth": 24,
-        "pixelRatio": 1.5,
-        "timezone": "Europe/Moscow",
-        "language": "en-US",
-        "languages": "en-US, en",
-        "platform": "Win32",
-        "cookiesEnabled": true,
-        "doNotTrack": null,
-        "online": true,
-        "connectionType": "4g",
-        "touchPoints": 0,
-        "hardwareConcurrency": 16,
-        "deviceMemory": 8,
-        "vendor": "Google Inc.",
-        "referrer": "http://localhost:5173/",
-        "url": "http://localhost:5173/"
-      },
-      {
-        "timestamp": "2026-02-14T08:19:54.992Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0",
-        "acceptLanguage": "en-US,en;q=0.9",
-        "referer": "http://localhost:5173/",
-        "action": "server_info"
-      },
-      {
-        "timestamp": "2026-02-14T08:23:31.435Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0",
-        "acceptLanguage": "en-US,en;q=0.9",
-        "referer": "http://localhost:5173/",
-        "action": "server_info"
-      },
-      {
-        "timestamp": "2026-02-14T08:23:31.459Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0",
-        "acceptLanguage": "en-US,en;q=0.9",
-        "referer": "http://localhost:5173/",
-        "action": "server_info"
-      },
-      {
         "timestamp": "2026-02-14T08:24:09.100Z",
         "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0",
         "acceptLanguage": "en-US,en;q=0.9",
@@ -1398,10 +1353,38 @@
         "acceptLanguage": "en-US,en;q=0.9",
         "referer": null,
         "action": "server_info"
+      },
+      {
+        "timestamp": "2026-03-01T15:15:14.130Z",
+        "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36",
+        "acceptLanguage": "ru-RU",
+        "referer": "http://127.0.0.1:5173/",
+        "action": "server_info"
+      },
+      {
+        "timestamp": "2026-03-01T15:15:29.445Z",
+        "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36",
+        "acceptLanguage": "ru-RU",
+        "referer": "http://127.0.0.1:5173/",
+        "action": "server_info"
+      },
+      {
+        "timestamp": "2026-03-01T15:15:29.455Z",
+        "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36",
+        "acceptLanguage": "ru-RU",
+        "referer": "http://127.0.0.1:5173/",
+        "action": "server_info"
+      },
+      {
+        "timestamp": "2026-03-01T15:15:39.950Z",
+        "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36",
+        "acceptLanguage": "ru-RU",
+        "referer": "http://127.0.0.1:5173/",
+        "action": "server_info"
       }
     ],
     "userId": "fd688fe6-80e3-421b-bb36-2e15ee7dd2c4",
     "username": "admin",
-    "lastSeen": "2026-02-28T21:10:57.175Z"
+    "lastSeen": "2026-03-01T15:15:39.950Z"
   }
 }

@@ -4,7 +4,6 @@
  * A secure, self-hosted messenger server with:
  * - User authentication with JWT
  * - Role-based access (admin, moderator, user, banned)
- * - End-to-end message encryption
  * - File sharing
  * - Group chats
  * - Voice/Video call signaling (WebRTC)
