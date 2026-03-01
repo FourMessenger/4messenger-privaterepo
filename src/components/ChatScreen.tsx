@@ -827,7 +827,6 @@ export function ChatScreen() {
         {/* Bottom bar */}
         <div className="border-t border-white/10 p-3">
           <div className="flex items-center justify-between text-xs text-gray-500">
-            <span className="flex items-center gap-1"><Lock className="h-3 w-3" /> End-to-end encrypted</span>
             <span>{totalUnread > 0 ? `${totalUnread} unread` : 'All read'}</span>
           </div>
         </div>
