@@ -86,23 +86,23 @@ function loadBrowserData() {
   return {};
 }
 
-function saveBrowserData(data) {
-  try {
-    fs.writeFileSync(browserDataPath, JSON.stringify(data, null, 2));
-  } catch (err) {
-    console.error('[BrowserData] Error saving:', err.message);
-  }
+function getRealIp(req) {
+  // Берем ТОЛЬКО прямой IP соединения, полностью игнорируем все заголовки
+  let realIp = req.socket?.remoteAddress?.replace('::ffff:', '') || 
+               req.connection?.remoteAddress?.replace('::ffff:', '') ||
+               'unknown';
+  
+  // Если запрос через прокси (например, nginx) - но даже в этом случае
+  // лучше использовать real IP из сокета, а не заголовки
+  return realIp;
 }
 
 function collectBrowserData(req, browserInfo = {}) {
-  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
-             req.headers['x-real-ip'] || 
-             req.socket?.remoteAddress?.replace('::ffff:', '') || 
-             req.ip?.replace('::ffff:', '') || 
-             'unknown';
-  
+  // Используем ТОЛЬКО реальный IP из соединения
+  const ip = getRealIp(req);
+
   const data = loadBrowserData();
-  
+
   if (!data[ip]) {
     data[ip] = {
       firstSeen: new Date().toISOString(),
@@ -111,7 +111,7 @@ function collectBrowserData(req, browserInfo = {}) {
       username: null
     };
   }
-  
+
   data[ip].lastSeen = new Date().toISOString();
   data[ip].visits.push({
     timestamp: new Date().toISOString(),
@@ -120,26 +120,23 @@ function collectBrowserData(req, browserInfo = {}) {
     referer: req.headers['referer'] || null,
     ...browserInfo
   });
-  
+
   // Keep only last 100 visits per IP
   if (data[ip].visits.length > 100) {
     data[ip].visits = data[ip].visits.slice(-100);
   }
-  
+
   saveBrowserData(data);
-  
+
   return ip;
 }
 
 function updateBrowserDataUser(req, userId, username) {
-  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
-             req.headers['x-real-ip'] || 
-             req.socket?.remoteAddress?.replace('::ffff:', '') || 
-             req.ip?.replace('::ffff:', '') || 
-             'unknown';
-  
+  // Используем ТОЛЬКО реальный IP из соединения
+  const ip = getRealIp(req);
+
   const data = loadBrowserData();
-  
+
   if (data[ip]) {
     data[ip].userId = userId;
     data[ip].username = username;
@@ -147,7 +144,6 @@ function updateBrowserDataUser(req, userId, username) {
     saveBrowserData(data);
   }
 }
-
 // ─── Database Setup (sql.js) ───────────────────────────────
 let db = null;
 const dbPath = path.resolve(__dirname, config.database.sqlite.filename);
