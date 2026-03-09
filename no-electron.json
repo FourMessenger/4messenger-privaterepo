@@ -58,10 +58,6 @@
     "wait-on": "^9.0.4",
     "zustand": "^5.0.11"
   },
-  "optionalDependencies": {
-    "electron": "^40.6.1",
-    "electron-builder": "^26.8.1"
-  },
   "devDependencies": {
     "@tailwindcss/vite": "4.1.17",
     "@types/node": "^22.0.0",
