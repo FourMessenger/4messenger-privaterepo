@@ -280,6 +280,10 @@ export function ConnectScreen() {
 
         <div className="mt-8 grid grid-cols-3 gap-4">
           <div className="rounded-xl border border-white/5 bg-white/5 p-4 text-center backdrop-blur">
+            <Shield className="mx-auto mb-2 h-6 w-6 text-indigo-400" />
+            <span className="text-xs text-gray-400">{translate('connect.encrypted')}</span>
+          </div>
+          <div className="rounded-xl border border-white/5 bg-white/5 p-4 text-center backdrop-blur">
             <MessageSquare className="mx-auto mb-2 h-6 w-6 text-purple-400" />
             <span className="text-xs text-gray-400">{translate('connect.groups')}</span>
           </div>

@@ -12,6 +12,14 @@ interface UserSettingsProps {
   onClose: () => void;
 }
 
+const DEFAULT_BOT_CODE = `def on_message(message, chat_id, sender_id):
+    if message == "/start":
+        send_message(chat_id, "Hello! I am a bot.")
+    elif message == "/help":
+        send_message(chat_id, "Available commands: /start, /help")
+    else:
+        send_message(chat_id, "You said: " + message)`;
+
 export function UserSettings({ onClose }: UserSettingsProps) {
   const { 
     currentUser, serverUrl, authToken, addNotification,
@@ -44,7 +52,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
   // Bot state
   const [editingBotId, setEditingBotId] = useState<string | null>(null);
   const [botName, setBotName] = useState('');
-  const [botCode, setBotCode] = useState('import requests\n\ndef on_message(message, chat_id, sender_id):\n    if message == "/start":\n        send_message(chat_id, "Hello! Type /joke to get a random joke.")\n    elif message == "/joke":\n        res = requests.get("https://official-joke-api.appspot.com/random_joke").json()\n        send_message(chat_id, res["setup"] + "\\n" + res["punchline"])\n    else:\n        send_message(chat_id, "You said: " + message)');
+  const [botCode, setBotCode] = useState(DEFAULT_BOT_CODE);
 
   // Apply appearance changes in real-time for preview
   useEffect(() => {
@@ -224,6 +232,24 @@ export function UserSettings({ onClose }: UserSettingsProps) {
     { name: 'Gradient 3', value: 'gradient3', preview: 'bg-gradient-to-br from-slate-900 to-slate-800' },
     { name: 'Solid', value: 'solid', preview: 'bg-gray-900' },
   ];
+
+  const handleCreateOrUpdateBot = async () => {
+    if (editingBotId) {
+      await updateBot(editingBotId, botName, botCode);
+      setEditingBotId(null);
+      setBotCode(DEFAULT_BOT_CODE);
+    } else {
+      if (!botName) return;
+      await createBot(botName, botName, botCode);
+      setBotName('');
+      setBotCode(DEFAULT_BOT_CODE);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingBotId(null);
+    setBotCode(DEFAULT_BOT_CODE);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto" onClick={onClose}>
@@ -795,67 +821,53 @@ export function UserSettings({ onClose }: UserSettingsProps) {
 
           {tab === 'bots' && (
             <div className="space-y-6">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white flex items-center space-x-2">
+              <h3 className="text-lg font-medium text-white flex items-center space-x-2">
                 <Bot className="w-5 h-5 text-indigo-500" />
                 <span>My Bots</span>
               </h3>
               
-              <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-4 space-y-4">
-                <h4 className="font-medium text-gray-900 dark:text-white">
+              <div className="bg-gray-800/50 rounded-xl p-4 space-y-4">
+                <h4 className="font-medium text-white">
                   {editingBotId ? 'Edit Bot Code' : 'Create New Bot'}
                 </h4>
                 
                 {!editingBotId && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bot Name</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Bot Name</label>
                     <input
                       type="text"
                       value={botName}
                       onChange={(e) => setBotName(e.target.value)}
                       placeholder="e.g. WeatherBot"
-                      className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg px-4 py-2"
+                      className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg px-4 py-2"
                     />
                   </div>
                 )}
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex justify-between">
+                  <label className="block text-sm font-medium text-gray-300 mb-1 flex justify-between">
                     <span>Python Code</span>
                     <span className="text-xs text-gray-500">Modules allowed: requests, math, random, json, re, time, datetime</span>
                   </label>
                   <textarea
                     value={botCode}
                     onChange={(e) => setBotCode(e.target.value)}
-                    className="w-full h-48 bg-gray-900 text-green-400 font-mono text-sm border border-gray-300 dark:border-gray-700 rounded-lg px-4 py-3"
-                    spellCheck="false"
+                    className="w-full h-48 bg-gray-900 text-green-400 font-mono text-sm border border-gray-700 rounded-lg px-4 py-3"
+                    spellCheck={false}
                   />
                 </div>
                 
                 <div className="flex space-x-3">
                   <button
-                    onClick={async () => {
-                      if (editingBotId) {
-                        await updateBot(editingBotId, botName, botCode);
-                        setEditingBotId(null);
-                        setBotCode('import requests\\n\\ndef on_message(message, chat_id, sender_id):\\n    if message == "/start":\\n        send_message(chat_id, "Hello! I am a bot.")');
-                      } else {
-                        if (!botName) return;
-                        await createBot(botName, botName, botCode);
-                        setBotName('');
-                        setBotCode('import requests\\n\\ndef on_message(message, chat_id, sender_id):\\n    if message == "/start":\\n        send_message(chat_id, "Hello! I am a bot.")');
-                      }
-                    }}
+                    onClick={handleCreateOrUpdateBot}
                     className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
                   >
                     {editingBotId ? 'Save Code' : 'Create Bot'}
                   </button>
                   {editingBotId && (
                     <button
-                      onClick={() => {
-                        setEditingBotId(null);
-                        setBotCode('import requests\\n\\ndef on_message(message, chat_id, sender_id):\\n    if message == "/start":\\n        send_message(chat_id, "Hello! I am a bot.")');
-                      }}
-                      className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                      onClick={handleCancelEdit}
+                      className="bg-gray-700 text-gray-200 px-4 py-2 rounded-lg font-medium hover:bg-gray-600 transition-colors"
                     >
                       Cancel
                     </button>
@@ -864,19 +876,19 @@ export function UserSettings({ onClose }: UserSettingsProps) {
               </div>
 
               <div className="space-y-3 mt-6">
-                <h4 className="font-medium text-gray-900 dark:text-white">Your Bots</h4>
+                <h4 className="font-medium text-white">Your Bots</h4>
                 {bots.length === 0 ? (
-                  <p className="text-gray-500 dark:text-gray-400 text-sm">You haven't created any bots yet.</p>
+                  <p className="text-gray-400 text-sm">You haven't created any bots yet.</p>
                 ) : (
                   bots.map(b => (
-                    <div key={b.id} className="flex items-center justify-between bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                    <div key={b.id} className="flex items-center justify-between bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-sm">
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold">
+                        <div className="w-10 h-10 rounded-full bg-indigo-900/30 flex items-center justify-center text-indigo-400 font-bold">
                           <Bot className="w-5 h-5" />
                         </div>
                         <div>
-                          <div className="font-medium text-gray-900 dark:text-white">{b.name}</div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">Bot ID: {b.id.substring(0,8)}...</div>
+                          <div className="font-medium text-white">{b.name}</div>
+                          <div className="text-xs text-gray-400">Bot ID: {b.id.substring(0,8)}...</div>
                         </div>
                       </div>
                       <div className="flex space-x-2">
@@ -886,14 +898,14 @@ export function UserSettings({ onClose }: UserSettingsProps) {
                             setBotName(b.name);
                             setBotCode(b.code || '');
                           }}
-                          className="p-2 text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 bg-gray-100 dark:bg-gray-700/50 rounded-lg transition-colors"
+                          className="p-2 text-gray-400 hover:text-indigo-400 bg-gray-700/50 rounded-lg transition-colors"
                           title="Edit Code"
                         >
                           <Code className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => deleteBot(b.id)}
-                          className="p-2 text-gray-500 hover:text-red-600 dark:hover:text-red-400 bg-gray-100 dark:bg-gray-700/50 rounded-lg transition-colors"
+                          className="p-2 text-gray-400 hover:text-red-400 bg-gray-700/50 rounded-lg transition-colors"
                           title="Delete Bot"
                         >
                           <Trash2 className="w-4 h-4" />

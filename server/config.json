@@ -102,6 +102,13 @@
   },
   "bots": {
     "maxMemoryMB": 50,
-    "timeoutMs": 10000
+    "timeoutMs": 10000,
+    "docker": {
+      "enabled": false,
+      "image": "4messenger-bot",
+      "memoryLimit": "64m",
+      "cpuLimit": "0.5",
+      "networkDisabled": false
+    }
   }
 }

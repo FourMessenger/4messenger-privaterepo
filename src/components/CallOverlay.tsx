@@ -27,6 +27,7 @@ export function CallOverlay() {
     chats,
     callState, 
     endCall,
+    beginCall,
     websocket
   } = useStore();
   
@@ -44,16 +45,19 @@ export function CallOverlay() {
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const isInitiatorRef = useRef(false);
   const callStartTimeRef = useRef<number>(0);
+  const incomingAcceptedRef = useRef(false);
 
   const chat = callState.chatId ? chats.find(c => c.id === callState.chatId) : null;
   const otherUserId = chat?.type === 'direct' 
     ? chat.participants.find(p => p !== currentUser?.id) 
     : null;
   const otherUser = otherUserId ? users.find(u => u.id === otherUserId) : null;
+  const signalingTargetUserId = incomingCall?.from || otherUserId;
 
   // Cleanup function
   const cleanup = useCallback(() => {
     console.log('[Call] Cleaning up...');
+    incomingAcceptedRef.current = false;
     
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => {
@@ -142,10 +146,10 @@ export function CallOverlay() {
       if (event.candidate) {
         console.log('[Call] Got ICE candidate:', event.candidate.candidate.substring(0, 50) + '...');
         
-        if (websocket?.readyState === WebSocket.OPEN && otherUserId) {
+        if (websocket?.readyState === WebSocket.OPEN && signalingTargetUserId) {
           websocket.send(JSON.stringify({
             type: 'call_ice_candidate',
-            targetUserId: otherUserId,
+            targetUserId: signalingTargetUserId,
             candidate: event.candidate.toJSON()
           }));
         }
@@ -155,7 +159,7 @@ export function CallOverlay() {
     };
 
     return pc;
-  }, [websocket, otherUserId]);
+  }, [websocket, signalingTargetUserId]);
 
   // Add pending ICE candidates
   const addPendingCandidates = useCallback(async (pc: RTCPeerConnection) => {
@@ -256,9 +260,18 @@ export function CallOverlay() {
 
     console.log('[Call] Answering incoming call');
     isInitiatorRef.current = false;
+    incomingAcceptedRef.current = true;
     setCallStatus('connecting');
 
     try {
+      // Ensure call overlay stays mounted after accepting by activating callState for callee
+      if (currentUser?.id) {
+        const directChat = chats.find(c => 
+          c.type === 'direct' && c.participants.includes(currentUser.id) && c.participants.includes(incomingCall.from)
+        );
+        beginCall(directChat?.id || null, incomingCall.type, [currentUser.id, incomingCall.from]);
+      }
+
       // Get local media stream
       const stream = await navigator.mediaDevices.getUserMedia({
         video: incomingCall.type === 'video',
@@ -325,17 +338,17 @@ export function CallOverlay() {
   const handleEndCall = useCallback(() => {
     console.log('[Call] Ending call');
     
-    if (websocket?.readyState === WebSocket.OPEN && otherUserId) {
+    if (websocket?.readyState === WebSocket.OPEN && signalingTargetUserId) {
       websocket.send(JSON.stringify({
         type: 'call_end',
-        targetUserId: otherUserId
+        targetUserId: signalingTargetUserId
       }));
     }
 
     cleanup();
     setCallStatus('ended');
     endCall();
-  }, [websocket, otherUserId, cleanup, endCall]);
+  }, [websocket, signalingTargetUserId, cleanup, endCall]);
 
   // Toggle mute
   const toggleMute = useCallback(() => {
@@ -372,7 +385,9 @@ export function CallOverlay() {
 
   // Initialize call on mount
   useEffect(() => {
-    if (callState.active && !incomingCall) {
+    // Only auto-start signaling for outgoing calls.
+    // For incoming calls, we accept and create the peer connection in `handleAnswerCall`.
+    if (callState.active && !incomingCall && !incomingAcceptedRef.current) {
       initOutgoingCall();
     }
 

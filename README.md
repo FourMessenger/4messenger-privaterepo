@@ -1,12 +1,12 @@
 # 4 Messenger
 
-A self-hosted messenger with group chats, voice/video calls, file sharing, and full admin controls.
+A secure, self-hosted messenger with end-to-end encryption, group chats, voice/video calls, file sharing, and full admin controls.
 
 ![4 Messenger](https://img.shields.io/badge/4-Messenger-4F46E5?style=for-the-badge)
-<a href=https://en.wikipedia.org/wiki/Mikhail_Balakin>balakin<a>
 
 ## Features
 
+- 🔒 **End-to-end Encryption** - AES-256-GCM message encryption
 - 👥 **Group Chats** - Create groups with admin controls
 - 📞 **Voice & Video Calls** - WebRTC-based calling
 - 📎 **File Sharing** - Upload and share files
@@ -237,10 +237,6 @@ Before deploying to production:
 - JWT authentication
 - bcryptjs (password hashing)
 - AES-256-GCM encryption
-
-## To-do
-- [ ] Real E2E encryption
-- [ ] Working calls
 
 ## License
 

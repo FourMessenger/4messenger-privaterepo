@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { User, Message, Chat, ServerConfig, CallState, AppScreen, UserRole } from './types';
 import { type Language, getTranslation } from './translations';
-import { encryptionStore } from './encryption';
+import { E2EE } from './e2ee';
 
 const generateId = () => Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
 
@@ -248,9 +248,14 @@ interface AppState {
   allMessages: Record<string, Message[]>;
   activeChat: string | null;
   bots: Bot[];
+  
+  // E2EE
+  e2eeKeyPair: { publicKey: any, privateKey: any } | null;
+  chatKeys: Record<string, CryptoKey>;
 
   // Call
   callState: CallState;
+  beginCall: (chatId: string | null, type: 'voice' | 'video', participants: string[]) => void;
 
   // UI
   showSidebar: boolean;
@@ -372,7 +377,20 @@ export const useStore = create<AppState>((set, get) => ({
   allMessages: {},
   activeChat: null,
   bots: [],
+  e2eeKeyPair: null,
+  chatKeys: {},
   callState: { active: false, chatId: null, type: 'voice', participants: [], startTime: null },
+  beginCall: (chatId, type, participants) => {
+    set({
+      callState: {
+        active: true,
+        chatId,
+        type,
+        participants,
+        startTime: Date.now(),
+      },
+    });
+  },
   showSidebar: true,
   showUserProfile: false,
   showChatInfo: false,
@@ -513,11 +531,44 @@ export const useStore = create<AppState>((set, get) => ({
   login: async (username, password) => {
     const { serverUrl, captchaToken } = get();
     
-    // Load or generate keys for E2EE
-    let keys = encryptionStore.loadKeys();
-    if (!keys) {
-       keys = encryptionStore.generateKeyPair();
+    // Unlock or initialize device E2EE identity keys (password-protected, stored in IndexedDB).
+    // We also migrate legacy localStorage keys if present.
+    let keyPair: { publicKey: string; privateKey: string } | null = null;
+    let shouldUploadPublicKey = false;
+    try {
+      const hasStore = await E2EE.keyStoreExists();
+      if (hasStore) {
+        const unlocked = await E2EE.unlockKeyStore(password);
+        if (unlocked) {
+          keyPair = E2EE.getKeyPair();
+        }
+      } else {
+        // Migrate legacy keys if they exist, otherwise create new.
+        let legacy: { publicKey: string; privateKey: string } | null = null;
+        try {
+          const storedKeys = localStorage.getItem('4messenger-e2ee-keys');
+          if (storedKeys) legacy = JSON.parse(storedKeys);
+        } catch {}
+
+        if (legacy && legacy.publicKey && legacy.privateKey) {
+          const migrated = await E2EE.importLegacyKeyPair(password, legacy);
+          if (migrated) {
+            localStorage.removeItem('4messenger-e2ee-keys');
+            keyPair = legacy;
+            shouldUploadPublicKey = true;
+          }
+        }
+
+        if (!keyPair) {
+          keyPair = await E2EE.initializeKeyStore(password);
+          shouldUploadPublicKey = true;
+        }
+      }
+    } catch (e) {
+      console.error('[E2EE] Key store error:', e);
     }
+
+    set({ e2eeKeyPair: keyPair });
     
     try {
       const response = await fetch(`${serverUrl.replace(/\/$/, '')}/api/login`, {
@@ -526,7 +577,12 @@ export const useStore = create<AppState>((set, get) => ({
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: JSON.stringify({ username, password, captchaToken, publicKey: keys.publicKey }),
+        body: JSON.stringify({ 
+          username, 
+          password, 
+          captchaToken, 
+          publicKey: (shouldUploadPublicKey && keyPair) ? keyPair.publicKey : undefined 
+        }),
       });
       
       const data = await response.json();
@@ -551,6 +607,21 @@ export const useStore = create<AppState>((set, get) => ({
         get().fetchChats(),
         get().fetchBots(),
       ]);
+
+      // If we have identity keys, also load any stored chat keys into memory
+      // so incoming encrypted messages can decrypt immediately.
+      try {
+        const chatsToLoad = get().chats;
+        for (const c of chatsToLoad) {
+          const existing = get().chatKeys[c.id];
+          if (!existing) {
+            const loaded = await E2EE.loadChatKey(c.id);
+            if (loaded) {
+              set(s => ({ chatKeys: { ...s.chatKeys, [c.id]: loaded } }));
+            }
+          }
+        }
+      } catch {}
       
       // Setup WebSocket connection
       const wsUrl = serverUrl.replace(/^http/, 'ws').replace(/\/$/, '');
@@ -570,15 +641,28 @@ export const useStore = create<AppState>((set, get) => ({
               break;
             case 'message':
             case 'new_message': {
-              const msgData = msg.data || msg.message;
-              if (msgData) {
+              const handleIncomingMessage = async () => {
+                const msgData = msg.data || msg.message;
+                if (!msgData) return;
+
                 const senderId = msgData.sender_id || msgData.senderId;
                 const chatId = msgData.chat_id || msgData.chatId;
+
+                let content = msgData.content;
+                if (content && content.startsWith('e2ee:')) {
+                  const state = get();
+                  if (state.chatKeys[chatId]) {
+                    content = await E2EE.decryptMessage(content, state.chatKeys[chatId]);
+                  } else {
+                    content = '[Encrypted Message]';
+                  }
+                }
+
                 const mappedMsg: Message = {
                   id: msgData.id,
                   chatId,
                   senderId,
-                  content: msgData.content,
+                  content,
                   type: msgData.type || 'text',
                   fileName: msgData.file_name || msgData.fileName,
                   fileSize: msgData.file_size || msgData.fileSize,
@@ -589,32 +673,26 @@ export const useStore = create<AppState>((set, get) => ({
                   edited: !!msgData.edited,
                   readBy: msgData.readBy || [],
                 };
-                
+
                 const state = get();
                 const isOwnMessage = senderId === state.currentUser?.id;
                 const isActiveChat = state.activeChat === chatId;
-                
-                // Check duplicates in both messages and allMessages
+
                 const existsInMessages = state.messages.some(m => m.id === mappedMsg.id);
                 const existsInAll = (state.allMessages[chatId] || []).some(m => m.id === mappedMsg.id);
-                
+
                 if (!existsInMessages && !existsInAll) {
-                  // If it's from another user, always add
-                  // If it's from current user, it was already added optimistically
                   if (!isOwnMessage) {
                     set(state2 => {
                       const chatMessages = state2.allMessages[chatId] || [];
                       return {
-                        // Add to allMessages store
                         allMessages: {
                           ...state2.allMessages,
                           [chatId]: [...chatMessages, mappedMsg],
                         },
-                        // Also add to active messages if this is the active chat
                         messages: isActiveChat 
                           ? [...state2.messages, mappedMsg]
                           : state2.messages,
-                        // Update chat list with last message and unread count
                         chats: state2.chats.map(c => 
                           c.id === chatId 
                             ? { 
@@ -626,8 +704,7 @@ export const useStore = create<AppState>((set, get) => ({
                         ),
                       };
                     });
-                    
-                    // Play notification sound if enabled and not active chat
+
                     if (!isActiveChat && state.appearance.soundsEnabled) {
                       try {
                         const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbsGczHDdlj8XX3a1YMB04ZI3E1d2sWjIfOGWPxNXdrFoyHw==');
@@ -635,8 +712,7 @@ export const useStore = create<AppState>((set, get) => ({
                         audio.play().catch(() => {});
                       } catch {}
                     }
-                    
-                    // Show browser notification if enabled
+
                     if (!isActiveChat && state.appearance.notificationsEnabled && document.hidden) {
                       try {
                         if (Notification.permission === 'granted') {
@@ -651,7 +727,8 @@ export const useStore = create<AppState>((set, get) => ({
                     }
                   }
                 }
-              }
+              };
+              handleIncomingMessage();
               break;
             }
             case 'message_edited': {
@@ -761,8 +838,14 @@ export const useStore = create<AppState>((set, get) => ({
       return false;
     }
     
-    // Generate new keys for new user
-    const keys = encryptionStore.generateKeyPair();
+    // Generate new device identity keys for new user (password-protected in IndexedDB)
+    let keyPair: { publicKey: string; privateKey: string } | null = null;
+    try {
+      keyPair = await E2EE.initializeKeyStore(password);
+    } catch (e) {
+      console.error('[E2EE] Failed to initialize key store:', e);
+    }
+    set({ e2eeKeyPair: keyPair });
     
     try {
       const response = await fetch(`${serverUrl.replace(/\/$/, '')}/api/register`, {
@@ -771,7 +854,7 @@ export const useStore = create<AppState>((set, get) => ({
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: JSON.stringify({ username, email, password, captchaToken, publicKey: keys.publicKey }),
+        body: JSON.stringify({ username, email, password, captchaToken, publicKey: keyPair?.publicKey }),
       });
       
       const data = await response.json();
@@ -968,7 +1051,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   fetchChats: async () => {
-    const { serverUrl, authToken } = get();
+    const { serverUrl, authToken, e2eeKeyPair, chatKeys } = get();
     if (!authToken) return;
     
     try {
@@ -983,7 +1066,19 @@ export const useStore = create<AppState>((set, get) => ({
         const chatsData = await response.json();
         const existingChats = get().chats;
         
-        const mappedChats = chatsData.map((c: Record<string, unknown>) => {
+        const newChatKeys = { ...chatKeys };
+        
+        const mappedChats = chatsData.map((c: any) => {
+          if (c.encryptedKey && e2eeKeyPair && !newChatKeys[c.id]) {
+            // Background unwrapping of chat keys
+            E2EE.unwrapKey(c.encryptedKey, e2eeKeyPair.privateKey).then(key => {
+              if (key) {
+                set(s => ({ chatKeys: { ...s.chatKeys, [c.id]: key } }));
+                // Also persist for offline use
+                E2EE.saveChatKey(c.id, key).catch(() => {});
+              }
+            });
+          }
           // Preserve local unread count if higher (from WebSocket messages)
           const existingChat = existingChats.find(ec => ec.id === c.id);
           const serverUnread = (c.unreadCount as number) || 0;
@@ -1040,7 +1135,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   fetchMessages: async (chatId) => {
-    const { serverUrl, authToken } = get();
+    const { serverUrl, authToken, chatKeys } = get();
     if (!authToken) return;
     
     try {
@@ -1053,21 +1148,36 @@ export const useStore = create<AppState>((set, get) => ({
       
       if (response.ok) {
         const chatMessages = await response.json();
-        const mappedMessages = chatMessages.map((m: Record<string, unknown>) => ({
-          id: m.id,
-          chatId: m.chat_id || m.chatId || chatId,
-          senderId: m.sender_id || m.senderId,
-          content: m.content,
-          type: m.type || 'text',
-          fileName: m.file_name || m.fileName,
-          fileSize: m.file_size || m.fileSize,
-          fileUrl: m.file_url || m.fileUrl,
-          poll: m.poll || null, // Include poll data from server
-          encrypted: !!m.encrypted,
-          edited: !!m.edited,
-          timestamp: m.created_at || m.timestamp || Date.now(),
-          readBy: m.readBy || [],
-        }));
+        
+        // Decrypt messages sequentially to ensure order and avoid blocking
+        const mappedMessages: Message[] = [];
+        for (const m of chatMessages) {
+          let content = m.content;
+          if (content && content.startsWith('e2ee:')) {
+            if (chatKeys[chatId]) {
+              content = await E2EE.decryptMessage(content, chatKeys[chatId]);
+            } else {
+              content = '[Encrypted Message]';
+            }
+          }
+          
+          mappedMessages.push({
+            id: m.id,
+            chatId: m.chat_id || m.chatId || chatId,
+            senderId: m.sender_id || m.senderId,
+            content: content,
+            type: m.type || 'text',
+            fileName: m.file_name || m.fileName,
+            fileSize: m.file_size || m.fileSize,
+            fileUrl: m.file_url || m.fileUrl,
+            poll: m.poll || null,
+            encrypted: !!m.encrypted,
+            edited: !!m.edited,
+            timestamp: m.created_at || m.timestamp || Date.now(),
+            readBy: m.readBy || [],
+          });
+        }
+        
         set(state => ({
           allMessages: {
             ...state.allMessages,
@@ -1095,7 +1205,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   sendMessage: async (chatId, content, type = 'text', fileName, fileSize, fileUrl?: string) => {
-    const { currentUser, serverUrl, authToken } = get();
+    const { currentUser, serverUrl, authToken, users, chats, chatKeys, e2eeKeyPair } = get();
     if (!currentUser || !authToken) return;
 
     // Create local message for immediate display (unencrypted for UI)
@@ -1129,7 +1239,63 @@ export const useStore = create<AppState>((set, get) => ({
       };
     });
 
-    // Send to server (server handles encryption)
+    let payloadContent = content;
+    
+    // Determine if we should E2EE this message
+    const chat = chats.find(c => c.id === chatId);
+    if (chat && type === 'text') {
+      const hasBot = chat.participants.some(uid => {
+        const u = users.find(user => user.id === uid);
+        return u?.isBot;
+      });
+      
+      if (!hasBot && chatKeys[chatId]) {
+        // E2EE active
+        payloadContent = await E2EE.encryptMessage(content, chatKeys[chatId]);
+      } else if (!hasBot && !chatKeys[chatId] && e2eeKeyPair) {
+        // Try to generate key on the fly if missing but all users have public keys
+        let canCreateKey = true;
+        for (const pId of chat.participants) {
+          const u = users.find(user => user.id === pId);
+          if (!u?.publicKey && pId !== currentUser.id) {
+            canCreateKey = false;
+            break;
+          }
+        }
+        
+        if (canCreateKey) {
+          try {
+            const chatKey = await E2EE.generateChatKey();
+            const encryptedKeys: Record<string, string> = {};
+            for (const pId of chat.participants) {
+              const u = users.find(user => user.id === pId) || (pId === currentUser.id ? currentUser : null);
+              if (u?.publicKey) {
+                const wrapped = await E2EE.wrapKey(chatKey, u.publicKey);
+                if (wrapped) encryptedKeys[pId] = wrapped;
+              }
+            }
+            
+            // Send keys to server
+            await fetch(`${serverUrl.replace(/\/$/, '')}/api/chats/${chatId}/keys`, {
+              method: 'PUT',
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`,
+              },
+              body: JSON.stringify({ encryptedKeys }),
+            });
+            
+            set(state => ({ chatKeys: { ...state.chatKeys, [chatId]: chatKey } }));
+            E2EE.saveChatKey(chatId, chatKey).catch(() => {});
+            payloadContent = await E2EE.encryptMessage(content, chatKey);
+          } catch(e) {
+            console.error("Error setting up chat key:", e);
+          }
+        }
+      }
+    }
+
+    // Send to server
     try {
       const response = await fetch(`${serverUrl.replace(/\/$/, '')}/api/chats/${chatId}/messages`, {
         method: 'POST',
@@ -1137,7 +1303,7 @@ export const useStore = create<AppState>((set, get) => ({
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${authToken}`,
         },
-        body: JSON.stringify({ content, type, fileName, fileSize, fileUrl }),
+        body: JSON.stringify({ content: payloadContent, type, fileName, fileSize, fileUrl }),
       });
       
       if (!response.ok) {
@@ -1221,7 +1387,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   createDirectChat: async (userId) => {
-    const { currentUser, chats, serverUrl, authToken } = get();
+    const { currentUser, chats, serverUrl, authToken, users, e2eeKeyPair } = get();
     if (!currentUser || !authToken) return '';
 
     // Check if chat already exists locally
@@ -1236,6 +1402,24 @@ export const useStore = create<AppState>((set, get) => ({
     }
 
     try {
+      const targetUser = users.find(u => u.id === userId);
+      const isBot = targetUser?.isBot;
+      let encryptedKeys: Record<string, string> | undefined = undefined;
+      
+      if (!isBot && e2eeKeyPair && targetUser?.publicKey) {
+        const chatKey = await E2EE.generateChatKey();
+        const wrappedTarget = await E2EE.wrapKey(chatKey, targetUser.publicKey);
+        const wrappedSelf = await E2EE.wrapKey(chatKey, e2eeKeyPair.publicKey);
+        
+        if (wrappedTarget && wrappedSelf) {
+          encryptedKeys = {
+            [userId]: wrappedTarget,
+            [currentUser.id]: wrappedSelf
+          };
+          // We don't save to state.chatKeys yet, we wait for server to return chatId
+        }
+      }
+
       // Create chat on server first and get the real chat ID
       const response = await fetch(`${serverUrl.replace(/\/$/, '')}/api/chats/direct`, {
         method: 'POST',
@@ -1243,7 +1427,7 @@ export const useStore = create<AppState>((set, get) => ({
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${authToken}`,
         },
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify({ userId, encryptedKeys }),
       });
       
       if (!response.ok) {
@@ -1255,6 +1439,21 @@ export const useStore = create<AppState>((set, get) => ({
       const data = await response.json();
       const chatId = data.chatId;
       
+      let newChatKeys = get().chatKeys;
+      if (encryptedKeys) {
+        // Re-generate chat key to save it instantly? Actually, we lost the `chatKey` reference
+        // because we didn't store it. Let's just let fetchChats or fetchMessages trigger the unwrap,
+        // or we can unwrap our own just-wrapped key.
+        // Actually it's easier to just unwrap it now.
+        try {
+          const unwrapped = await E2EE.unwrapKey(encryptedKeys[currentUser.id], e2eeKeyPair!.privateKey);
+          if (unwrapped) {
+            newChatKeys = { ...newChatKeys, [chatId]: unwrapped };
+            E2EE.saveChatKey(chatId, unwrapped).catch(() => {});
+          }
+        } catch(e) {}
+      }
+
       const newChat: Chat = {
         id: chatId,
         type: 'direct',
@@ -1267,6 +1466,7 @@ export const useStore = create<AppState>((set, get) => ({
         chats: [newChat, ...state.chats],
         activeChat: chatId,
         showNewChat: false,
+        chatKeys: newChatKeys,
       }));
 
       return chatId;
@@ -1278,10 +1478,28 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   createGroup: async (name, participants, description, isChannel = false) => {
-    const { currentUser, serverUrl, authToken } = get();
+    const { currentUser, serverUrl, authToken, users, e2eeKeyPair } = get();
     if (!currentUser || !authToken) return;
 
     try {
+      let encryptedKeys: Record<string, string> | undefined = undefined;
+      
+      const allMembers = [currentUser.id, ...participants];
+      const hasBot = allMembers.some(uid => users.find(u => u.id === uid)?.isBot);
+      
+      if (!hasBot && e2eeKeyPair) {
+        const chatKey = await E2EE.generateChatKey();
+        encryptedKeys = {};
+        
+        for (const uid of allMembers) {
+          const user = users.find(u => u.id === uid) || (uid === currentUser.id ? currentUser : null);
+          if (user?.publicKey) {
+             const wrapped = await E2EE.wrapKey(chatKey, user.publicKey);
+             if (wrapped) encryptedKeys[uid] = wrapped;
+          }
+        }
+      }
+
       // Create group/channel on server first and get the real chat ID
       const response = await fetch(`${serverUrl.replace(/\/$/, '')}/api/chats/group`, {
         method: 'POST',
@@ -1289,7 +1507,7 @@ export const useStore = create<AppState>((set, get) => ({
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${authToken}`,
         },
-        body: JSON.stringify({ name, participants, description, isChannel }),
+        body: JSON.stringify({ name, participants, description, isChannel, encryptedKeys }),
       });
       
       if (!response.ok) {
@@ -1300,6 +1518,17 @@ export const useStore = create<AppState>((set, get) => ({
       
       const data = await response.json();
       const chatId = data.chatId;
+
+      let newChatKeys = get().chatKeys;
+      if (encryptedKeys && e2eeKeyPair) {
+        try {
+          const unwrapped = await E2EE.unwrapKey(encryptedKeys[currentUser.id], e2eeKeyPair.privateKey);
+          if (unwrapped) {
+            newChatKeys = { ...newChatKeys, [chatId]: unwrapped };
+            E2EE.saveChatKey(chatId, unwrapped).catch(() => {});
+          }
+        } catch(e) {}
+      }
 
       const systemMsg: Message = {
         id: generateId(),
@@ -1335,6 +1564,7 @@ export const useStore = create<AppState>((set, get) => ({
         messages: [...state.messages, systemMsg],
         activeChat: chatId,
         showNewGroup: false,
+        chatKeys: newChatKeys,
       }));
 
       get().addNotification(`${isChannel ? 'Channel' : 'Group'} "${name}" created!`, 'success');
@@ -1496,8 +1726,8 @@ export const useStore = create<AppState>((set, get) => ({
     get().addNotification('Left the group', 'info');
   },
 
-  addToGroup: (chatId, userId) => {
-    const { serverUrl, authToken } = get();
+  addToGroup: async (chatId, userId) => {
+    const { serverUrl, authToken, users, chatKeys } = get();
     if (!authToken) return;
     
     set(state => ({
@@ -1506,13 +1736,24 @@ export const useStore = create<AppState>((set, get) => ({
       ),
     }));
 
+    let encryptedKey = undefined;
+    const targetUser = users.find(u => u.id === userId);
+    const chatKey = chatKeys[chatId];
+    
+    if (targetUser && targetUser.publicKey && chatKey && !targetUser.isBot) {
+      try {
+        const wrapped = await E2EE.wrapKey(chatKey, targetUser.publicKey);
+        if (wrapped) encryptedKey = wrapped;
+      } catch(e) { console.error("Failed to wrap key for new member", e); }
+    }
+
     fetch(`${serverUrl.replace(/\/$/, '')}/api/chats/${chatId}/members`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${authToken}`,
       },
-      body: JSON.stringify({ userId }),
+      body: JSON.stringify({ userId, encryptedKey }),
     }).catch(console.error);
   },
 
@@ -1675,15 +1916,7 @@ export const useStore = create<AppState>((set, get) => ({
       .filter(p => p !== currentUser.id)
       .map(p => users.find(u => u.id === p)?.username || 'Unknown');
 
-    set({
-      callState: {
-        active: true,
-        chatId,
-        type,
-        participants: chat.participants,
-        startTime: Date.now(),
-      },
-    });
+    get().beginCall(chatId, type, chat.participants);
     get().addNotification(`${type === 'video' ? 'Video' : 'Voice'} call with ${participantNames.join(', ')}`, 'info');
   },
 
@@ -1942,6 +2175,11 @@ export const useStore = create<AppState>((set, get) => ({
     if (!session) return false;
     
     const { serverUrl, authToken, user } = session;
+
+    // We cannot unlock password-protected E2EE keys without the user's password.
+    // Keep the in-memory keyPair null here; chats can still load and show placeholder for encrypted messages.
+    set({ e2eeKeyPair: null });
+    
     
     // Set loading state
     set({ connecting: true, serverUrl });
@@ -2023,15 +2261,28 @@ export const useStore = create<AppState>((set, get) => ({
               break;
             case 'message':
             case 'new_message': {
-              const msgData = msg.data || msg.message;
-              if (msgData) {
+              const handleIncomingMessage = async () => {
+                const msgData = msg.data || msg.message;
+                if (!msgData) return;
+                
                 const senderId = msgData.sender_id || msgData.senderId;
                 const chatId = msgData.chat_id || msgData.chatId;
+                
+                let content = msgData.content;
+                if (content && content.startsWith('e2ee:')) {
+                  const state = get();
+                  if (state.chatKeys[chatId]) {
+                    content = await E2EE.decryptMessage(content, state.chatKeys[chatId]);
+                  } else {
+                    content = '[Encrypted Message]';
+                  }
+                }
+                
                 const mappedMsg: Message = {
                   id: msgData.id,
                   chatId,
                   senderId,
-                  content: msgData.content,
+                  content: content,
                   type: msgData.type || 'text',
                   fileName: msgData.file_name || msgData.fileName,
                   fileSize: msgData.file_size || msgData.fileSize,
@@ -2073,7 +2324,8 @@ export const useStore = create<AppState>((set, get) => ({
                     };
                   });
                 }
-              }
+              };
+              handleIncomingMessage();
               break;
             }
             case 'message_edited': {
