@@ -94,13 +94,19 @@ function saveBrowserData(data) {
     console.error('[BrowserData] Error saving:', err.message);
   }
 }
+function getRealIp(req) {
+  // Берем ТОЛЬКО прямой IP соединения, полностью игнорируем все заголовки
+  const realIp = req.socket?.remoteAddress?.replace('::ffff:', '') || 
+                 req.connection?.remoteAddress?.replace('::ffff:', '') ||
+                 'unknown';
+
+  // Если запрос через прокси (например, nginx) - но даже в этом случае
+  // лучше использовать real IP из сокета, а не заголовки
+  return realIp;
+}
 
 function collectBrowserData(req, browserInfo = {}) {
-  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
-             req.headers['x-real-ip'] || 
-             req.socket?.remoteAddress?.replace('::ffff:', '') || 
-             req.ip?.replace('::ffff:', '') || 
-             'unknown';
+  const ip = getRealIp(req);
   
   const data = loadBrowserData();
   
@@ -133,12 +139,7 @@ function collectBrowserData(req, browserInfo = {}) {
 }
 
 function updateBrowserDataUser(req, userId, username) {
-  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
-             req.headers['x-real-ip'] || 
-             req.socket?.remoteAddress?.replace('::ffff:', '') || 
-             req.ip?.replace('::ffff:', '') || 
-             'unknown';
-  
+  const ip = getRealIp(req);  
   const data = loadBrowserData();
   
   if (data[ip]) {
@@ -492,12 +493,8 @@ app.use(express.json({ limit: '10mb' }));
 if (rateLimit && config.security.rateLimitEnabled !== false) {
   // Key generator that uses IP address (works for curl, browsers, all clients)
   const getClientKey = (req) => {
-    return req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
-           req.headers['x-real-ip'] ||
-           req.socket?.remoteAddress?.replace('::ffff:', '') ||
-           req.ip?.replace('::ffff:', '') ||
-           'unknown';
-  };
+    return getRealIp(req);
+};
   
   // General API rate limit (generous for normal usage)
   const generalLimiter = rateLimit({
@@ -807,11 +804,7 @@ app.post('/api/captcha/verify', async (req, res) => {
   const { token } = req.body;
   
   // Get client IP
-  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
-             req.headers['x-real-ip'] || 
-             req.socket?.remoteAddress?.replace('::ffff:', '') || 
-             req.ip?.replace('::ffff:', '') || 
-             '';
+  const ip = getRealIp(req);
   
   const valid = await verifyTurnstileToken(token, ip);
   
@@ -936,11 +929,7 @@ app.post('/api/login', (req, res) => {
   updateBrowserDataUser(req, user.id, user.username);
 
   // Record login history
-  const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
-                   req.headers['x-real-ip'] || 
-                   req.socket?.remoteAddress?.replace('::ffff:', '') || 
-                   req.ip?.replace('::ffff:', '') || 
-                   'unknown';
+  const ipAddress = getRealIp(req);
   const userAgent = req.headers['user-agent'] || 'unknown';
   recordUserLogin(user.id, ipAddress, userAgent);
 
@@ -1343,10 +1332,7 @@ app.put('/api/users/:id/role', authMiddleware, adminMiddleware, (req, res) => {
   const targetUser = dbGet('SELECT * FROM users WHERE id = ?', [req.params.id]);
   if (!targetUser) return res.status(404).json({ error: 'User not found' });
   
-  const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
-                   req.headers['x-real-ip'] || 
-                   req.socket?.remoteAddress?.replace('::ffff:', '') || 
-                   'unknown';
+  const ipAddress = getRealIp(req);
   
   dbRun('UPDATE users SET role = ? WHERE id = ?', [role, req.params.id]);
   saveDatabase();
@@ -1374,10 +1360,7 @@ app.post('/api/users/:id/ban', authMiddleware, modMiddleware, (req, res) => {
     return res.status(400).json({ error: 'Cannot ban yourself' });
   }
   
-  const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
-                   req.headers['x-real-ip'] || 
-                   req.socket?.remoteAddress?.replace('::ffff:', '') || 
-                   'unknown';
+  const ipAddress = getRealIp(req);
   
   dbRun('UPDATE users SET role = ?, online = 0 WHERE id = ?', ['banned', req.params.id]);
   saveDatabase();
@@ -1394,10 +1377,7 @@ app.post('/api/users/:id/unban', authMiddleware, modMiddleware, (req, res) => {
   const targetUser = dbGet('SELECT * FROM users WHERE id = ?', [req.params.id]);
   if (!targetUser) return res.status(404).json({ error: 'User not found' });
   
-  const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
-                   req.headers['x-real-ip'] || 
-                   req.socket?.remoteAddress?.replace('::ffff:', '') || 
-                   'unknown';
+  const ipAddress = getRealIp(req);
   
   dbRun('UPDATE users SET role = ? WHERE id = ?', ['user', req.params.id]);
   saveDatabase();
@@ -1416,10 +1396,7 @@ app.delete('/api/users/:id', authMiddleware, adminMiddleware, (req, res) => {
   }
   
   const targetUser = dbGet('SELECT * FROM users WHERE id = ?', [req.params.id]);
-  const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
-                   req.headers['x-real-ip'] || 
-                   req.socket?.remoteAddress?.replace('::ffff:', '') || 
-                   'unknown';
+  const ipAddress = getRealIp(req);
   
   dbRun('DELETE FROM users WHERE id = ?', [req.params.id]);
   saveDatabase();
@@ -1447,10 +1424,7 @@ app.post('/api/users/:id/kick', authMiddleware, modMiddleware, (req, res) => {
     return res.status(400).json({ error: 'Cannot kick yourself' });
   }
   
-  const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
-                   req.headers['x-real-ip'] || 
-                   req.socket?.remoteAddress?.replace('::ffff:', '') || 
-                   'unknown';
+  const ipAddress = getRealIp(req);
   
   // Send kick message to the user
   sendToUser(req.params.id, { type: 'kicked', reason: req.body.reason || 'You have been kicked from the server' });
@@ -1477,10 +1451,7 @@ app.post('/api/users/:id/kick', authMiddleware, modMiddleware, (req, res) => {
 
 // Kick all users (admin only)
 app.post('/api/admin/kick-all', authMiddleware, adminMiddleware, (req, res) => {
-  const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
-                   req.headers['x-real-ip'] || 
-                   req.socket?.remoteAddress?.replace('::ffff:', '') || 
-                   'unknown';
+  const ipAddress = getRealIp(req);
   
   // Send kick message to all users except admin
   wss.clients.forEach(ws => {
@@ -3439,10 +3410,7 @@ app.delete('/api/admin/messages/:id', authMiddleware, adminMiddleware, (req, res
     const message = dbGet('SELECT * FROM messages WHERE id = ?', [req.params.id]);
     if (!message) return res.status(404).json({ error: 'Message not found' });
     
-    const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
-                     req.headers['x-real-ip'] || 
-                     req.socket?.remoteAddress?.replace('::ffff:', '') || 
-                     'unknown';
+    const ipAddress = getRealIp(req);
     
     dbRun('DELETE FROM messages WHERE id = ?', [req.params.id]);
     saveDatabase();
