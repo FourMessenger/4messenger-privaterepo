@@ -51,18 +51,13 @@ builtins.open = secure_open
 # Prevent importing unapproved modules directly in the bot script (Allowlist approach)
 original_import = builtins.__import__
 def secure_import(name, globals=None, locals=None, fromlist=(), level=0):
-    # Only these modules are allowed to be imported directly by the bot script.
-    # If the bot uses a module that needs internal dependencies (like 'requests' needing 'urllib3', 'sys', 'os'),
-    # those internal dependencies will still work because they are imported from within the library's own files, not '<string>'.
     allowed_direct_modules = [
         'requests', 'math', 'random', 'json', 'datetime', 're', 
-        'string', 'time', 'urllib', 'collections', 'itertools', 'hashlib', 'socket'
+        'string', 'time', 'urllib', 'collections', 'itertools', 'hashlib'
     ]
     
     try:
-        # sys._getframe(1) gets the frame of the caller of __import__
         frame = sys._getframe(1)
-        # If the caller's filename is '<string>', it's coming from our exec(script)
         if frame.f_code.co_filename == '<string>':
             base_module = name.split('.')[0]
             if base_module not in allowed_direct_modules:
@@ -125,6 +120,9 @@ except ImportError:
 # Read the bot's script from standard input
 script = sys.stdin.read()
 
+# DON'T replace escaped characters here - JSON parsing should handle this
+# Replacing \n would break string literals like "\n\n" in Python code
+
 import traceback
 
 # Define the built-in send_message function
@@ -160,17 +158,13 @@ def send_message(chat_id, text):
 # --- SAFE FILE I/O FOR BOTS ---
 BOT_NAME = os.environ.get('BOT_NAME')
 if BOT_NAME:
-    # Resolve the bot's dedicated directory: server/bot_files/{BOT_NAME}
     server_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     bot_dir = os.path.abspath(os.path.join(server_root, "bot_files", BOT_NAME))
     
-    # Ensure directory exists securely (original os functions are wrapped, but we can use them internally if we don't trigger the frame check, 
-    # though our frame check looks for '<string>', so here in runner.py it's fine)
     if not os.path.exists(bot_dir):
         os.makedirs(bot_dir, exist_ok=True)
 
     def _resolve_bot_path(filename):
-        # Prevent directory traversal
         target_path = os.path.abspath(os.path.join(bot_dir, filename))
         if not target_path.startswith(bot_dir):
             raise PermissionError(f"Access denied: Cannot access files outside your bot directory.")
@@ -197,7 +191,6 @@ if BOT_NAME:
 
     def bot_create_file(filename):
         path = _resolve_bot_path(filename)
-        # 'a' mode creates the file if it doesn't exist, and does nothing if it does.
         with original_open(path, 'a', encoding='utf-8') as f:
             pass
         return True
@@ -221,10 +214,10 @@ bot_globals = {
     '__name__': '__main__', 
     '__builtins__': builtins,
     'send_message': send_message,
-    'create_file': bot_create_file,  # Creates an empty file if it doesn't exist
-    'write_file': bot_write_file,    # Overwrites the file completely
+    'create_file': bot_create_file,
+    'write_file': bot_write_file,
     'read_file': bot_read_file,
-    'add_file': bot_add_file,        # Appends text without erasing
+    'add_file': bot_add_file,
     'delete_file': bot_delete_file,
     'list_files': bot_list_files
 }

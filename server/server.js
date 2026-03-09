@@ -4,6 +4,7 @@
  * A secure, self-hosted messenger server with:
  * - User authentication with JWT
  * - Role-based access (admin, moderator, user, banned)
+ * - End-to-end message encryption
  * - File sharing
  * - Group chats
  * - Voice/Video call signaling (WebRTC)
@@ -94,23 +95,15 @@ function saveBrowserData(data) {
   }
 }
 
-function getRealIp(req) {
-  // Берем ТОЛЬКО прямой IP соединения, полностью игнорируем все заголовки
-  let realIp = req.socket?.remoteAddress?.replace('::ffff:', '') || 
-               req.connection?.remoteAddress?.replace('::ffff:', '') ||
-               'unknown';
-  
-  // Если запрос через прокси (например, nginx) - но даже в этом случае
-  // лучше использовать real IP из сокета, а не заголовки
-  return realIp;
-}
-
 function collectBrowserData(req, browserInfo = {}) {
-  // Используем ТОЛЬКО реальный IP из соединения
-  const ip = getRealIp(req);
-
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
+             req.headers['x-real-ip'] || 
+             req.socket?.remoteAddress?.replace('::ffff:', '') || 
+             req.ip?.replace('::ffff:', '') || 
+             'unknown';
+  
   const data = loadBrowserData();
-
+  
   if (!data[ip]) {
     data[ip] = {
       firstSeen: new Date().toISOString(),
@@ -119,7 +112,7 @@ function collectBrowserData(req, browserInfo = {}) {
       username: null
     };
   }
-
+  
   data[ip].lastSeen = new Date().toISOString();
   data[ip].visits.push({
     timestamp: new Date().toISOString(),
@@ -128,23 +121,26 @@ function collectBrowserData(req, browserInfo = {}) {
     referer: req.headers['referer'] || null,
     ...browserInfo
   });
-
+  
   // Keep only last 100 visits per IP
   if (data[ip].visits.length > 100) {
     data[ip].visits = data[ip].visits.slice(-100);
   }
-
+  
   saveBrowserData(data);
-
+  
   return ip;
 }
 
 function updateBrowserDataUser(req, userId, username) {
-  // Используем ТОЛЬКО реальный IP из соединения
-  const ip = getRealIp(req);
-
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
+             req.headers['x-real-ip'] || 
+             req.socket?.remoteAddress?.replace('::ffff:', '') || 
+             req.ip?.replace('::ffff:', '') || 
+             'unknown';
+  
   const data = loadBrowserData();
-
+  
   if (data[ip]) {
     data[ip].userId = userId;
     data[ip].username = username;
@@ -152,6 +148,7 @@ function updateBrowserDataUser(req, userId, username) {
     saveBrowserData(data);
   }
 }
+
 // ─── Database Setup (sql.js) ───────────────────────────────
 let db = null;
 const dbPath = path.resolve(__dirname, config.database.sqlite.filename);
@@ -219,31 +216,27 @@ function dbAll(sql, params = []) {
 }
 
 // ─── Encryption Helpers ────────────────────────────────────
+// NOTE: Message encryption is now handled ENTIRELY on the client side (E2EE).
+// The server never encrypts/decrypts message content - it only stores and relays.
+// Messages starting with 'e2ee:' are client-encrypted and opaque to the server.
+//
+// File encryption is still handled server-side for uploaded files.
 const ALGO = config.security.encryptionAlgorithm || 'aes-256-gcm';
 const ENC_KEY = crypto.scryptSync(config.security.jwtSecret, 'salt', 32);
 
-function encrypt(text) {
+// These are ONLY used for file encryption, NOT for messages
+function encryptData(buffer) {
   const iv = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv(ALGO, ENC_KEY, iv);
-  let encrypted = cipher.update(text, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  const tag = cipher.getAuthTag().toString('hex');
-  return iv.toString('hex') + ':' + tag + ':' + encrypted;
+  const encrypted = Buffer.concat([cipher.update(buffer), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return { iv, tag, encrypted };
 }
 
-function decrypt(data) {
-  try {
-    const [ivHex, tagHex, encrypted] = data.split(':');
-    const iv = Buffer.from(ivHex, 'hex');
-    const tag = Buffer.from(tagHex, 'hex');
-    const decipher = crypto.createDecipheriv(ALGO, ENC_KEY, iv);
-    decipher.setAuthTag(tag);
-    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    return decrypted;
-  } catch {
-    return data;
-  }
+function decryptData(iv, tag, encrypted) {
+  const decipher = crypto.createDecipheriv(ALGO, ENC_KEY, iv);
+  decipher.setAuthTag(tag);
+  return Buffer.concat([decipher.update(encrypted), decipher.final()]);
 }
 
 // File encryption/decryption
@@ -633,7 +626,7 @@ function modMiddleware(req, res, next) {
 // --- BOTS API ---
 app.get('/api/users/me/bots', authMiddleware, (req, res) => {
   try {
-    const bots = dbAll('SELECT id, username, display_name as displayName, avatar, bot_script as botScript FROM users WHERE owner_id = ? AND is_bot = 1', [req.user.id]);
+    const bots = dbAll('SELECT id, username, display_name as displayName, avatar, bot_script as botScript, bot_approved FROM users WHERE owner_id = ? AND is_bot = 1', [req.user.id]);
     res.json(bots);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch bots' });
@@ -652,14 +645,15 @@ app.post('/api/users/me/bots', authMiddleware, async (req, res) => {
     const dummyHash = bcrypt.hashSync(uuidv4(), 10);
     const now = Date.now();
     
-    dbRun('INSERT INTO users (id, username, password, display_name, role, is_bot, owner_id, bot_script, online, email, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
-          [botId, username, dummyHash, displayName || username, 'bot', 1, req.user.id, script || '', 0, `${username}@bot.local`, now]);
+    dbRun('INSERT INTO users (id, username, password, display_name, role, is_bot, owner_id, bot_script, bot_approved, online, email, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
+          [botId, username, dummyHash, displayName || username, 'bot', 1, req.user.id, script || '', 0, 0, `${username}@bot.local`, now]);
           
     res.status(201).json({ 
       id: botId, 
       username, 
       displayName: displayName || username, 
       botScript: script,
+      botApproved: false,
       isBot: true 
     });
   } catch (error) {
@@ -824,12 +818,12 @@ app.post('/api/register', (req, res) => {
   const hashedPassword = bcrypt.hashSync(password, config.security.bcryptRounds);
   const verificationToken = config.email.verificationEnabled ? uuidv4() : null;
   const now = Date.now();
-  const publicKey = req.body.publicKey || null;
+  const publicKeyStr = req.body.publicKey ? (typeof req.body.publicKey === 'string' ? req.body.publicKey : JSON.stringify(req.body.publicKey)) : null;
 
   dbRun(`
     INSERT INTO users (id, username, email, password, public_key, role, online, last_seen, email_verified, verification_token, created_at)
     VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
-  `, [id, username, email, hashedPassword, publicKey, config.registration.defaultRole, now, config.email.verificationEnabled ? 0 : 1, verificationToken, now]);
+  `, [id, username, email, hashedPassword, publicKeyStr, config.registration.defaultRole, now, config.email.verificationEnabled ? 0 : 1, verificationToken, now]);
   
   saveDatabase();
 
@@ -886,7 +880,8 @@ app.post('/api/login', (req, res) => {
 
   // Update online status and public key if provided
   if (publicKey) {
-    dbRun('UPDATE users SET online = 1, last_seen = ?, public_key = ? WHERE id = ?', [Date.now(), publicKey, user.id]);
+    const publicKeyStr = typeof publicKey === 'string' ? publicKey : JSON.stringify(publicKey);
+    dbRun('UPDATE users SET online = 1, last_seen = ?, public_key = ? WHERE id = ?', [Date.now(), publicKeyStr, user.id]);
   } else {
     dbRun('UPDATE users SET online = 1, last_seen = ? WHERE id = ?', [Date.now(), user.id]);
   }
@@ -1109,7 +1104,7 @@ app.get('/api/users/me', authMiddleware, (req, res) => {
   res.json({
     ...user,
     displayName: user.display_name || null,
-    publicKey: user.public_key || null,
+    publicKey: safeParseKey(user.public_key),
     isBot: !!user.is_bot
   });
 });
@@ -1119,7 +1114,8 @@ app.put('/api/users/me/public-key', authMiddleware, (req, res) => {
   const { publicKey } = req.body;
   if (!publicKey) return res.status(400).json({ error: 'Public key required' });
   
-  dbRun('UPDATE users SET public_key = ? WHERE id = ?', [publicKey, req.user.id]);
+  const keyStr = typeof publicKey === 'string' ? publicKey : JSON.stringify(publicKey);
+  dbRun('UPDATE users SET public_key = ? WHERE id = ?', [keyStr, req.user.id]);
   saveDatabase();
   res.json({ success: true });
 });
@@ -1227,6 +1223,12 @@ app.delete('/api/bots/:id', authMiddleware, (req, res) => {
 });
 // ---------------------
 
+function safeParseKey(key) {
+  if (!key) return null;
+  try { return typeof key === 'string' ? JSON.parse(key) : key; }
+  catch(e) { return null; }
+}
+
 // Get all users - admins can search partial, others need exact username
 app.get('/api/users', authMiddleware, (req, res) => {
   const { search } = req.query;
@@ -1238,41 +1240,43 @@ app.get('/api/users', authMiddleware, (req, res) => {
     if (isAdmin) {
       const searchPattern = `%${search.trim().toLowerCase()}%`;
       users = dbAll(`
-        SELECT id, username, email, public_key, role, avatar, display_name, online, last_seen, email_verified, created_at, is_bot 
+        SELECT id, username, email, public_key, role, avatar, display_name, online, last_seen, email_verified, created_at, is_bot, bot_approved
         FROM users 
         WHERE (LOWER(username) LIKE ? OR LOWER(email) LIKE ? OR LOWER(display_name) LIKE ?) 
         AND id != ?
       `, [searchPattern, searchPattern, searchPattern, req.user.id]);
     } else {
       users = dbAll(`
-        SELECT id, username, email, public_key, role, avatar, display_name, online, last_seen, email_verified, created_at, is_bot 
+        SELECT id, username, email, public_key, role, avatar, display_name, online, last_seen, email_verified, created_at, is_bot, bot_approved
         FROM users 
         WHERE LOWER(username) = LOWER(?) AND id != ? AND role != 'banned'
+          AND (is_bot = 0 OR COALESCE(bot_approved, 1) = 1)
       `, [search.trim(), req.user.id]);
     }
     
-    return res.json(users.map(u => ({ ...u, displayName: u.display_name, isBot: !!u.is_bot })));
+    return res.json(users.map(u => ({ ...u, displayName: u.display_name, publicKey: safeParseKey(u.public_key), isBot: !!u.is_bot })));
   }
   
   if (isAdmin) {
     const users = dbAll(`
-      SELECT id, username, email, public_key, role, avatar, display_name, online, last_seen, email_verified, created_at, is_bot 
+      SELECT id, username, email, public_key, role, avatar, display_name, online, last_seen, email_verified, created_at, is_bot, bot_approved
       FROM users 
       WHERE id != ?
       ORDER BY created_at DESC
     `, [req.user.id]);
-    return res.json(users.map(u => ({ ...u, displayName: u.display_name, publicKey: u.public_key, isBot: !!u.is_bot })));
+    return res.json(users.map(u => ({ ...u, displayName: u.display_name, publicKey: safeParseKey(u.public_key), isBot: !!u.is_bot })));
   }
   
   const users = dbAll(`
-    SELECT DISTINCT u.id, u.username, u.email, u.public_key, u.role, u.avatar, u.display_name, u.online, u.last_seen, u.email_verified, u.created_at, u.is_bot 
+    SELECT DISTINCT u.id, u.username, u.email, u.public_key, u.role, u.avatar, u.display_name, u.online, u.last_seen, u.email_verified, u.created_at, u.is_bot, u.bot_approved 
     FROM users u
     JOIN chat_members cm1 ON u.id = cm1.user_id
     JOIN chat_members cm2 ON cm1.chat_id = cm2.chat_id
     WHERE cm2.user_id = ? AND u.id != ? AND u.role != 'banned'
+      AND (u.is_bot = 0 OR COALESCE(u.bot_approved, 1) = 1)
   `, [req.user.id, req.user.id]);
   
-  res.json(users.map(u => ({ ...u, displayName: u.display_name, publicKey: u.public_key, isBot: !!u.is_bot })));
+  res.json(users.map(u => ({ ...u, displayName: u.display_name, publicKey: safeParseKey(u.public_key), isBot: !!u.is_bot })));
 });
 
 // Update user role (admin only)
@@ -1408,11 +1412,9 @@ app.get('/api/chats', authMiddleware, (req, res) => {
       isChannelAdmin = channelAdmins.includes(req.user.id);
     }
     
-    // Decrypt last message content if needed
+    // E2EE: Don't decrypt on server - client handles decryption
+    // For display in chat list, we just pass through as-is
     let lastMsg = lastMessage;
-    if (lastMessage && lastMessage.encrypted && config.security.encryptionEnabled && lastMessage.type === 'text') {
-      lastMsg = { ...lastMessage, content: decrypt(lastMessage.content) };
-    }
     
     return {
       ...chat,
@@ -1426,12 +1428,37 @@ app.get('/api/chats', authMiddleware, (req, res) => {
     };
   });
 
+  // Attach encrypted keys for the current user
+  const chatKeys = dbAll(`SELECT chat_id, encrypted_key FROM chat_keys WHERE user_id = ?`, [req.user.id]);
+  const keyMap = {};
+  chatKeys.forEach(k => {
+    // Safely parse JSON if the key was stored as a JSON string
+    let keyVal = k.encrypted_key;
+    try { if (keyVal && keyVal.startsWith('{')) keyVal = JSON.parse(keyVal); } catch(e) {}
+    keyMap[k.chat_id] = keyVal;
+  });
+  
+  result.forEach(chat => {
+    chat.encryptedKey = keyMap[chat.id];
+  });
+
   res.json(result);
 });
 
 // Create direct chat
 app.post('/api/chats/direct', authMiddleware, (req, res) => {
-  const { userId } = req.body;
+  const { userId, encryptedKeys } = req.body;
+
+  // Block access to unapproved bots for non-admins/non-owners
+  const targetUser = dbGet('SELECT id, is_bot, owner_id, bot_approved FROM users WHERE id = ?', [userId]);
+  if (targetUser && targetUser.is_bot) {
+    const approved = (targetUser.bot_approved === 1) || (targetUser.bot_approved === true);
+    const isOwner = targetUser.owner_id === req.user.id;
+    const isAdmin = req.user.role === 'admin';
+    if (!approved && !isAdmin && !isOwner) {
+      return res.status(403).json({ error: 'This bot not approved' });
+    }
+  }
 
   // Check if chat exists
   const existing = dbGet(`
@@ -1448,6 +1475,13 @@ app.post('/api/chats/direct', authMiddleware, (req, res) => {
   dbRun('INSERT INTO chats (id, type, created_at) VALUES (?, ?, ?)', [chatId, 'direct', now]);
   dbRun('INSERT INTO chat_members (chat_id, user_id, joined_at) VALUES (?, ?, ?)', [chatId, req.user.id, now]);
   dbRun('INSERT INTO chat_members (chat_id, user_id, joined_at) VALUES (?, ?, ?)', [chatId, userId, now]);
+  
+  if (encryptedKeys) {
+    for (const [uid, key] of Object.entries(encryptedKeys)) {
+      dbRun('INSERT INTO chat_keys (chat_id, user_id, encrypted_key) VALUES (?, ?, ?)', [chatId, uid, key]);
+    }
+  }
+  
   saveDatabase();
 
   res.status(201).json({ chatId });
@@ -1455,8 +1489,23 @@ app.post('/api/chats/direct', authMiddleware, (req, res) => {
 
 // Create group or channel
 app.post('/api/chats/group', authMiddleware, (req, res) => {
-  const { name, description, participants, isChannel } = req.body;
+  const { name, description, participants, isChannel, encryptedKeys } = req.body;
   if (!name) return res.status(400).json({ error: 'Group name required' });
+
+  // Block adding unapproved bots (unless requester is admin or bot owner)
+  if (participants && Array.isArray(participants) && participants.length > 0) {
+    for (const uid of participants) {
+      const u = dbGet('SELECT id, is_bot, owner_id, bot_approved FROM users WHERE id = ?', [uid]);
+      if (u && u.is_bot) {
+        const approved = (u.bot_approved === 1) || (u.bot_approved === true);
+        const isOwner = u.owner_id === req.user.id;
+        const isAdmin = req.user.role === 'admin';
+        if (!approved && !isAdmin && !isOwner) {
+          return res.status(403).json({ error: 'This bot not approved' });
+        }
+      }
+    }
+  }
 
   const chatId = uuidv4();
   const now = Date.now();
@@ -1475,6 +1524,12 @@ app.post('/api/chats/group', authMiddleware, (req, res) => {
     participants.forEach(uid => {
       dbRun('INSERT INTO chat_members (chat_id, user_id, joined_at) VALUES (?, ?, ?)', [chatId, uid, now]);
     });
+  }
+
+  if (encryptedKeys) {
+    for (const [uid, key] of Object.entries(encryptedKeys)) {
+      dbRun('INSERT INTO chat_keys (chat_id, user_id, encrypted_key) VALUES (?, ?, ?)', [chatId, uid, key]);
+    }
   }
 
   // System message
@@ -1608,14 +1663,47 @@ app.delete('/api/chats/:id/admins/:userId', authMiddleware, (req, res) => {
 
 // Add member to group
 app.post('/api/chats/:id/members', authMiddleware, (req, res) => {
-  const { userId } = req.body;
+  const { userId, encryptedKey } = req.body;
   const chatId = req.params.id;
 
   const member = dbGet('SELECT * FROM chat_members WHERE chat_id = ? AND user_id = ?', [chatId, req.user.id]);
   if (!member) return res.status(403).json({ error: 'Not a member' });
 
+  // Block adding unapproved bots (unless requester is admin or bot owner)
+  const target = dbGet('SELECT id, is_bot, owner_id, bot_approved FROM users WHERE id = ?', [userId]);
+  if (target && target.is_bot) {
+    const approved = (target.bot_approved === 1) || (target.bot_approved === true);
+    const isOwner = target.owner_id === req.user.id;
+    const isAdmin = req.user.role === 'admin';
+    if (!approved && !isAdmin && !isOwner) {
+      return res.status(403).json({ error: 'This bot not approved' });
+    }
+  }
+
   dbRun('INSERT OR IGNORE INTO chat_members (chat_id, user_id, joined_at) VALUES (?, ?, ?)', [chatId, userId, Date.now()]);
+  
+  if (encryptedKey) {
+    dbRun('INSERT OR REPLACE INTO chat_keys (chat_id, user_id, encrypted_key) VALUES (?, ?, ?)', [chatId, userId, encryptedKey]);
+  }
+  
   saveDatabase();
+  res.json({ success: true });
+});
+
+// Update chat keys
+app.put('/api/chats/:id/keys', authMiddleware, (req, res) => {
+  const { encryptedKeys } = req.body;
+  const chatId = req.params.id;
+
+  const member = dbGet('SELECT * FROM chat_members WHERE chat_id = ? AND user_id = ?', [chatId, req.user.id]);
+  if (!member) return res.status(403).json({ error: 'Not a member' });
+
+  if (encryptedKeys) {
+    for (const [uid, key] of Object.entries(encryptedKeys)) {
+      dbRun('INSERT OR REPLACE INTO chat_keys (chat_id, user_id, encrypted_key) VALUES (?, ?, ?)', [chatId, uid, key]);
+    }
+    saveDatabase();
+  }
   res.json({ success: true });
 });
 
@@ -1663,13 +1751,8 @@ app.get('/api/chats/:id/messages', authMiddleware, (req, res) => {
 
   const msgs = dbAll('SELECT * FROM messages WHERE chat_id = ? AND created_at < ? ORDER BY created_at DESC LIMIT ?', [chatId, before, limit]);
 
-  // Decrypt and format messages
+  // Format messages - E2EE decryption happens on the client, not here
   const result = msgs.reverse().map(m => {
-    let content = m.content;
-    if (m.encrypted && config.security.encryptionEnabled && m.type === 'text') {
-      content = decrypt(m.content);
-    }
-    
     // Get poll data if this is a poll message
     let poll = null;
     if (m.type === 'poll' && m.poll_id) {
@@ -1682,7 +1765,7 @@ app.get('/api/chats/:id/messages', authMiddleware, (req, res) => {
       chat_id: m.chat_id,
       senderId: m.sender_id,
       sender_id: m.sender_id,
-      content: content,
+      content: m.content,  // Send as-is, E2EE decryption on client
       type: m.type || 'text',
       fileName: m.file_name,
       file_name: m.file_name,
@@ -1721,14 +1804,9 @@ app.post('/api/chats/:id/messages', authMiddleware, (req, res) => {
 
   const msgId = uuidv4();
   const now = Date.now();
-  let encrypted = 0;
-  const originalContent = content;
-
-  // Only encrypt text messages, not file messages
-  if (config.security.encryptionEnabled && type === 'text' && content) {
-    content = encrypt(content);
-    encrypted = 1;
-  }
+  // E2EE is handled by the client - server just stores and relays
+  // Messages starting with 'e2ee:' are already encrypted by the client
+  const encrypted = content && content.startsWith('e2ee:') ? 1 : 0;
 
   dbRun('INSERT INTO messages (id, chat_id, sender_id, content, type, file_name, file_size, file_url, encrypted, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [
     msgId, chatId, req.user.id, content, type, fileName || null, fileSize || null, fileUrl || null, encrypted, now
@@ -1736,13 +1814,14 @@ app.post('/api/chats/:id/messages', authMiddleware, (req, res) => {
   saveDatabase();
 
   // Message object to broadcast and return
+  // E2EE: We send the content as-is (encrypted or not) - clients handle decryption
   const message = { 
     id: msgId, 
     chatId, 
     chat_id: chatId,
     senderId: req.user.id, 
     sender_id: req.user.id,
-    content: originalContent,  // Send original (decrypted) content to clients
+    content: content,  // Send as-is - E2EE decryption happens on client
     type, 
     fileName: fileName || null,
     file_name: fileName || null,
@@ -1770,22 +1849,28 @@ app.post('/api/chats/:id/messages', authMiddleware, (req, res) => {
   // Run Custom Bots if any
   try {
     const bots = dbAll(`
-      SELECT u.id, u.username, u.bot_script 
+      SELECT u.id, u.username, u.bot_script, u.display_name, u.avatar 
       FROM chat_members cm 
       JOIN users u ON cm.user_id = u.id 
       WHERE cm.chat_id = ? AND u.is_bot = 1 AND u.id != ?
     `, [chatId, req.user.id]);
 
     if (bots && bots.length > 0) {
-      const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
-      const runnerPath = path.join(__dirname, 'bot_env', 'runner.py');
+              const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+        const runnerPath = path.join(__dirname, 'bot_env', 'runner.py');
+        const dockerEnabled = config.bots?.docker?.enabled === true;
+        
+        // Always use the configured method - no fallback
+        const useDocker = dockerEnabled;
       
       for (const bot of bots) {
         if (!bot.bot_script) continue;
         
-        console.log(`[BOT ENGINE] Triggering bot ${bot.username} for chat ${chatId}`);
+        console.log(`[BOT ENGINE] Triggering bot ${bot.username} for chat ${chatId}${useDocker ? ' (Docker)' : ''}`);
         // Ensure server url uses localhost to avoid python requests issues
-        const localServerUrl = `http://127.0.0.1:${config.server.port}`;
+        const localServerUrl = useDocker 
+          ? `http://host.docker.internal:${config.server.port}`
+          : `http://127.0.0.1:${config.server.port}`;
         const botToken = jwt.sign({ userId: bot.id }, config.security.jwtSecret, { expiresIn: '1m' });
         
         const env = {
@@ -1795,14 +1880,72 @@ app.post('/api/chats/:id/messages', authMiddleware, (req, res) => {
           BOT_TOKEN: botToken,
           CHAT_ID: chatId,
           SENDER_ID: req.user.id,
-          MESSAGE_TEXT: originalContent || '',
+          MESSAGE_TEXT: (content && !content.startsWith('e2ee:')) ? content : '',  // Bots can't read E2EE messages
           BOT_NAME: bot.username,
           MAX_MEMORY_MB: (config.bots && config.bots.maxMemoryMB) ? config.bots.maxMemoryMB.toString() : '50',
-          BOT_TIMEOUT_MS: (config.bots && config.bots.timeoutMs) ? config.bots.timeoutMs.toString() : '10000'
+          BOT_TIMEOUT_MS: (config.bots && config.bots.timeoutMs) ? config.bots.timeoutMs.toString() : '10000',
+          BOT_STORAGE_PATH: path.join(__dirname, 'bot_files', bot.username.replace(/[^a-zA-Z0-9_-]/g, '_'))
         };
         
-        // Spawn python bot process
-        const pyProcess = spawn(pythonCmd, [runnerPath], { env });
+        let pyProcess;
+        
+        if (useDocker) {
+          // Docker execution - more secure and isolated
+          const dockerImage = config.bots?.docker?.image || '4messenger-bot';
+          const memoryLimit = config.bots?.docker?.memoryLimit || '64m';
+          const cpuLimit = config.bots?.docker?.cpuLimit || '0.5';
+          const networkDisabled = config.bots?.docker?.networkDisabled === true;
+          
+          // Create bot storage directory for this bot
+          const botStorageDir = env.BOT_STORAGE_PATH;
+          if (!fs.existsSync(botStorageDir)) {
+            fs.mkdirSync(botStorageDir, { recursive: true });
+          }
+          
+          // Convert Windows path to Docker-compatible path
+          const dockerStoragePath = process.platform === 'win32' 
+            ? '/' + botStorageDir.replace(/\\/g, '/').replace(/:/g, '')
+            : botStorageDir;
+          
+          const dockerArgs = [
+            'run',
+            '--rm',                                        // Remove container after exit
+            '-i',                                          // Interactive (for stdin)
+            `--memory=${memoryLimit}`,                     // Memory limit
+            `--cpus=${cpuLimit}`,                          // CPU limit
+            '--read-only',                                 // Read-only filesystem
+            '--tmpfs', '/tmp:rw,noexec,nosuid,size=16m',   // Writable /tmp
+            '-v', `${botStorageDir}:/bot_storage:rw`,      // Mount bot storage
+            '--security-opt=no-new-privileges',            // No privilege escalation
+            '-e', `API_URL=${env.API_URL}`,
+            '-e', `BOT_TOKEN=${env.BOT_TOKEN}`,
+            '-e', `CHAT_ID=${env.CHAT_ID}`,
+            '-e', `SENDER_ID=${env.SENDER_ID}`,
+            '-e', `MESSAGE_TEXT=${env.MESSAGE_TEXT}`,
+            '-e', `BOT_NAME=${env.BOT_NAME}`,
+            '-e', 'BOT_STORAGE_PATH=/bot_storage',
+            '-e', 'PYTHONUNBUFFERED=1',
+          ];
+          
+          // Disable network if configured
+          if (networkDisabled) {
+            dockerArgs.push('--network=none');
+          }
+          
+          dockerArgs.push(dockerImage);
+          
+          // Use full path to docker on Windows
+          const dockerCmd = process.platform === 'win32' ? 'docker.exe' : 'docker';
+          
+          console.log(`[BOT ENGINE] Running Docker: ${dockerCmd} ${dockerArgs.join(' ')}`);
+          
+          pyProcess = spawn(dockerCmd, dockerArgs, {
+            shell: process.platform === 'win32' // Use shell on Windows for better compatibility
+          });
+        } else {
+          // Direct Python execution
+          pyProcess = spawn(pythonCmd, [runnerPath], { env });
+        }
         
         // Setup timeout to kill long-running bots
         const timeoutMs = parseInt(env.BOT_TIMEOUT_MS, 10) || 10000;
@@ -1832,10 +1975,19 @@ app.post('/api/chats/:id/messages', authMiddleware, (req, res) => {
         });
         
         pyProcess.on('error', (err) => {
-          console.error(`[BOT ${bot.username} PROCESS ERROR]: Failed to start Python. Is it installed and in PATH?`, err.message);
+          if (useDocker) {
+            console.error(`[BOT ${bot.username} DOCKER ERROR]: Failed to start Docker container.`);
+            console.error(`[BOT ${bot.username} DOCKER ERROR]: Make sure Docker Desktop is running and the image '${config.bots?.docker?.image || '4messenger-bot'}' is built.`);
+            console.error(`[BOT ${bot.username} DOCKER ERROR]: Run: cd server/bot_env && docker build -t 4messenger-bot .`);
+          } else {
+            console.error(`[BOT ${bot.username} PROCESS ERROR]: Failed to start Python. Is it installed and in PATH?`);
+          }
+          console.error(`[BOT ${bot.username} ERROR DETAILS]:`, err.message);
         });
         
-        pyProcess.stdin.write(bot.bot_script + '\n');
+        // Get bot script as-is - JSON parsing should handle newlines correctly
+        let botScript = bot.bot_script || '';
+        pyProcess.stdin.write(botScript + '\n');
         pyProcess.stdin.end();
         
         pyProcess.stdout.on('data', (data) => {
@@ -1885,9 +2037,8 @@ app.put('/api/messages/:id', authMiddleware, (req, res) => {
     return res.status(403).json({ error: 'Not authorized' });
   }
 
-  let content = req.body.content;
-  const originalContent = req.body.content;
-  if (config.security.encryptionEnabled) content = encrypt(content);
+  // E2EE: Server just stores the content as-is, encryption is client-side
+  const content = req.body.content;
 
   dbRun('UPDATE messages SET content = ?, edited = 1 WHERE id = ?', [content, req.params.id]);
   saveDatabase();
@@ -1896,7 +2047,7 @@ app.put('/api/messages/:id', authMiddleware, (req, res) => {
   const editMembers = dbAll('SELECT user_id FROM chat_members WHERE chat_id = ?', [msg.chat_id]);
   editMembers.forEach(m => {
     if (m.user_id !== req.user.id) {
-      sendToUser(m.user_id, { type: 'message_edited', data: { id: req.params.id, content: originalContent, chatId: msg.chat_id } });
+      sendToUser(m.user_id, { type: 'message_edited', data: { id: req.params.id, content: content, chatId: msg.chat_id } });
     }
   });
   
@@ -2909,6 +3060,36 @@ app.put('/api/admin/config', authMiddleware, adminMiddleware, (req, res) => {
   res.json({ success: true });
 });
 
+// ─── Bot Approval (Admin Only) ──────────────────────────────
+app.get('/api/admin/bots/pending', authMiddleware, adminMiddleware, (req, res) => {
+  const bots = dbAll(`
+    SELECT 
+      b.id,
+      b.username,
+      b.display_name as displayName,
+      b.avatar,
+      b.owner_id as ownerId,
+      o.username as ownerUsername,
+      b.bot_script as code,
+      b.created_at as createdAt
+    FROM users b
+    LEFT JOIN users o ON o.id = b.owner_id
+    WHERE b.is_bot = 1 AND COALESCE(b.bot_approved, 1) != 1
+    ORDER BY b.created_at DESC
+  `);
+  res.json(bots);
+});
+
+app.put('/api/admin/bots/:id/approve', authMiddleware, adminMiddleware, (req, res) => {
+  const botId = req.params.id;
+  const bot = dbGet('SELECT id FROM users WHERE id = ? AND is_bot = 1', [botId]);
+  if (!bot) return res.status(404).json({ error: 'Bot not found' });
+
+  dbRun('UPDATE users SET bot_approved = 1 WHERE id = ?', [botId]);
+  saveDatabase();
+  res.json({ success: true });
+});
+
 // Send announcement to all users
 app.post('/api/admin/announcement', authMiddleware, adminMiddleware, (req, res) => {
   const { message } = req.body;
@@ -3222,7 +3403,8 @@ async function startServer() {
         last_seen INTEGER,
         email_verified INTEGER DEFAULT 0,
         verification_token TEXT,
-        created_at INTEGER NOT NULL
+        created_at INTEGER NOT NULL,
+        bot_approved INTEGER DEFAULT 1
       )
     `);
     
@@ -3244,6 +3426,7 @@ async function startServer() {
     try { dbRun('ALTER TABLE users ADD COLUMN is_bot INTEGER DEFAULT 0'); } catch(e) {}
     try { dbRun('ALTER TABLE users ADD COLUMN bot_owner_id TEXT'); } catch(e) {}
     try { dbRun('ALTER TABLE users ADD COLUMN bot_script TEXT'); } catch(e) {}
+    try { dbRun('ALTER TABLE users ADD COLUMN bot_approved INTEGER DEFAULT 1'); } catch(e) {}
     
     try {
       db.run('ALTER TABLE users ADD COLUMN public_key TEXT');
@@ -3304,6 +3487,17 @@ async function startServer() {
     `);
 
     db.run(`
+      CREATE TABLE IF NOT EXISTS chat_keys (
+        chat_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        encrypted_key TEXT NOT NULL,
+        PRIMARY KEY (chat_id, user_id),
+        FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    db.run(`
       CREATE TABLE IF NOT EXISTS messages (
         id TEXT PRIMARY KEY,
         chat_id TEXT NOT NULL,
@@ -3327,6 +3521,7 @@ async function startServer() {
     try { db.run('ALTER TABLE users ADD COLUMN is_bot INTEGER DEFAULT 0'); } catch(e){}
     try { db.run('ALTER TABLE users ADD COLUMN owner_id TEXT'); } catch(e){}
     try { db.run('ALTER TABLE users ADD COLUMN bot_script TEXT'); } catch(e){}
+    try { db.run('ALTER TABLE users ADD COLUMN bot_approved INTEGER DEFAULT 1'); } catch(e){}
     
     // Add poll_id column to existing messages table
     try {
@@ -3357,13 +3552,16 @@ async function startServer() {
             created_at INTEGER NOT NULL,
             is_bot INTEGER DEFAULT 0,
             owner_id TEXT,
-            bot_script TEXT
+            bot_script TEXT,
+            bot_approved INTEGER DEFAULT 1
           )
         `);
         
         db.run(`
-          INSERT INTO users_new (id, username, email, password, public_key, role, avatar, display_name, theme, online, last_seen, email_verified, verification_token, created_at, is_bot, owner_id, bot_script)
-          SELECT id, username, email, password, public_key, role, avatar, display_name, theme, online, last_seen, email_verified, verification_token, created_at, is_bot, owner_id, bot_script FROM users
+          INSERT INTO users_new (id, username, email, password, public_key, role, avatar, display_name, theme, online, last_seen, email_verified, verification_token, created_at, is_bot, owner_id, bot_script, bot_approved)
+          SELECT id, username, email, password, public_key, role, avatar, display_name, theme, online, last_seen, email_verified, verification_token, created_at, is_bot, owner_id, bot_script,
+                 COALESCE(bot_approved, 1)
+          FROM users
         `);
         
         db.run('DROP TABLE users');
@@ -3378,11 +3576,15 @@ async function startServer() {
     try {
       db.run("UPDATE users SET role = 'bot' WHERE is_bot = 1");
     } catch (e) { /* Ignore */ }
+
+    // Backfill: existing bots are approved by default unless explicitly set
+    try { db.run("UPDATE users SET bot_approved = 1 WHERE is_bot = 1 AND bot_approved IS NULL"); } catch (e) { /* Ignore */ }
     
     // Database columns for Bots
     try { db.run('ALTER TABLE users ADD COLUMN is_bot INTEGER DEFAULT 0'); } catch(e){}
     try { db.run('ALTER TABLE users ADD COLUMN owner_id TEXT'); } catch(e){}
     try { db.run('ALTER TABLE users ADD COLUMN bot_script TEXT'); } catch(e){}
+    try { db.run('ALTER TABLE users ADD COLUMN bot_approved INTEGER DEFAULT 1'); } catch(e){}
 
     // Fix old CHECK constraint on messages table that doesn't include 'voice' and 'poll'
     // We need to recreate the table to change CHECK constraints

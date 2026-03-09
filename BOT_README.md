@@ -1,5 +1,85 @@
 # 4 Messenger Bot API
 
+## Docker Execution (Recommended for Production)
+
+For better security and isolation, you can run bots inside Docker containers:
+
+### 1. Install Docker
+
+**Windows:**
+- Download and install [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop)
+- Start Docker Desktop and wait for it to fully load (whale icon in system tray)
+
+**macOS:**
+- Download and install [Docker Desktop for Mac](https://www.docker.com/products/docker-desktop)
+- Or use Homebrew: `brew install --cask docker`
+
+**Linux:**
+```bash
+sudo apt-get update
+sudo apt-get install docker.io
+sudo systemctl start docker
+sudo systemctl enable docker
+```
+
+### 2. Build the Docker Image
+
+**Cross-Platform (Recommended):**
+```bash
+cd server/bot_env
+node build.js
+```
+
+**Windows (Command Prompt):**
+```cmd
+cd server\bot_env
+build.bat
+```
+
+**Linux/macOS (Bash):**
+```bash
+cd server/bot_env
+chmod +x build.sh
+./build.sh
+```
+
+**Manual:**
+```bash
+cd server/bot_env
+docker build -t 4messenger-bot .
+```
+
+### 2. Enable Docker in Config
+
+Edit `server/config.json`:
+```json
+"bots": {
+  "maxMemoryMB": 50,
+  "timeoutMs": 10000,
+  "docker": {
+    "enabled": true,
+    "image": "4messenger-bot",
+    "memoryLimit": "64m",
+    "cpuLimit": "0.5",
+    "networkDisabled": false
+  }
+}
+```
+
+### Docker Security Features
+
+| Feature | Description |
+|---------|-------------|
+| Memory Limit | Default 64MB RAM per execution |
+| CPU Limit | Default 0.5 CPU cores |
+| Read-only FS | Bot cannot write to filesystem (except /bot_storage) |
+| No Privileges | Cannot escalate privileges |
+| Non-root User | Runs as `botuser`, not root |
+| Auto-cleanup | Container removed after execution |
+| Network Control | Can disable network access entirely |
+
+---
+
 Welcome to the 4 Messenger Bot Framework! 
 You can write Python scripts directly in your 4 Messenger Settings to create custom interactive bots for your chats.
 

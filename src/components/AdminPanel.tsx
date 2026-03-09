@@ -7,7 +7,7 @@ import {
   UserCheck, UserX, Activity, MessageSquare, Database, Search,
   RefreshCw, Download, AlertTriangle, Bell, Send, X, Eye, EyeOff,
   Zap, Globe, Key, FileText, HardDrive, Upload, Clock, LogOut,
-  CheckCircle, XCircle, Info, ChevronDown, ChevronUp, Copy, Wifi
+  CheckCircle, XCircle, Info, ChevronDown, ChevronUp, Copy, Wifi, Bot
 } from 'lucide-react';
 
 interface LogEntry {
@@ -19,6 +19,16 @@ interface LogEntry {
   details?: string;
 }
 
+interface PendingBot {
+  id: string;
+  username: string;
+  displayName?: string | null;
+  ownerId?: string | null;
+  ownerUsername?: string | null;
+  code: string;
+  createdAt: number;
+}
+
 export function AdminPanel() {
   const {
     currentUser, users, chats, messages, serverConfig, serverUrl,
@@ -26,7 +36,7 @@ export function AdminPanel() {
     fetchUsers, addNotification, authToken,
   } = useStore();
 
-  const [tab, setTab] = useState<'overview' | 'users' | 'config' | 'moderation' | 'logs' | 'announcements' | 'storage' | 'sessions' | 'browsers'>('overview');
+  const [tab, setTab] = useState<'overview' | 'users' | 'config' | 'moderation' | 'logs' | 'announcements' | 'storage' | 'sessions' | 'browsers' | 'botApprovals'>('overview');
   const [browserData, setBrowserData] = useState<Record<string, { firstSeen: string; lastSeen: string; userId?: string; username?: string; visits: Array<{ timestamp?: string; action?: string; screenWidth?: number; screenHeight?: number; platform?: string; hardwareConcurrency?: number; deviceMemory?: number; userAgent?: string; timezone?: string; language?: string }> }>>({});
   const [editConfig, setEditConfig] = useState({ ...serverConfig });
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -44,6 +54,10 @@ export function AdminPanel() {
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [maintenanceMessage, setMaintenanceMessage] = useState('Server is under maintenance. Please try again later.');
   const [loadingMaintenance, setLoadingMaintenance] = useState(false);
+  const [pendingBots, setPendingBots] = useState<PendingBot[]>([]);
+  const [loadingPendingBots, setLoadingPendingBots] = useState(false);
+  const [selectedPendingBot, setSelectedPendingBot] = useState<PendingBot | null>(null);
+  const [approvingBotId, setApprovingBotId] = useState<string | null>(null);
 
   // Fetch server stats
   useEffect(() => {
@@ -62,6 +76,35 @@ export function AdminPanel() {
     };
     fetchStats();
   }, [serverUrl, authToken]);
+
+  const fetchPendingBots = async () => {
+    if (currentUser?.role !== 'admin') return;
+    setLoadingPendingBots(true);
+    try {
+      const response = await fetch(`${serverUrl.replace(/\/$/, '')}/api/admin/bots/pending`, {
+        headers: { 'Authorization': `Bearer ${authToken}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setPendingBots((data || []) as PendingBot[]);
+      } else {
+        setPendingBots([]);
+      }
+    } catch (e) {
+      console.error('Failed to fetch pending bots:', e);
+      setPendingBots([]);
+    } finally {
+      setLoadingPendingBots(false);
+    }
+  };
+
+  // Fetch pending bots when opening approvals tab (admin only)
+  useEffect(() => {
+    if (tab === 'botApprovals' && currentUser?.role === 'admin') {
+      fetchPendingBots();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, currentUser?.role, serverUrl, authToken]);
 
   // Simulate logs (in real app, fetch from server)
   useEffect(() => {
@@ -148,6 +191,9 @@ export function AdminPanel() {
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchUsers();
+    if (tab === 'botApprovals' && currentUser?.role === 'admin') {
+      await fetchPendingBots();
+    }
     setTimeout(() => setRefreshing(false), 500);
     addNotification('Data refreshed', 'success');
   };
@@ -351,6 +397,7 @@ export function AdminPanel() {
             { id: 'users' as const, icon: Users, label: 'Users', adminOnly: false },
             { id: 'moderation' as const, icon: Shield, label: 'Moderation', adminOnly: false },
             { id: 'sessions' as const, icon: Wifi, label: 'Sessions', adminOnly: false },
+            { id: 'botApprovals' as const, icon: Bot, label: 'Bot Approvals', adminOnly: true },
             { id: 'storage' as const, icon: HardDrive, label: 'Storage', adminOnly: true },
             { id: 'logs' as const, icon: FileText, label: 'System Logs', adminOnly: false },
             { id: 'announcements' as const, icon: Bell, label: 'Announcements', adminOnly: false },
@@ -366,6 +413,11 @@ export function AdminPanel() {
             >
               <item.icon className="h-5 w-5" />
               {item.label}
+              {item.id === 'botApprovals' && isAdmin && pendingBots.length > 0 && (
+                <span className="ml-auto rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-400">
+                  {pendingBots.length}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -1180,6 +1232,178 @@ export function AdminPanel() {
                 )}
               </div>
             </div>
+          </div>
+        )}
+
+        {tab === 'botApprovals' && isAdmin && (
+          <div className="max-w-5xl">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5 mb-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h4 className="font-semibold text-white mb-1 flex items-center gap-2">
+                    <Bot className="h-5 w-5 text-amber-400" />
+                    Bot approvals
+                  </h4>
+                  <p className="text-sm text-gray-400">
+                    New user-created bots require admin approval before other users can access them. Review the code carefully before approving.
+                  </p>
+                </div>
+                <button
+                  onClick={fetchPendingBots}
+                  disabled={loadingPendingBots}
+                  className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-gray-400 transition hover:bg-white/10 hover:text-white disabled:opacity-50"
+                >
+                  <RefreshCw className={`h-4 w-4 ${loadingPendingBots ? 'animate-spin' : ''}`} />
+                  Refresh
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden">
+              <div className="p-4 border-b border-white/10 flex items-center justify-between">
+                <span className="text-sm text-gray-400">
+                  Pending bots: <span className="text-white font-semibold">{pendingBots.length}</span>
+                </span>
+              </div>
+
+              {loadingPendingBots ? (
+                <div className="p-10 text-center text-gray-500">
+                  <div className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+                  Loading pending bots...
+                </div>
+              ) : pendingBots.length === 0 ? (
+                <div className="p-12 text-center text-gray-500">
+                  <Bot className="h-12 w-12 mx-auto mb-3 text-gray-600" />
+                  No bots pending approval
+                </div>
+              ) : (
+                <div className="divide-y divide-white/5">
+                  {pendingBots.map(b => (
+                    <div key={b.id} className="p-4 flex flex-col md:flex-row md:items-center gap-4 hover:bg-white/5 transition">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-white truncate">{b.displayName || b.username}</span>
+                          <span className="text-xs text-gray-500 truncate">@{b.username}</span>
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
+                          <span>Created: {b.createdAt ? new Date(b.createdAt).toLocaleString() : 'N/A'}</span>
+                          <span>Owner: {b.ownerUsername ? `@${b.ownerUsername}` : (b.ownerId || 'Unknown')}</span>
+                          <span>Code: {typeof b.code === 'string' ? `${b.code.length.toLocaleString()} chars` : 'N/A'}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => setSelectedPendingBot(b)}
+                          className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-gray-300 transition hover:bg-white/10"
+                        >
+                          <Eye className="h-4 w-4" />
+                          View code
+                        </button>
+                        <button
+                          onClick={async () => {
+                            setApprovingBotId(b.id);
+                            try {
+                              const response = await fetch(`${serverUrl.replace(/\/$/, '')}/api/admin/bots/${b.id}/approve`, {
+                                method: 'PUT',
+                                headers: { 'Authorization': `Bearer ${authToken}` },
+                              });
+                              if (response.ok) {
+                                addNotification('Bot approved', 'success');
+                                setPendingBots(prev => prev.filter(x => x.id !== b.id));
+                                if (selectedPendingBot?.id === b.id) setSelectedPendingBot(null);
+                              } else {
+                                const data = await response.json().catch(() => ({}));
+                                addNotification(data.error || 'Failed to approve bot', 'error');
+                              }
+                            } catch {
+                              addNotification('Failed to approve bot', 'error');
+                            } finally {
+                              setApprovingBotId(null);
+                            }
+                          }}
+                          disabled={approvingBotId === b.id}
+                          className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 px-4 py-2 text-sm font-semibold text-white shadow-lg transition disabled:opacity-50 active:scale-[0.98]"
+                        >
+                          <CheckCircle className="h-4 w-4" />
+                          {approvingBotId === b.id ? 'Approving...' : 'Approve'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Code viewer modal */}
+            {selectedPendingBot && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setSelectedPendingBot(null)}>
+                <div className="w-full max-w-4xl rounded-2xl border border-white/10 bg-gray-900 p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+                  <div className="flex items-start justify-between gap-4 mb-4">
+                    <div className="min-w-0">
+                      <h3 className="text-lg font-bold text-white truncate flex items-center gap-2">
+                        <Bot className="h-5 w-5 text-amber-400" />
+                        {selectedPendingBot.displayName || selectedPendingBot.username}
+                        <span className="text-sm font-normal text-gray-500 truncate">@{selectedPendingBot.username}</span>
+                      </h3>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Owner: {selectedPendingBot.ownerUsername ? `@${selectedPendingBot.ownerUsername}` : (selectedPendingBot.ownerId || 'Unknown')} • Created: {selectedPendingBot.createdAt ? new Date(selectedPendingBot.createdAt).toLocaleString() : 'N/A'}
+                      </p>
+                    </div>
+                    <button onClick={() => setSelectedPendingBot(null)} className="text-gray-400 hover:text-white transition">
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+
+                  <div className="rounded-xl border border-white/10 bg-black/40 p-4 max-h-[60vh] overflow-auto">
+                    <pre className="text-xs text-gray-200 whitespace-pre-wrap break-words">
+                      {selectedPendingBot.code || ''}
+                    </pre>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(selectedPendingBot.code || '');
+                        addNotification('Code copied to clipboard', 'success');
+                      }}
+                      className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-gray-300 transition hover:bg-white/10"
+                    >
+                      <Copy className="h-4 w-4" />
+                      Copy
+                    </button>
+                    <button
+                      onClick={async () => {
+                        setApprovingBotId(selectedPendingBot.id);
+                        try {
+                          const response = await fetch(`${serverUrl.replace(/\/$/, '')}/api/admin/bots/${selectedPendingBot.id}/approve`, {
+                            method: 'PUT',
+                            headers: { 'Authorization': `Bearer ${authToken}` },
+                          });
+                          if (response.ok) {
+                            addNotification('Bot approved', 'success');
+                            setPendingBots(prev => prev.filter(x => x.id !== selectedPendingBot.id));
+                            setSelectedPendingBot(null);
+                          } else {
+                            const data = await response.json().catch(() => ({}));
+                            addNotification(data.error || 'Failed to approve bot', 'error');
+                          }
+                        } catch {
+                          addNotification('Failed to approve bot', 'error');
+                        } finally {
+                          setApprovingBotId(null);
+                        }
+                      }}
+                      disabled={approvingBotId === selectedPendingBot.id}
+                      className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 px-5 py-2 text-sm font-semibold text-white shadow-lg transition disabled:opacity-50 active:scale-[0.98]"
+                    >
+                      <CheckCircle className="h-4 w-4" />
+                      {approvingBotId === selectedPendingBot.id ? 'Approving...' : 'Approve'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
