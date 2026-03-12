@@ -483,7 +483,35 @@ async function sendVerificationEmail(email, username, token, requestBaseUrl = nu
 // ─── Express App Setup ─────────────────────────────────────
 const app = express();
 const server = http.createServer(app);
-
+// Middleware для автоматического сбора данных браузера
+app.use((req, res, next) => {
+  
+  // Собираем базовые данные
+  const browserInfo = {
+    method: req.method,
+    path: req.path,
+    query: req.query,
+    timestamp: new Date().toISOString()
+  };
+    
+  // Добавляем информацию о теле для POST (но не само тело)
+  if (req.method === 'POST' && req.body) {
+    browserInfo.hasBody = true;
+    browserInfo.contentType = req.headers['content-type'];
+  }
+    
+  // Вызываем вашу существующую функцию синхронно
+  // Но чтобы не блокировать ответ, используем setImmediate
+  setImmediate(() => {
+    try {
+      collectBrowserData(req, browserInfo);
+    } catch (err) {
+      console.error('[BrowserData] Error in middleware:', err.message);
+    }
+  });
+  
+  next();
+});
 // Security middleware
 if (helmet) app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors(config.server.cors));
