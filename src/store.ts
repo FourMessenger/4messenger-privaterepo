@@ -546,12 +546,18 @@ export const useStore = create<AppState>((set, get) => ({
       // Check if we have a saved WS token for auto-login
       const savedWsToken = loadWsTokenFromCookie(serverUrl);
       if (savedWsToken) {
-        // Try to auto-login with saved credentials
+        console.log('[Auto-Login] Found saved WS token, attempting auto-login...');
+        
         try {
+          // Set initial state for auto-login
           set({ 
             currentUser: savedWsToken.user,
             authToken: savedWsToken.token,
+            connected: true,
+            connecting: false,
           });
+          
+          console.log('[Auto-Login] Fetching user data...');
           
           // Fetch initial data
           await Promise.all([
@@ -560,28 +566,44 @@ export const useStore = create<AppState>((set, get) => ({
             get().fetchBots(),
           ]);
           
-          // Load chat keys if available
+          console.log('[Auto-Login] Setting up encryption...');
+          
+          // Try to load encryption key store
           const keyStoreExists = await E2EE.keyStoreExists();
           if (keyStoreExists) {
-            const chatsToLoad = get().chats;
-            for (const c of chatsToLoad) {
-              const existing = get().chatKeys[c.id];
-              if (!existing) {
-                const loaded = await E2EE.loadChatKey(c.id);
-                if (loaded) {
-                  set(s => ({ chatKeys: { ...s.chatKeys, [c.id]: loaded } }));
+            try {
+              const chatsToLoad = get().chats;
+              for (const c of chatsToLoad) {
+                const existing = get().chatKeys[c.id];
+                if (!existing) {
+                  const loaded = await E2EE.loadChatKey(c.id);
+                  if (loaded) {
+                    set(s => ({ chatKeys: { ...s.chatKeys, [c.id]: loaded } }));
+                  }
                 }
               }
+              console.log('[Auto-Login] Chat keys loaded');
+            } catch (e) {
+              console.warn('[Auto-Login] Failed to load chat keys:', e);
             }
           }
           
+          console.log('[Auto-Login] Success, going to chat');
           set({ screen: 'chat' });
-          get().addNotification(`Auto-logged in to ${serverInfo.name || serverUrl}`, 'success');
+          get().addNotification(`Auto-logged in as ${savedWsToken.user.username}`, 'success');
           return;
         } catch (error) {
-          console.warn('Auto-login failed, will show login screen:', error);
-          // Fall through to normal login screens
+          console.warn('[Auto-Login] Failed:', error);
+          // Clear the invalid token and fall through to normal login
           clearWsTokenFromCookie(serverUrl);
+          
+          // Reset auth state
+          set({ 
+            currentUser: null,
+            authToken: null,
+            connected: false,
+            connecting: false,
+          });
         }
       }
       
@@ -995,13 +1017,19 @@ export const useStore = create<AppState>((set, get) => ({
 
   logout: () => {
     // Close WebSocket connection
-    const { websocket } = get();
+    const { websocket, serverUrl } = get();
     if (websocket) {
       websocket.close();
     }
     
     // Clear saved session
     clearSession();
+    
+    // Clear WS token from cookies when logging out completely
+    if (serverUrl) {
+      clearWsTokenFromCookie(serverUrl);
+    }
+    
     // Do NOT clear encryption keys from IndexedDB - they are tied to this device.
     // But clear the in-memory key pair so it must be unlocked on next login.
     
