@@ -1392,13 +1392,21 @@ export const useStore = create<AppState>((set, get) => ({
           });
         }
         
-        set(state => ({
-          allMessages: {
-            ...state.allMessages,
-            [chatId]: mappedMessages,
-          },
-          messages: mappedMessages,
-        }));
+        // Merge with existing messages instead of replacing
+        // This preserves any messages that arrived via WebSocket during the fetch
+        set(state => {
+          const existingIds = new Set(mappedMessages.map(m => m.id));
+          const recentMessages = state.messages.filter(m => m.chatId === chatId && !existingIds.has(m.id));
+          const mergedMessages = [...mappedMessages, ...recentMessages].sort((a, b) => a.timestamp - b.timestamp);
+          
+          return {
+            allMessages: {
+              ...state.allMessages,
+              [chatId]: mergedMessages,
+            },
+            messages: state.activeChat === chatId ? mergedMessages : state.messages,
+          };
+        });
       }
     } catch (error) {
       console.error('Failed to fetch messages:', error);
