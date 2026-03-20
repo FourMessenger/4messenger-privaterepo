@@ -215,6 +215,45 @@ const clearSession = () => {
   }
 };
 
+// Cookie utilities for WS token (auto-login)
+const saveWsTokenToCookie = (serverUrl: string, token: string, user: User) => {
+  try {
+    const wsTokenData = { token, user, timestamp: Date.now() };
+    // Use server URL as key in localStorage (simulating cookie behavior)
+    const serverKey = `4messenger-ws-token-${Buffer.from(serverUrl).toString('base64')}`;
+    localStorage.setItem(serverKey, JSON.stringify(wsTokenData));
+  } catch (e) {
+    console.error('Failed to save WS token:', e);
+  }
+};
+
+const loadWsTokenFromCookie = (serverUrl: string): { token: string; user: User } | null => {
+  try {
+    const serverKey = `4messenger-ws-token-${Buffer.from(serverUrl).toString('base64')}`;
+    const saved = localStorage.getItem(serverKey);
+    if (saved) {
+      const data = JSON.parse(saved) as { token: string; user: User; timestamp: number };
+      // Token expires after 30 days
+      if (Date.now() - data.timestamp < 30 * 24 * 60 * 60 * 1000) {
+        return { token: data.token, user: data.user };
+      }
+      localStorage.removeItem(serverKey);
+    }
+  } catch (e) {
+    console.error('Failed to load WS token:', e);
+  }
+  return null;
+};
+
+const clearWsTokenFromCookie = (serverUrl: string) => {
+  try {
+    const serverKey = `4messenger-ws-token-${Buffer.from(serverUrl).toString('base64')}`;
+    localStorage.removeItem(serverKey);
+  } catch (e) {
+    console.error('Failed to clear WS token:', e);
+  }
+};
+
 export interface Bot {
   id: string;
   name: string;
@@ -504,7 +543,49 @@ export const useStore = create<AppState>((set, get) => ({
         },
       });
       
-      // If no password required and no captcha, go straight to login
+      // Check if we have a saved WS token for auto-login
+      const savedWsToken = loadWsTokenFromCookie(serverUrl);
+      if (savedWsToken) {
+        // Try to auto-login with saved credentials
+        try {
+          set({ 
+            currentUser: savedWsToken.user,
+            authToken: savedWsToken.token,
+          });
+          
+          // Fetch initial data
+          await Promise.all([
+            get().fetchUsers(),
+            get().fetchChats(),
+            get().fetchBots(),
+          ]);
+          
+          // Load chat keys if available
+          const keyStoreExists = await E2EE.keyStoreExists();
+          if (keyStoreExists) {
+            const chatsToLoad = get().chats;
+            for (const c of chatsToLoad) {
+              const existing = get().chatKeys[c.id];
+              if (!existing) {
+                const loaded = await E2EE.loadChatKey(c.id);
+                if (loaded) {
+                  set(s => ({ chatKeys: { ...s.chatKeys, [c.id]: loaded } }));
+                }
+              }
+            }
+          }
+          
+          set({ screen: 'chat' });
+          get().addNotification(`Auto-logged in to ${serverInfo.name || serverUrl}`, 'success');
+          return;
+        } catch (error) {
+          console.warn('Auto-login failed, will show login screen:', error);
+          // Fall through to normal login screens
+          clearWsTokenFromCookie(serverUrl);
+        }
+      }
+      
+      // No auto-login available, show normal login flow
       if (!serverInfo.requiresPassword && !serverInfo.captchaEnabled) {
         set({ screen: 'login' });
       } else {
@@ -609,6 +690,9 @@ export const useStore = create<AppState>((set, get) => ({
       
       // Save session for auto-login on page reload
       saveSession(serverUrl, data.token, data.user);
+      
+      // Save WS token to cookies for auto-login when rejoining same server
+      saveWsTokenToCookie(serverUrl, data.token, data.user);
       
       // Fetch initial data
       await Promise.all([
@@ -939,13 +1023,16 @@ export const useStore = create<AppState>((set, get) => ({
 
   leaveServer: () => {
     // Close WebSocket connection but keep session
-    const { websocket } = get();
+    const { websocket, serverUrl } = get();
     if (websocket) {
       websocket.close();
     }
     
-    // DO NOT clear session - keep auth token and server URL in localStorage
-    // This allows the user to reconnect to the same server without re-entering credentials
+    // Save current auth token to cookies for auto-login
+    const { authToken, currentUser } = get();
+    if (authToken && currentUser && serverUrl) {
+      saveWsTokenToCookie(serverUrl, authToken, currentUser);
+    }
     
     set({
       activeChat: null,
@@ -955,10 +1042,12 @@ export const useStore = create<AppState>((set, get) => ({
       allMessages: {},
       connected: false,
       websocket: null,
-      screen: 'login',  // Go to login screen
+      screen: 'connect',  // Go to server selection screen
+      currentUser: null,
+      authToken: null,
       e2eeKeyPair: null,  // Clear in-memory key pair but keys stay in IndexedDB
     });
-    get().addNotification('You have left the server. You can log in again.', 'info');
+    get().addNotification('You have left the server. Your login token is saved for quick reconnection.', 'info');
   },
 
   verifyServerPassword: async (password) => {
