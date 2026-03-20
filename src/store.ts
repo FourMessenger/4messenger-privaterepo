@@ -220,7 +220,7 @@ const saveWsTokenToCookie = (serverUrl: string, token: string, user: User) => {
   try {
     const wsTokenData = { token, user, timestamp: Date.now() };
     // Use server URL as key in localStorage (simulating cookie behavior)
-    const serverKey = `4messenger-ws-token-${Buffer.from(serverUrl).toString('base64')}`;
+    const serverKey = `4messenger-ws-token-${btoa(serverUrl)}`;
     localStorage.setItem(serverKey, JSON.stringify(wsTokenData));
   } catch (e) {
     console.error('Failed to save WS token:', e);
@@ -229,7 +229,7 @@ const saveWsTokenToCookie = (serverUrl: string, token: string, user: User) => {
 
 const loadWsTokenFromCookie = (serverUrl: string): { token: string; user: User } | null => {
   try {
-    const serverKey = `4messenger-ws-token-${Buffer.from(serverUrl).toString('base64')}`;
+    const serverKey = `4messenger-ws-token-${btoa(serverUrl)}`;
     const saved = localStorage.getItem(serverKey);
     if (saved) {
       const data = JSON.parse(saved) as { token: string; user: User; timestamp: number };
@@ -247,7 +247,7 @@ const loadWsTokenFromCookie = (serverUrl: string): { token: string; user: User }
 
 const clearWsTokenFromCookie = (serverUrl: string) => {
   try {
-    const serverKey = `4messenger-ws-token-${Buffer.from(serverUrl).toString('base64')}`;
+    const serverKey = `4messenger-ws-token-${btoa(serverUrl)}`;
     localStorage.removeItem(serverKey);
   } catch (e) {
     console.error('Failed to clear WS token:', e);
