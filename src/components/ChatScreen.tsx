@@ -144,7 +144,7 @@ export function ChatScreen() {
     setActiveChat, sendMessage, editMessage, deleteMessage, createDirectChat,
     createGroup, leaveGroup, addToGroup, removeFromGroup,
     startCall, toggleSidebar, setShowChatInfo, setShowNewChat, setShowNewGroup,
-    setSearchQuery, setScreen, logout, decryptMessage, markAsRead,
+    setSearchQuery, setScreen, logout, leaveServer, decryptMessage, markAsRead,
     searchUsers, fetchUsers, appearance, chatKeys, e2eeKeyPair,
   } = useStore();
   
@@ -172,6 +172,7 @@ export function ChatScreen() {
   } | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showLogoutMenu, setShowLogoutMenu] = useState(false);
   const [youtubePlayer, setYoutubePlayer] = useState<string | null>(null);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [savedStickers, setSavedStickers] = useState<string[]>([]);
@@ -771,9 +772,47 @@ export function ChatScreen() {
                 <Crown className="h-5 w-5" />
               </button>
             )}
-            <button onClick={logout} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-red-400" title="Logout">
-              <LogOut className="h-5 w-5" />
-            </button>
+            <div className="relative">
+              <button 
+                onClick={() => setShowLogoutMenu(!showLogoutMenu)} 
+                className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-red-400" 
+                title="Server or Logout"
+              >
+                <LogOut className="h-5 w-5" />
+              </button>
+              
+              {showLogoutMenu && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowLogoutMenu(false)}
+                  />
+                  <div className="absolute right-0 mt-2 z-50 w-48 rounded-lg border border-white/10 bg-gray-800 shadow-xl overflow-hidden">
+                    <button
+                      onClick={() => {
+                        leaveServer();
+                        setShowLogoutMenu(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-4 py-3 text-sm text-gray-300 hover:bg-white/10 transition text-left"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Leave Server
+                    </button>
+                    <div className="border-t border-white/10" />
+                    <button
+                      onClick={() => {
+                        logout();
+                        setShowLogoutMenu(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition text-left"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Logout
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
 

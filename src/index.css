@@ -232,7 +232,23 @@ html.light {
   background-color: rgba(99, 102, 241, 0.15) !important;
 }
 
-/* Text colors */
+/* Text colors for light mode */
+
+/* Keep white text on colored/gradient backgrounds and buttons */
+.light [class*="bg-indigo"] .text-white,
+.light [class*="bg-purple"] .text-white,
+.light [class*="bg-blue"] .text-white,
+.light [class*="bg-green"] .text-white,
+.light [class*="bg-red"] .text-white,
+.light [class*="gradient"] .text-white,
+.light button .text-white,
+.light [role="button"] .text-white,
+.light button,
+.light [role="button"] {
+  color: #ffffff !important;
+}
+
+/* Dark text on light backgrounds (default) */
 .light .text-white {
   color: #111827 !important;
 }

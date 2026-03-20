@@ -276,6 +276,7 @@ interface AppState {
   login: (username: string, password: string) => Promise<boolean>;
   register: (username: string, email: string, password: string) => Promise<boolean>;
   logout: () => void;
+  leaveServer: () => void;
   verifyServerPassword: (password: string) => Promise<boolean>;
   verifyCaptcha: (answer: string) => Promise<boolean>;
   generateCaptcha: () => Promise<void>;
@@ -923,18 +924,41 @@ export const useStore = create<AppState>((set, get) => ({
     set({
       currentUser: null,
       authToken: null,
-      screen: 'connect',
+      screen: 'login',  // Go to login screen, not connect screen
       activeChat: null,
       users: [],
       chats: [],
       messages: [],
       allMessages: {},
       connected: false,
-      serverUrl: '',
       websocket: null,
       e2eeKeyPair: null,  // Clear in-memory key pair after logout
     });
     get().addNotification('Logged out successfully', 'info');
+  },
+
+  leaveServer: () => {
+    // Close WebSocket connection but keep session
+    const { websocket } = get();
+    if (websocket) {
+      websocket.close();
+    }
+    
+    // DO NOT clear session - keep auth token and server URL in localStorage
+    // This allows the user to reconnect to the same server without re-entering credentials
+    
+    set({
+      activeChat: null,
+      users: [],
+      chats: [],
+      messages: [],
+      allMessages: {},
+      connected: false,
+      websocket: null,
+      screen: 'login',  // Go to login screen
+      e2eeKeyPair: null,  // Clear in-memory key pair but keys stay in IndexedDB
+    });
+    get().addNotification('You have left the server. You can log in again.', 'info');
   },
 
   verifyServerPassword: async (password) => {
