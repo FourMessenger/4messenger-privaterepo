@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { User, Message, Chat, ServerConfig, CallState, AppScreen, UserRole } from './types';
+import type { User, Message, Chat, ServerConfig, CallState, AppScreen, UserRole, ChatNotificationPreference, NotificationPreferences } from './types';
 import { type Language, getTranslation } from './translations';
 import { E2EE } from './e2ee';
 
@@ -173,6 +173,35 @@ const savePrivacyPolicyAcceptance = () => {
   }
 };
 
+// Notification preferences storage
+const defaultNotificationPreferences: NotificationPreferences = {
+  chatPreferences: {},
+  dndEnabled: false,
+  dndStart: 22 * 60,  // 10 PM
+  dndEnd: 8 * 60,     // 8 AM
+  serverMuted: false,
+};
+
+const loadNotificationPreferences = (): NotificationPreferences => {
+  try {
+    const saved = localStorage.getItem('4messenger-notification-prefs');
+    if (saved) {
+      return { ...defaultNotificationPreferences, ...JSON.parse(saved) };
+    }
+  } catch (e) {
+    console.error('Failed to load notification preferences:', e);
+  }
+  return defaultNotificationPreferences;
+};
+
+const saveNotificationPreferences = (prefs: NotificationPreferences) => {
+  try {
+    localStorage.setItem('4messenger-notification-prefs', JSON.stringify(prefs));
+  } catch (e) {
+    console.error('Failed to save notification preferences:', e);
+  }
+};
+
 // Session persistence
 interface SavedSession {
   serverUrl: string;
@@ -306,6 +335,7 @@ interface AppState {
   typingUsers: Record<string, string[]>;
   notifications: Array<{ id: string; text: string; type: 'success' | 'error' | 'info' }>;
   appearance: AppearanceSettings;
+  notificationPreferences: NotificationPreferences;
 
   // Actions
   setServerUrl: (url: string) => void;
@@ -364,6 +394,16 @@ interface AppState {
   // Appearance
   setAppearance: (settings: Partial<AppearanceSettings>) => void;
   resetAppearance: () => void;
+  
+  // Notification Preferences
+  muteChat: (chatId: string, minutesToMute: number) => void;  // 0 = forever, >0 = minutes
+  unmuteChat: (chatId: string) => void;
+  isChatMuted: (chatId: string) => boolean;
+  toggleChatNotificationSound: (chatId: string) => void;
+  toggleChatDesktopNotification: (chatId: string) => void;
+  toggleServerMute: () => void;
+  isInDND: () => boolean;
+  setDND: (enabled: boolean, startHour: number, endHour: number) => void;
   
   // Server Shortcuts
   serverShortcuts: ServerShortcut[];
@@ -440,6 +480,7 @@ export const useStore = create<AppState>((set, get) => ({
   typingUsers: {},
   notifications: [],
   appearance: loadAppearance(),
+  notificationPreferences: loadNotificationPreferences(),
 
   setServerUrl: (url) => {
     // Normalize the URL: add protocol if missing, remove trailing slashes
@@ -827,7 +868,12 @@ export const useStore = create<AppState>((set, get) => ({
                       };
                     });
 
-                    if (!isActiveChat && state.appearance.soundsEnabled) {
+                    // Play notification sound if enabled
+                    const isMuted = get().isChatMuted(chatId);
+                    const isInDND = get().isInDND();
+                    const shouldNotify = !isActiveChat && !isMuted && !isInDND && state.appearance.notificationsEnabled;
+
+                    if (shouldNotify && state.appearance.soundsEnabled) {
                       try {
                         const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbsGczHDdlj8XX3a1YMB04ZI3E1d2sWjIfOGWPxNXdrFoyHw==');
                         audio.volume = 0.3;
@@ -835,7 +881,16 @@ export const useStore = create<AppState>((set, get) => ({
                       } catch {}
                     }
 
-                    if (!isActiveChat && state.appearance.notificationsEnabled && document.hidden) {
+                    // Show in-app notification immediately
+                    if (shouldNotify) {
+                      const senderUser = state.users.find(u => u.id === senderId);
+                      const senderName = senderUser?.displayName || senderUser?.username || 'Someone';
+                      const preview = mappedMsg.type === 'text' ? mappedMsg.content.substring(0, 100) : `Sent a ${mappedMsg.type}`;
+                      get().addNotification(`${senderName}: ${preview}`, 'info');
+                    }
+
+                    // Show browser notification (works whenever tab is open or hidden)
+                    if (shouldNotify) {
                       try {
                         if (Notification.permission === 'granted') {
                           const senderUser = state.users.find(u => u.id === senderId);
@@ -843,6 +898,8 @@ export const useStore = create<AppState>((set, get) => ({
                           new Notification(`${senderName}`, {
                             body: mappedMsg.type === 'text' ? mappedMsg.content : `Sent a ${mappedMsg.type}`,
                             icon: senderUser?.avatar || undefined,
+                            tag: chatId,
+                            badge: senderUser?.avatar || undefined,
                           });
                         }
                       } catch {}
@@ -2142,6 +2199,101 @@ export const useStore = create<AppState>((set, get) => ({
   resetAppearance: () => {
     saveAppearance(defaultAppearance);
     set({ appearance: defaultAppearance });
+  },
+
+  // Notification preferences
+  muteChat: (chatId, minutesToMute) => {
+    set(state => {
+      const newPrefs = { ...state.notificationPreferences };
+      const mutedUntil = minutesToMute === 0 ? -1 : Date.now() + minutesToMute * 60 * 1000;
+      newPrefs.chatPreferences = {
+        ...newPrefs.chatPreferences,
+        [chatId]: {
+          ...(newPrefs.chatPreferences[chatId] || {}),
+          chatId,
+          mutedUntil,
+        },
+      };
+      saveNotificationPreferences(newPrefs);
+      return { notificationPreferences: newPrefs };
+    });
+  },
+
+  unmuteChat: (chatId) => {
+    set(state => {
+      const newPrefs = { ...state.notificationPreferences };
+      if (newPrefs.chatPreferences[chatId]) {
+        newPrefs.chatPreferences[chatId].mutedUntil = 0;
+      }
+      saveNotificationPreferences(newPrefs);
+      return { notificationPreferences: newPrefs };
+    });
+  },
+
+  isChatMuted: (chatId) => {
+    const state = get();
+    if (state.notificationPreferences.serverMuted) return true;
+    const pref = state.notificationPreferences.chatPreferences[chatId];
+    if (!pref || pref.mutedUntil === 0) return false;
+    if (pref.mutedUntil === -1) return true;
+    return pref.mutedUntil > Date.now();
+  },
+
+  toggleChatNotificationSound: (chatId) => {
+    set(state => {
+      const newPrefs = { ...state.notificationPreferences };
+      const existing = newPrefs.chatPreferences[chatId] || { chatId, mutedUntil: 0 };
+      existing.soundEnabled = existing.soundEnabled === undefined ? false : !existing.soundEnabled;
+      newPrefs.chatPreferences[chatId] = existing;
+      saveNotificationPreferences(newPrefs);
+      return { notificationPreferences: newPrefs };
+    });
+  },
+
+  toggleChatDesktopNotification: (chatId) => {
+    set(state => {
+      const newPrefs = { ...state.notificationPreferences };
+      const existing = newPrefs.chatPreferences[chatId] || { chatId, mutedUntil: 0 };
+      existing.desktopEnabled = existing.desktopEnabled === undefined ? false : !existing.desktopEnabled;
+      newPrefs.chatPreferences[chatId] = existing;
+      saveNotificationPreferences(newPrefs);
+      return { notificationPreferences: newPrefs };
+    });
+  },
+
+  toggleServerMute: () => {
+    set(state => {
+      const newPrefs = { ...state.notificationPreferences };
+      newPrefs.serverMuted = !newPrefs.serverMuted;
+      saveNotificationPreferences(newPrefs);
+      return { notificationPreferences: newPrefs };
+    });
+  },
+
+  isInDND: () => {
+    const state = get();
+    if (!state.notificationPreferences.dndEnabled) return false;
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const { dndStart, dndEnd } = state.notificationPreferences;
+    
+    // Handle case where DND spans midnight
+    if (dndStart < dndEnd) {
+      return currentMinutes >= dndStart && currentMinutes < dndEnd;
+    } else {
+      return currentMinutes >= dndStart || currentMinutes < dndEnd;
+    }
+  },
+
+  setDND: (enabled, startHour, endHour) => {
+    set(state => {
+      const newPrefs = { ...state.notificationPreferences };
+      newPrefs.dndEnabled = enabled;
+      newPrefs.dndStart = startHour * 60;
+      newPrefs.dndEnd = endHour * 60;
+      saveNotificationPreferences(newPrefs);
+      return { notificationPreferences: newPrefs };
+    });
   },
   
   // Bots implementation

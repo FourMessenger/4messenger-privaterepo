@@ -5,7 +5,7 @@ import {
   Send, Paperclip, Smile, Phone, Video, MoreVertical, Image,
   Edit2, Trash2, ChevronLeft, Shield, Crown, UserPlus, X,
   Lock, Menu, Info, FileText, Download, Play, Music, Film,
-  Mic, Square, BarChart2, Check, Bot
+  Mic, Square, BarChart2, Check, Bot, Bell, BellOff
 } from 'lucide-react';
 import { MediaViewer } from './MediaViewer';
 import { UserSettings } from './UserSettings';
@@ -146,6 +146,7 @@ export function ChatScreen() {
     startCall, toggleSidebar, setShowChatInfo, setShowNewChat, setShowNewGroup,
     setSearchQuery, setScreen, logout, leaveServer, decryptMessage, markAsRead,
     searchUsers, fetchUsers, appearance, chatKeys, e2eeKeyPair,
+    isChatMuted, muteChat, unmuteChat, addNotification,
   } = useStore();
   
   const makeChannelAdmin = useStore(s => s.makeChannelAdmin);
@@ -195,6 +196,7 @@ export function ChatScreen() {
   const [editChatDescription, setEditChatDescription] = useState('');
   const [editChatAvatar, setEditChatAvatar] = useState<string | null>(null);
   const [savingChatSettings, setSavingChatSettings] = useState(false);
+  const [showMuteMenu, setShowMuteMenu] = useState(false);
   const chatAvatarInputRef = useRef<HTMLInputElement>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -976,6 +978,79 @@ export function ChatScreen() {
                       : 'E2EE off'}
                   </div>
                 )}
+                <div className="relative">
+                  <button 
+                    onClick={() => setShowMuteMenu(!showMuteMenu)} 
+                    className={`rounded-lg p-2 transition ${
+                      activeChat && isChatMuted(activeChat)
+                        ? 'bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30'
+                        : 'text-gray-400 hover:bg-white/10 hover:text-white'
+                    }`}
+                    title={activeChat && isChatMuted(activeChat) ? 'Chat muted' : 'Mute chat'}
+                  >
+                    {activeChat && isChatMuted(activeChat) ? <BellOff className="h-5 w-5" /> : <Bell className="h-5 w-5" />}
+                  </button>
+                  
+                  {showMuteMenu && activeChat && (
+                    <div className="absolute right-0 top-12 z-50 rounded-lg border border-white/10 bg-gray-800 shadow-xl py-1 min-w-[180px]">
+                      {isChatMuted(activeChat) ? (
+                        <button
+                          onClick={() => {
+                            unmuteChat(activeChat);
+                            setShowMuteMenu(false);
+                            addNotification('Chat unmuted', 'success');
+                          }}
+                          className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-white/10"
+                        >
+                          <Bell className="h-4 w-4" /> Unmute chat
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => {
+                              muteChat(activeChat, 60);
+                              setShowMuteMenu(false);
+                              addNotification('Chat muted for 1 hour', 'success');
+                            }}
+                            className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-white/10"
+                          >
+                            Mute 1 hour
+                          </button>
+                          <button
+                            onClick={() => {
+                              muteChat(activeChat, 480);
+                              setShowMuteMenu(false);
+                              addNotification('Chat muted for 8 hours', 'success');
+                            }}
+                            className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-white/10"
+                          >
+                            Mute 8 hours
+                          </button>
+                          <button
+                            onClick={() => {
+                              muteChat(activeChat, 1440);
+                              setShowMuteMenu(false);
+                              addNotification('Chat muted for 24 hours', 'success');
+                            }}
+                            className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-white/10"
+                          >
+                            Mute 24 hours
+                          </button>
+                          <button
+                            onClick={() => {
+                              muteChat(activeChat, 0);
+                              setShowMuteMenu(false);
+                              addNotification('Chat muted forever', 'success');
+                            }}
+                            className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-white/10"
+                          >
+                            Mute forever
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <button onClick={() => startCall(chat.id, 'voice')} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-white" title="Voice call">
                   <Phone className="h-5 w-5" />
                 </button>
