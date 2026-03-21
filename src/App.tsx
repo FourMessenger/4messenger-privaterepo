@@ -98,6 +98,8 @@ export function App() {
       return;
     }
 
+    console.log('[Push] Starting push setup (authToken + serverUrl present)');
+
     // Fetch existing subscriptions and muted users on login
     const fetchNotificationSettings = async () => {
       await Promise.all([
@@ -113,21 +115,32 @@ export function App() {
       return;
     }
 
+    console.log('[Push] Service Worker and PushManager available, requesting permission...');
+    console.log('[Push] Current permission state:', Notification.permission);
+
     const setupPushNotifications = async () => {
       try {
-        // Request notification permission if not already granted
+        // Always try to request permission, even if we think it might be denied
+        // This ensures we get a fresh prompt if user hasn't answered
         if (Notification.permission === 'default') {
+          console.log('[Push] Requesting notification permission (permission was default)');
           const permission = await Notification.requestPermission();
+          console.log('[Push] Permission result:', permission);
           if (permission !== 'granted') {
-            console.log('[Push] Notification permission denied');
+            console.log('[Push] Notification permission denied by user');
+            // Clear any old subscription data if permission denied
+            localStorage.removeItem('4messenger-push-subscription');
             return;
           }
         }
 
         if (Notification.permission !== 'granted') {
-          console.log('[Push] Notifications not permitted');
+          console.log('[Push] Notifications permission not granted (current state:', Notification.permission, ')');
+          console.log('[Push] Note: Once denied, you must reset permissions in browser settings or use incognito');
           return;
         }
+
+        console.log('[Push] Permission granted, proceeding with subscription...');
 
         // Get service worker registration
         const registration = await navigator.serviceWorker.ready;
