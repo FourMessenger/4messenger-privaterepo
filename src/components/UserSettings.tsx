@@ -27,10 +27,12 @@ export function UserSettings({ onClose }: UserSettingsProps) {
     appearance, setAppearance, resetAppearance,
     language, setLanguage, t: translate,
     bots, fetchBots, createBot, updateBot, deleteBot,
-    notificationPreferences, setDND, toggleServerMute
+    notificationPreferences, setDND, toggleServerMute,
+    mutedUsers, fetchMutedUsers, muteUser, unmuteUser, isMuted
   } = useStore();
-  const [tab, setTab] = useState<'profile' | 'appearance' | 'security' | 'language' | 'bots'>('profile');
+  const [tab, setTab] = useState<'profile' | 'appearance' | 'security' | 'language' | 'notifications' | 'bots'>('profile');
   const [loading, setLoading] = useState(false);
+  const [unmutingUserId, setUnmutingUserId] = useState<string | null>(null);
   
   // Profile state
   const [displayName, setDisplayName] = useState(currentUser?.displayName || currentUser?.username || '');
@@ -55,6 +57,12 @@ export function UserSettings({ onClose }: UserSettingsProps) {
   useEffect(() => {
     fetchBots();
   }, [fetchBots]);
+
+  useEffect(() => {
+    if (tab === 'notifications') {
+      fetchMutedUsers();
+    }
+  }, [tab, fetchMutedUsers]);
 
   // Bot state
   const [editingBotId, setEditingBotId] = useState<string | null>(null);
@@ -279,6 +287,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
             { id: 'appearance' as const, icon: Palette, label: translate('appearance') },
             { id: 'security' as const, icon: Lock, label: translate('security') },
             { id: 'language' as const, icon: Globe, label: translate('language') },
+            { id: 'notifications' as const, icon: Bell, label: 'Notifications' },
             { id: 'bots' as const, icon: Bot, label: 'Bots' },
           ].map(tabItem => (
             <button
@@ -900,6 +909,106 @@ export function UserSettings({ onClose }: UserSettingsProps) {
                     ? 'Some parts of the interface may still be in English if translations are not yet available.'
                     : 'Некоторые части интерфейса могут отображаться на английском языке, если переводы ещё недоступны.'}
                 </p>
+              </div>
+            </div>
+          )}
+
+          {tab === 'notifications' && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-medium text-white flex items-center space-x-2">
+                <Bell className="w-5 h-5 text-indigo-500" />
+                <span>Notification Settings</span>
+              </h3>
+
+              {/* Server Notifications Toggle */}
+              <div className="bg-gray-800/50 rounded-xl p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-white">Server Notifications</h4>
+                    <p className="text-sm text-gray-400 mt-1">Disable all server push notifications</p>
+                  </div>
+                  <button
+                    onClick={() => toggleServerMute()}
+                    className={`px-4 py-2 rounded-lg font-medium transition ${
+                      notificationPreferences.serverMuted
+                        ? 'bg-red-500/20 text-red-400'
+                        : 'bg-green-500/20 text-green-400'
+                    }`}
+                  >
+                    {notificationPreferences.serverMuted ? 'Muted' : 'Enabled'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Muted Users Section */}
+              <div className="bg-gray-800/50 rounded-xl p-4">
+                <h4 className="font-medium text-white mb-4 flex items-center gap-2">
+                  <VolumeX className="w-4 h-4 text-red-500" />
+                  Muted Users ({mutedUsers.length})
+                </h4>
+                
+                {mutedUsers.length === 0 ? (
+                  <p className="text-sm text-gray-400">
+                    You have no muted users. You'll receive notifications from everyone.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {mutedUsers.map((user) => (
+                      <div
+                        key={user.id}
+                        className="flex items-center justify-between p-3 bg-gray-700/50 rounded-lg"
+                      >
+                        <div className="flex items-center gap-3">
+                          {user.avatar ? (
+                            <img
+                              src={user.avatar}
+                              alt={user.username}
+                              className="w-10 h-10 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-sm">
+                              {user.username[0].toUpperCase()}
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-white font-medium">{user.display_name || user.username}</p>
+                            <p className="text-xs text-gray-400">@{user.username}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setUnmutingUserId(user.id);
+                            unmuteUser(user.id).finally(() => setUnmutingUserId(null));
+                          }}
+                          disabled={unmutingUserId === user.id}
+                          className="px-3 py-2 bg-indigo-500/20 text-indigo-400 rounded-lg text-sm font-medium hover:bg-indigo-500/30 transition disabled:opacity-50"
+                        >
+                          {unmutingUserId === user.id ? 'Unmuting...' : 'Unmute'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Push Subscriptions Info */}
+              <div className="bg-gray-800/50 rounded-xl p-4">
+                <h4 className="font-medium text-white mb-2 flex items-center gap-2">
+                  <Check className="w-4 h-4 text-green-500" />
+                  Active Push Subscriptions
+                </h4>
+                <p className="text-sm text-gray-400 mb-3">
+                  Devices registered to receive push notifications
+                </p>
+                {!currentUser || (mutedUsers.length === 0 && (!notificationPreferences.subscriptions || notificationPreferences.subscriptions.length === 0)) ? (
+                  <p className="text-sm text-gray-400">
+                    Subscribe in this browser to receive notifications when this app is closed.
+                  </p>
+                ) : (
+                  <div className="text-sm text-green-400">
+                    ✓ Notifications are enabled on this device
+                  </div>
+                )}
               </div>
             </div>
           )}
