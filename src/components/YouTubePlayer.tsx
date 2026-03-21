@@ -41,13 +41,18 @@ export function getYouTubeThumbnail(videoId: string, quality: 'default' | 'mediu
 // Embedded YouTube preview (for messages)
 export const YouTubePreview: React.FC<{ url: string; onClick: () => void }> = ({ url, onClick }) => {
   const videoId = extractYouTubeId(url);
-  const [thumbnailError, setThumbnailError] = useState(false);
-  
+  const [thumbnailQuality, setThumbnailQuality] = useState<'maxres' | 'high' | 'medium' | 'default'>('maxres');
+
   if (!videoId) return null;
-  
-  const thumbnail = thumbnailError 
-    ? getYouTubeThumbnail(videoId, 'default')
-    : getYouTubeThumbnail(videoId, 'high');
+
+  const thumbnail = getYouTubeThumbnail(videoId, thumbnailQuality);
+
+  const cycleThumbnailQuality = () => {
+    const order: Array<'maxres' | 'high' | 'medium' | 'default'> = ['maxres', 'high', 'medium', 'default'];
+    const idx = order.indexOf(thumbnailQuality);
+    const next = order[Math.min(order.length - 1, idx + 1)];
+    setThumbnailQuality(next);
+  };
   
   return (
     <div 
@@ -58,7 +63,7 @@ export const YouTubePreview: React.FC<{ url: string; onClick: () => void }> = ({
         src={thumbnail} 
         alt="YouTube video"
         className="w-full h-auto object-cover"
-        onError={() => setThumbnailError(true)}
+        onError={cycleThumbnailQuality}
       />
       
       {/* Play button overlay */}
@@ -100,7 +105,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({ url, onClose }) =>
   
   if (!videoId) return null;
   
-  const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1`;
+  const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1&playsinline=1&vq=hd1080`;
   
   const handleFullscreen = () => {
     if (iframeRef.current) {

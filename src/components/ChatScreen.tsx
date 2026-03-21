@@ -1136,11 +1136,15 @@ export function ChatScreen() {
                           >
                             {/* File/media content - show if fileUrl exists OR type is file/image */}
                             {(() => {
-                              const hasFile = !!(m.fileUrl || m.type === 'file' || m.type === 'image');
+                              const hasFile = !!(
+                                m.fileUrl ||
+                                m.fileName ||
+                                ['file', 'image', 'video', 'audio', 'voice', 'sticker'].includes(m.type)
+                              );
                               if (!hasFile) return null;
-                              
-                              const fileName = m.fileName || m.fileUrl?.split('/').pop() || 'file';
-                              const fileUrl = m.fileUrl || '';
+
+                              const fileName = m.fileName || m.content || m.fileUrl?.split('/').pop() || 'file';
+                              const fileUrl = m.fileUrl || m.content || '';
                               const isImage = isImageFile(fileName);
                               const isVideo = isVideoFile(fileName);
                               const isAudio = isAudioFile(fileName);
@@ -1181,16 +1185,24 @@ export function ChatScreen() {
                                 
                                 {/* Audio preview */}
                                 {fileUrl && isAudio && (
-                                  <div 
-                                    className="mb-2 cursor-pointer rounded-lg overflow-hidden bg-gradient-to-r from-purple-500/20 to-indigo-500/20 p-3 flex items-center gap-3"
-                                    onClick={() => handleMediaClick(m)}
-                                  >
-                                    <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center shrink-0">
-                                      <Play className="h-5 w-5 ml-0.5" />
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                      <p className="text-sm font-medium truncate">{m.type === 'voice' ? '🎤 Voice message' : fileName}</p>
-                                      <p className="text-xs opacity-70">Click to play</p>
+                                  <div className="mb-2 rounded-lg overflow-hidden bg-gradient-to-r from-purple-500/20 to-indigo-500/20 p-3">
+                                    <audio
+                                      controls
+                                      className="w-full"
+                                      src={fileUrl}
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
+                                    <div className="mt-2 flex items-center justify-between">
+                                      <span className="text-sm font-medium truncate">{m.type === 'voice' ? '🎤 Voice message' : fileName}</span>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleMediaClick(m);
+                                        }}
+                                        className="px-2 py-1 text-xs rounded-md bg-white/10 hover:bg-white/20"
+                                      >
+                                        Open player
+                                      </button>
                                     </div>
                                   </div>
                                 )}

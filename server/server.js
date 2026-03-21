@@ -1435,6 +1435,82 @@ app.delete('/api/muted-users/:userId', authMiddleware, (req, res) => {
   }
 });
 
+// Get list of blocked users
+app.get('/api/blocked-users', authMiddleware, (req, res) => {
+  try {
+    const blockedUsers = dbAll(
+      `SELECT u.id, u.username, u.display_name, u.avatar, bu.created_at
+       FROM blocked_users bu
+       JOIN users u ON bu.blocked_user_id = u.id
+       WHERE bu.user_id = ?
+       ORDER BY bu.created_at DESC`,
+      [req.user.id]
+    );
+    res.json(blockedUsers);
+  } catch (err) {
+    console.error('[BLOCK] Failed to get blocked users:', err.message);
+    res.status(500).json({ error: 'Failed to get blocked users' });
+  }
+});
+
+// Block a user
+app.post('/api/blocked-users/:userId', authMiddleware, (req, res) => {
+  const blockedUserId = req.params.userId;
+
+  if (!blockedUserId) {
+    return res.status(400).json({ error: 'User ID required' });
+  }
+
+  if (blockedUserId === req.user.id) {
+    return res.status(400).json({ error: 'Cannot block yourself' });
+  }
+
+  try {
+    const user = dbGet('SELECT id FROM users WHERE id = ?', [blockedUserId]);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const existing = dbGet('SELECT * FROM blocked_users WHERE user_id = ? AND blocked_user_id = ?', [req.user.id, blockedUserId]);
+    if (existing) {
+      return res.status(400).json({ error: 'User already blocked' });
+    }
+
+    dbRun('INSERT INTO blocked_users (user_id, blocked_user_id, created_at) VALUES (?, ?, ?)', [req.user.id, blockedUserId, Date.now()]);
+    saveDatabase();
+
+    console.log(`[BLOCK] User ${req.user.id} blocked ${blockedUserId}`);
+    res.json({ success: true, blockedUserId });
+  } catch (err) {
+    console.error('[BLOCK] Failed to block user:', err.message);
+    res.status(500).json({ error: 'Failed to block user' });
+  }
+});
+
+// Unblock a user
+app.delete('/api/blocked-users/:userId', authMiddleware, (req, res) => {
+  const blockedUserId = req.params.userId;
+
+  if (!blockedUserId) {
+    return res.status(400).json({ error: 'User ID required' });
+  }
+
+  try {
+    const result = dbRun('DELETE FROM blocked_users WHERE user_id = ? AND blocked_user_id = ?', [req.user.id, blockedUserId]);
+
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'User not blocked' });
+    }
+
+    saveDatabase();
+    console.log(`[BLOCK] User ${req.user.id} unblocked ${blockedUserId}`);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[BLOCK] Failed to unblock user:', err.message);
+    res.status(500).json({ error: 'Failed to unblock user' });
+  }
+});
+
 // --- BOT ENDPOINTS ---
 app.get('/api/bots', authMiddleware, (req, res) => {
   const bots = dbAll(`SELECT id, username, display_name as displayName, avatar, bot_script as script, created_at FROM users WHERE is_bot = 1 AND owner_id = ?`, [req.user.id]);
@@ -2051,7 +2127,15 @@ app.get('/api/chats/:id/messages', authMiddleware, (req, res) => {
   const member = dbGet('SELECT * FROM chat_members WHERE chat_id = ? AND user_id = ?', [chatId, req.user.id]);
   if (!member) return res.status(403).json({ error: 'Not a member of this chat' });
 
-  const msgs = dbAll('SELECT * FROM messages WHERE chat_id = ? AND created_at < ? ORDER BY created_at DESC LIMIT ?', [chatId, before, limit]);
+  // Exclude messages from users this user has blocked
+  const blockedSenders = dbAll('SELECT blocked_user_id FROM blocked_users WHERE user_id = ?', [req.user.id]).map(r => r.blocked_user_id);
+  const blockedClause = blockedSenders.length > 0 ? `AND sender_id NOT IN (${blockedSenders.map(() => '?').join(',')})` : '';
+  const queryParams = blockedSenders.length > 0 ? [chatId, before, ...blockedSenders, limit] : [chatId, before, limit];
+
+  const msgs = dbAll(
+    `SELECT * FROM messages WHERE chat_id = ? AND created_at < ? ${blockedClause} ORDER BY created_at DESC LIMIT ?`,
+    queryParams
+  );
 
   // Format messages - E2EE decryption happens on the client, not here
   const result = msgs.reverse().map(m => {
@@ -2140,16 +2224,25 @@ app.post('/api/chats/:id/messages', authMiddleware, (req, res) => {
   // Broadcast to all chat members (including sender for real-time sync across devices)
   const members = dbAll('SELECT user_id FROM chat_members WHERE chat_id = ?', [chatId]);
   members.forEach(m => {
-    // Send to all members except the sender (they already have it optimistically)
-    if (m.user_id !== req.user.id) {
-      sendToUser(m.user_id, { type: 'message', data: message });
+    if (m.user_id === req.user.id) return; // sender skip
+
+    // Skip recipients who blocked the sender
+    const isBlocked = dbGet('SELECT 1 FROM blocked_users WHERE user_id = ? AND blocked_user_id = ?', [m.user_id, req.user.id]);
+    if (isBlocked) {
+      console.log(`[BLOCK] Skipped delivering message ${msgId} from ${req.user.id} to blocked recipient ${m.user_id}`);
+      return;
     }
+
+    sendToUser(m.user_id, { type: 'message', data: message });
   });
 
   res.status(201).json(message);
   
   // Send push notifications to offline members asynchronously (don't block response)
-  const recipientIds = members.map(m => m.user_id).filter(id => id !== req.user.id);
+  const recipientIds = members
+    .map(m => m.user_id)
+    .filter(id => id !== req.user.id)
+    .filter(id => !dbGet('SELECT 1 FROM blocked_users WHERE user_id = ? AND blocked_user_id = ?', [id, req.user.id]));
   if (recipientIds.length > 0) {
     // Get chat name for group chats
     const chat = dbGet('SELECT name, type FROM chats WHERE id = ?', [chatId]);
@@ -3781,6 +3874,17 @@ async function sendPushNotifications(recipientUserIds, notification, senderId = 
           totalMuted++;
           continue;
         }
+
+        // Check if sender is blocked by this user
+        const isBlocked = dbGet(
+          'SELECT 1 FROM blocked_users WHERE user_id = ? AND blocked_user_id = ?',
+          [userId, senderId]
+        );
+        if (isBlocked) {
+          console.log(`[PUSH] ⊘ Skipped ${userId} (sender ${senderId} is blocked)`);
+          totalMuted++;
+          continue;
+        }
       }
 
       // Get all subscriptions for this user
@@ -4426,9 +4530,22 @@ async function startServer() {
       )
     `);
 
+    // Blocked users (users whose messages/notifications are blocked)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS blocked_users (
+        user_id TEXT NOT NULL,
+        blocked_user_id TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY (user_id, blocked_user_id),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (blocked_user_id) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE(user_id, blocked_user_id)
+      )
+    `);
+
     // Create indexes
     db.run('CREATE INDEX IF NOT EXISTS idx_messages_chat ON messages(chat_id)');
-    db.run('CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id)');
+    dbRun('CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id)');
     db.run('CREATE INDEX IF NOT EXISTS idx_chat_members_user ON chat_members(user_id)');
     db.run('CREATE INDEX IF NOT EXISTS idx_chat_members_chat ON chat_members(chat_id)');
     db.run('CREATE INDEX IF NOT EXISTS idx_audit_logs_admin ON audit_logs(admin_id)');
@@ -4439,6 +4556,8 @@ async function startServer() {
     db.run('CREATE INDEX IF NOT EXISTS idx_push_subscriptions_endpoint ON push_subscriptions(endpoint)');
     db.run('CREATE INDEX IF NOT EXISTS idx_muted_users ON muted_users(user_id)');
     db.run('CREATE INDEX IF NOT EXISTS idx_muted_by ON muted_users(muted_user_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_blocked_users ON blocked_users(user_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_blocked_by ON blocked_users(blocked_user_id)');
 
     console.log('[DB] Database initialized successfully');
 

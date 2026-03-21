@@ -28,7 +28,8 @@ export function UserSettings({ onClose }: UserSettingsProps) {
     language, setLanguage, t: translate,
     bots, fetchBots, createBot, updateBot, deleteBot,
     notificationPreferences, setDND, toggleServerMute,
-    mutedUsers, fetchMutedUsers, muteUser, unmuteUser, isMuted
+    mutedUsers, fetchMutedUsers, muteUser, unmuteUser, isMuted,
+    blockedUsers, fetchBlockedUsers, blockUser, unblockUser, isBlocked
   } = useStore();
   const [tab, setTab] = useState<'profile' | 'appearance' | 'security' | 'language' | 'notifications' | 'bots'>('profile');
   const [loading, setLoading] = useState(false);
@@ -61,8 +62,9 @@ export function UserSettings({ onClose }: UserSettingsProps) {
   useEffect(() => {
     if (tab === 'notifications') {
       fetchMutedUsers();
+      fetchBlockedUsers();
     }
-  }, [tab, fetchMutedUsers]);
+  }, [tab, fetchMutedUsers, fetchBlockedUsers]);
 
   // Bot state
   const [editingBotId, setEditingBotId] = useState<string | null>(null);
@@ -984,6 +986,56 @@ export function UserSettings({ onClose }: UserSettingsProps) {
                           className="px-3 py-2 bg-indigo-500/20 text-indigo-400 rounded-lg text-sm font-medium hover:bg-indigo-500/30 transition disabled:opacity-50"
                         >
                           {unmutingUserId === user.id ? 'Unmuting...' : 'Unmute'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Blocked Users Section */}
+              <div className="bg-gray-800/50 rounded-xl p-4">
+                <h4 className="font-medium text-white mb-4 flex items-center gap-2">
+                  <VolumeX className="w-4 h-4 text-yellow-400" />
+                  Blocked Users ({blockedUsers.length})
+                </h4>
+                {blockedUsers.length === 0 ? (
+                  <p className="text-sm text-gray-400">
+                    You have no blocked users. Everyone can send you messages and notifications.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {useStore.getState().blockedUsers.map((user) => (
+                      <div
+                        key={user.id}
+                        className="flex items-center justify-between p-3 bg-gray-700/50 rounded-lg"
+                      >
+                        <div className="flex items-center gap-3">
+                          {user.avatar ? (
+                            <img
+                              src={user.avatar}
+                              alt={user.username}
+                              className="w-10 h-10 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-yellow-500 flex items-center justify-center text-white font-bold text-sm">
+                              {user.username[0].toUpperCase()}
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-white font-medium">{user.display_name || user.username}</p>
+                            <p className="text-xs text-gray-400">@{user.username}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setUnmutingUserId(user.id);
+                            unblockUser(user.id).finally(() => setUnmutingUserId(null));
+                          }}
+                          disabled={unmutingUserId === user.id}
+                          className="px-3 py-2 bg-yellow-500/20 text-yellow-300 rounded-lg text-sm font-medium hover:bg-yellow-500/30 transition disabled:opacity-50"
+                        >
+                          {unmutingUserId === user.id ? 'Unblocking...' : 'Unblock'}
                         </button>
                       </div>
                     ))}

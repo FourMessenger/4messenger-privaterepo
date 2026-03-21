@@ -412,6 +412,13 @@ interface AppState {
   muteUser: (userId: string) => Promise<void>;
   unmuteUser: (userId: string) => Promise<void>;
   isMuted: (userId: string) => boolean;
+
+  // Blocked Users Management
+  blockedUsers: User[];
+  fetchBlockedUsers: () => Promise<void>;
+  blockUser: (userId: string) => Promise<void>;
+  unblockUser: (userId: string) => Promise<void>;
+  isBlocked: (userId: string) => boolean;
   
   // Push Notifications
   fetchPushSubscriptions: () => Promise<void>;
@@ -469,6 +476,7 @@ export const useStore = create<AppState>((set, get) => ({
   activeChat: null,
   bots: [],
   mutedUsers: [],
+  blockedUsers: [],
   pushSubscriptions: [],
   e2eeKeyPair: null,
   chatKeys: {},
@@ -823,6 +831,12 @@ export const useStore = create<AppState>((set, get) => ({
 
                 const senderId = msgData.sender_id || msgData.senderId;
                 const chatId = msgData.chat_id || msgData.chatId;
+
+                // Drop incoming messages from blocked users immediately
+                if (senderId && get().isBlocked(senderId)) {
+                  console.log(`[BLOCK] Dropped incoming message ${msgData.id} from blocked sender ${senderId}`);
+                  return;
+                }
 
                 let content = msgData.content;
                 if (content && content.startsWith('e2ee:')) {
@@ -2377,6 +2391,64 @@ export const useStore = create<AppState>((set, get) => ({
     return mutedUsers.some(u => u.id === userId);
   },
 
+  // Blocked Users Management
+  fetchBlockedUsers: async () => {
+    const { serverUrl, authToken } = get();
+    if (!authToken) return;
+    try {
+      const response = await fetch(`${serverUrl.replace(/\/$/, '')}/api/blocked-users`, {
+        headers: { 'Authorization': `Bearer ${authToken}` },
+      });
+      if (response.ok) {
+        const users = await response.json();
+        set({ blockedUsers: users });
+      }
+    } catch (error) {
+      console.error('[Store] Failed to fetch blocked users:', error);
+    }
+  },
+
+  blockUser: async (userId: string) => {
+    const { serverUrl, authToken } = get();
+    if (!authToken) return;
+    try {
+      const response = await fetch(`${serverUrl.replace(/\/$/, '')}/api/blocked-users/${userId}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${authToken}` },
+      });
+      if (response.ok) {
+        await get().fetchBlockedUsers();
+        get().addNotification('User blocked', 'success');
+      }
+    } catch (error) {
+      console.error('[Store] Failed to block user:', error);
+      get().addNotification('Failed to block user', 'error');
+    }
+  },
+
+  unblockUser: async (userId: string) => {
+    const { serverUrl, authToken } = get();
+    if (!authToken) return;
+    try {
+      const response = await fetch(`${serverUrl.replace(/\/$/, '')}/api/blocked-users/${userId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${authToken}` },
+      });
+      if (response.ok) {
+        await get().fetchBlockedUsers();
+        get().addNotification('User unblocked', 'success');
+      }
+    } catch (error) {
+      console.error('[Store] Failed to unblock user:', error);
+      get().addNotification('Failed to unblock user', 'error');
+    }
+  },
+
+  isBlocked: (userId: string) => {
+    const { blockedUsers } = get();
+    return blockedUsers.some(u => u.id === userId);
+  },
+
   // Push Notifications
   fetchPushSubscriptions: async () => {
     const { serverUrl, authToken } = get();
@@ -2675,7 +2747,12 @@ export const useStore = create<AppState>((set, get) => ({
                 
                 const senderId = msgData.sender_id || msgData.senderId;
                 const chatId = msgData.chat_id || msgData.chatId;
-                
+
+                if (senderId && get().isBlocked(senderId)) {
+                  console.log(`[BLOCK] Dropped incoming message ${msgData.id} from blocked sender ${senderId}`);
+                  return;
+                }
+
                 let content = msgData.content;
                 if (content && content.startsWith('e2ee:')) {
                   const state = get();
