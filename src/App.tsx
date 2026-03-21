@@ -94,11 +94,16 @@ export function App() {
 
   // Set up push notifications when user is authenticated
   useEffect(() => {
+    console.log('[App] Auth effect triggered - authToken:', !!authToken, 'serverUrl:', !!serverUrl);
+    
     if (!authToken || !serverUrl) {
+      console.log('[App] Skipping push setup - missing authToken or serverUrl');
       return;
     }
 
-    console.log('[Push] Starting push setup (authToken + serverUrl present)');
+    console.log('[Push] ✓ Starting push setup (authToken + serverUrl present)');
+    console.log('[Push] authToken length:', authToken.length);
+    console.log('[Push] serverUrl:', serverUrl);
 
     // Fetch existing subscriptions and muted users on login
     const fetchNotificationSettings = async () => {
@@ -144,6 +149,7 @@ export function App() {
 
         // Get service worker registration
         const registration = await navigator.serviceWorker.ready;
+        console.log('[Push] Service worker registered');
 
         // Check if already subscribed
         const existingSubscription = await registration.pushManager.getSubscription();
@@ -151,53 +157,116 @@ export function App() {
           console.log('[Push] Already subscribed to push notifications');
           return;
         }
+        console.log('[Push] No existing subscription, creating new one...');
 
         // Fetch VAPID public key from server
         const apiUrl = serverUrl.replace(/\/$/, '');
+        console.log('[Push] API URL:', apiUrl);
+        
         let vapidPublicKey = '';
         try {
+          console.log('[Push] Fetching VAPID key from', `${apiUrl}/api/push/vapid-key`);
           const vapidResponse = await fetch(`${apiUrl}/api/push/vapid-key`);
+          console.log('[Push] VAPID response status:', vapidResponse.status);
+          
           if (vapidResponse.ok) {
             const vapidData = await vapidResponse.json();
             vapidPublicKey = vapidData.vapidPublicKey;
-            console.log('[Push] Retrieved VAPID public key from server');
+            console.log('[Push] Retrieved VAPID public key (length:', vapidPublicKey.length, ')');
           } else {
-            console.warn('[Push] Failed to retrieve VAPID public key');
+            console.warn('[Push] Failed to retrieve VAPID public key - status:', vapidResponse.status);
+            const errorText = await vapidResponse.text();
+            console.warn('[Push] Error response:', errorText);
           }
         } catch (err) {
           console.warn('[Push] Could not fetch VAPID key:', err);
         }
 
+        if (!vapidPublicKey) {
+          console.error('[Push] Cannot subscribe - no VAPID public key! Server may not have push configured.');
+          return;
+        }
+
         // Convert VAPID public key string to Uint8Array
-        const applicationServerKey = vapidPublicKey ? 
-          new Uint8Array(atob(vapidPublicKey.replace(/-/g, '+').replace(/_/g, '/')).split('').map(c => c.charCodeAt(0))) :
-          undefined;
+        console.log('[Push] Converting VAPID key to Uint8Array...');
+        let applicationServerKey;
+        try {
+          applicationServerKey = new Uint8Array(
+            atob(vapidPublicKey.replace(/-/g, '+').replace(/_/g, '/'))
+              .split('')
+              .map(c => c.charCodeAt(0))
+          );
+          console.log('[Push] VAPID key converted successfully');
+        } catch (err) {
+          console.error('[Push] Failed to convert VAPID key:', err);
+          return;
+        }
 
         // Subscribe to push notifications
-        const subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: applicationServerKey,
-        });
+        console.log('[Push] Calling pushManager.subscribe()...');
+        let subscription;
+        try {
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: applicationServerKey,
+          });
+          console.log('[Push] Successfully created subscription, endpoint:', subscription.endpoint.substring(0, 50) + '...');
+        } catch (err) {
+          console.error('[Push] pushManager.subscribe() failed:', err);
+          console.error('[Push] Error name:', err.name);
+          console.error('[Push] Error message:', err.message);
+          return;
+        }
 
         // Send subscription to server
-        const response = await fetch(`${apiUrl}/api/push/subscribe`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authToken}`,
-          },
-          body: JSON.stringify({ subscription: subscription.toJSON() }),
+        console.log('[Push] Sending subscription to server...');
+        const subscriptionJson = subscription.toJSON();
+        console.log('[Push] Subscription payload:', {
+          endpoint: subscriptionJson.endpoint?.substring(0, 50) + '...',
+          keys: subscriptionJson.keys ? Object.keys(subscriptionJson.keys) : 'missing',
         });
 
-        if (response.ok) {
-          console.log('[Push] Successfully subscribed to push notifications');
-          // Store subscription locally for reference
-          localStorage.setItem('4messenger-push-subscription', JSON.stringify(subscription.toJSON()));
-        } else {
-          console.log('[Push] Failed to register subscription with server');
+        try {
+          const response = await fetch(`${apiUrl}/api/push/subscribe`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authToken}`,
+            },
+            body: JSON.stringify({ subscription: subscriptionJson }),
+          });
+
+          console.log('[Push] Server response status:', response.status);
+
+          if (response.ok) {
+            const data = await response.json();
+            console.log('[Push] ✓ Successfully subscribed to push notifications');
+            console.log('[Push] Server response:', data);
+            
+            // Store subscription locally for reference
+            localStorage.setItem('4messenger-push-subscription', JSON.stringify(subscriptionJson));
+            
+            // Refresh the store's push subscriptions
+            console.log('[Push] Refreshing push subscriptions in store...');
+            await useStore.getState().fetchPushSubscriptions();
+            console.log('[Push] Store updated with new subscription');
+          } else {
+            const errorText = await response.text();
+            console.error('[Push] ✗ Failed to register subscription with server');
+            console.error('[Push] Server error status:', response.status);
+            console.error('[Push] Server error response:', errorText);
+          }
+        } catch (sendError) {
+          console.error('[Push] ✗ Failed to send subscription to server:', sendError);
         }
       } catch (error) {
-        console.error('[Push] Failed to set up push notifications:', error);
+        console.error('[Push] ✗ ERROR in setupPushNotifications:');
+        console.error('[Push] Error name:', error.name);
+        console.error('[Push] Error message:', error.message);
+        console.error('[Push] Full error:', error);
+        if (error instanceof Error && error.stack) {
+          console.error('[Push] Stack trace:', error.stack);
+        }
       }
     };
 

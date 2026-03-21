@@ -2151,15 +2151,35 @@ app.post('/api/chats/:id/messages', authMiddleware, (req, res) => {
   // Send push notifications to offline members asynchronously (don't block response)
   const recipientIds = members.map(m => m.user_id).filter(id => id !== req.user.id);
   if (recipientIds.length > 0) {
+    // Get chat name for group chats
+    const chat = dbGet('SELECT name, type FROM chats WHERE id = ?', [chatId]);
+    const chatName = chat?.name || 'Chat';
+    
+    // Format message text (truncate if too long)
+    const messageText = content 
+      ? content.substring(0, 150).replace(/^e2ee:/, '') 
+      : '[File/Media]';
+    
+    // Build notification title with server name
+    const serverName = config.server?.name || '4 Messenger';
+    const senderName = req.user.display_name || req.user.username;
+    
     const pushNotification = {
       type: 'message',
-      title: `New message from ${req.user.display_name || req.user.username}`,
-      body: content && content.substring(0, 100) || '[File/Media]',
+      title: `${serverName}: Message from ${senderName}`,
+      body: messageText,
       chatId: chatId,
       senderId: req.user.id,
+      senderName: senderName,
       tag: chatId, // Group notifications by chat
       badge: '/official.txt',
-      requireInteraction: false
+      icon: req.user.avatar || '/official.txt',
+      requireInteraction: false,
+      data: {
+        chatId: chatId,
+        senderId: req.user.id,
+        senderName: senderName
+      }
     };
     sendPushNotifications(recipientIds, pushNotification, req.user.id).catch(err => {
       console.error('[PUSH] Error sending notifications:', err.message);
