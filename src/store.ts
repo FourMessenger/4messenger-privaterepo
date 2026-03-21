@@ -316,6 +316,8 @@ interface AppState {
   allMessages: Record<string, Message[]>;
   activeChat: string | null;
   bots: Bot[];
+  mutedUsers: User[];
+  pushSubscriptions: Array<{ id: string; endpoint: string; createdAt: number }>;
   
   // E2EE
   e2eeKeyPair: { publicKey: any, privateKey: any } | null;
@@ -405,6 +407,15 @@ interface AppState {
   isInDND: () => boolean;
   setDND: (enabled: boolean, startHour: number, endHour: number) => void;
   
+  // Muted Users Management
+  fetchMutedUsers: () => Promise<void>;
+  muteUser: (userId: string) => Promise<void>;
+  unmuteUser: (userId: string) => Promise<void>;
+  isMuted: (userId: string) => boolean;
+  
+  // Push Notifications
+  fetchPushSubscriptions: () => Promise<void>;
+  
   // Server Shortcuts
   serverShortcuts: ServerShortcut[];
   addServerShortcut: (name: string, url: string) => void;
@@ -457,6 +468,8 @@ export const useStore = create<AppState>((set, get) => ({
   allMessages: {},
   activeChat: null,
   bots: [],
+  mutedUsers: [],
+  pushSubscriptions: [],
   e2eeKeyPair: null,
   chatKeys: {},
   callState: { active: false, chatId: null, type: 'voice', participants: [], startTime: null },
@@ -2302,6 +2315,84 @@ export const useStore = create<AppState>((set, get) => ({
       saveNotificationPreferences(newPrefs);
       return { notificationPreferences: newPrefs };
     });
+  },
+
+  // Muted Users Management
+  fetchMutedUsers: async () => {
+    const { serverUrl, authToken } = get();
+    if (!authToken) return;
+    try {
+      const response = await fetch(`${serverUrl.replace(/\/$/, '')}/api/muted-users`, {
+        headers: { 'Authorization': `Bearer ${authToken}` },
+      });
+      if (response.ok) {
+        const users = await response.json();
+        set({ mutedUsers: users });
+      }
+    } catch (error) {
+      console.error('[Store] Failed to fetch muted users:', error);
+    }
+  },
+
+  muteUser: async (userId: string) => {
+    const { serverUrl, authToken, mutedUsers } = get();
+    if (!authToken) return;
+    try {
+      const response = await fetch(`${serverUrl.replace(/\/$/, '')}/api/muted-users/${userId}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${authToken}` },
+      });
+      if (response.ok) {
+        // Fetch updated list
+        await get().fetchMutedUsers();
+        get().addNotification('User muted - you won\'t receive notifications from them', 'success');
+      }
+    } catch (error) {
+      console.error('[Store] Failed to mute user:', error);
+      get().addNotification('Failed to mute user', 'error');
+    }
+  },
+
+  unmuteUser: async (userId: string) => {
+    const { serverUrl, authToken } = get();
+    if (!authToken) return;
+    try {
+      const response = await fetch(`${serverUrl.replace(/\/$/, '')}/api/muted-users/${userId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${authToken}` },
+      });
+      if (response.ok) {
+        // Fetch updated list
+        await get().fetchMutedUsers();
+        get().addNotification('User unmuted', 'success');
+      }
+    } catch (error) {
+      console.error('[Store] Failed to unmute user:', error);
+      get().addNotification('Failed to unmute user', 'error');
+    }
+  },
+
+  isMuted: (userId: string) => {
+    const { mutedUsers } = get();
+    return mutedUsers.some(u => u.id === userId);
+  },
+
+  // Push Notifications
+  fetchPushSubscriptions: async () => {
+    const { serverUrl, authToken } = get();
+    if (!authToken) return;
+    try {
+      const response = await fetch(`${serverUrl.replace(/\/$/, '')}/api/push/subscriptions`, {
+        headers: { 'Authorization': `Bearer ${authToken}` },
+      });
+      if (response.ok) {
+        const subs = await response.json();
+        set({ pushSubscriptions: subs });
+        console.log('[Push] Loaded', subs.length, 'existing subscription(s)');
+      }
+    } catch (error) {
+      console.error('[Store] Failed to fetch push subscriptions:', error);
+    }
   },
   
   // Bots implementation

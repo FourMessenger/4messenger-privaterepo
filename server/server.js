@@ -1349,6 +1349,92 @@ app.get('/api/push/subscriptions', authMiddleware, (req, res) => {
   }
 });
 
+// --- MUTED USERS ENDPOINTS ---
+
+// Get list of muted users
+app.get('/api/muted-users', authMiddleware, (req, res) => {
+  try {
+    const mutedUsers = dbAll(
+      `SELECT u.id, u.username, u.display_name, u.avatar, mu.created_at 
+       FROM muted_users mu
+       JOIN users u ON mu.muted_user_id = u.id
+       WHERE mu.user_id = ?
+       ORDER BY mu.created_at DESC`,
+      [req.user.id]
+    );
+    res.json(mutedUsers);
+  } catch (err) {
+    console.error('[MUTE] Failed to get muted users:', err.message);
+    res.status(500).json({ error: 'Failed to get muted users' });
+  }
+});
+
+// Mute a user (block notifications from them)
+app.post('/api/muted-users/:userId', authMiddleware, (req, res) => {
+  const mutedUserId = req.params.userId;
+  
+  if (!mutedUserId) {
+    return res.status(400).json({ error: 'User ID required' });
+  }
+  
+  if (mutedUserId === req.user.id) {
+    return res.status(400).json({ error: 'Cannot mute yourself' });
+  }
+
+  try {
+    // Check if user exists
+    const user = dbGet('SELECT id FROM users WHERE id = ?', [mutedUserId]);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if already muted
+    const existing = dbGet('SELECT * FROM muted_users WHERE user_id = ? AND muted_user_id = ?', [req.user.id, mutedUserId]);
+    if (existing) {
+      return res.status(400).json({ error: 'User already muted' });
+    }
+
+    dbRun(
+      'INSERT INTO muted_users (user_id, muted_user_id, created_at) VALUES (?, ?, ?)',
+      [req.user.id, mutedUserId, Date.now()]
+    );
+    saveDatabase();
+    
+    console.log(`[MUTE] User ${req.user.id} muted ${mutedUserId}`);
+    res.json({ success: true, mutedUserId });
+  } catch (err) {
+    console.error('[MUTE] Failed to mute user:', err.message);
+    res.status(500).json({ error: 'Failed to mute user' });
+  }
+});
+
+// Unmute a user (resume notifications from them)
+app.delete('/api/muted-users/:userId', authMiddleware, (req, res) => {
+  const mutedUserId = req.params.userId;
+  
+  if (!mutedUserId) {
+    return res.status(400).json({ error: 'User ID required' });
+  }
+
+  try {
+    const result = dbRun(
+      'DELETE FROM muted_users WHERE user_id = ? AND muted_user_id = ?',
+      [req.user.id, mutedUserId]
+    );
+    
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'User not muted' });
+    }
+    
+    saveDatabase();
+    console.log(`[MUTE] User ${req.user.id} unmuted ${mutedUserId}`);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[MUTE] Failed to unmute user:', err.message);
+    res.status(500).json({ error: 'Failed to unmute user' });
+  }
+});
+
 // --- BOT ENDPOINTS ---
 app.get('/api/bots', authMiddleware, (req, res) => {
   const bots = dbAll(`SELECT id, username, display_name as displayName, avatar, bot_script as script, created_at FROM users WHERE is_bot = 1 AND owner_id = ?`, [req.user.id]);
@@ -2075,7 +2161,7 @@ app.post('/api/chats/:id/messages', authMiddleware, (req, res) => {
       badge: '/official.txt',
       requireInteraction: false
     };
-    sendPushNotifications(recipientIds, pushNotification).catch(err => {
+    sendPushNotifications(recipientIds, pushNotification, req.user.id).catch(err => {
       console.error('[PUSH] Error sending notifications:', err.message);
     });
   }
@@ -3648,7 +3734,7 @@ function broadcastToAll(data) {
 }
 
 // Send push notifications to offline users
-async function sendPushNotifications(recipientUserIds, notification) {
+async function sendPushNotifications(recipientUserIds, notification, senderId = null) {
   if (!webpush) {
     console.warn('[PUSH] web-push not available, skipping push notifications');
     return;
@@ -3659,10 +3745,24 @@ async function sendPushNotifications(recipientUserIds, notification) {
     const userIds = Array.isArray(recipientUserIds) ? recipientUserIds : [recipientUserIds];
     let totalSent = 0;
     let totalFailed = 0;
+    let totalMuted = 0;
     
     console.log(`[PUSH] Attempting to send notifications to ${userIds.length} user(s): ${userIds.join(', ')}`);
     
     for (const userId of userIds) {
+      // Check if sender is muted by this user
+      if (senderId) {
+        const isMuted = dbGet(
+          'SELECT 1 FROM muted_users WHERE user_id = ? AND muted_user_id = ?',
+          [userId, senderId]
+        );
+        if (isMuted) {
+          console.log(`[PUSH] ⊘ Skipped ${userId} (sender ${senderId} is muted)`);
+          totalMuted++;
+          continue;
+        }
+      }
+
       // Get all subscriptions for this user
       const subscriptions = dbAll(
         'SELECT endpoint, auth_key, p256dh_key FROM push_subscriptions WHERE user_id = ?',
@@ -3705,7 +3805,7 @@ async function sendPushNotifications(recipientUserIds, notification) {
       }
     }
     
-    console.log(`[PUSH] Summary: ${totalSent} sent, ${totalFailed} failed`);
+    console.log(`[PUSH] Summary: ${totalSent} sent, ${totalFailed} failed, ${totalMuted} muted`);
     if (totalSent > 0) saveDatabase();
   } catch (err) {
     console.error('[PUSH] Error in sendPushNotifications:', err.message);
@@ -4293,6 +4393,19 @@ async function startServer() {
       )
     `);
 
+    // Muted users (users who don't want notifications from specific users)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS muted_users (
+        user_id TEXT NOT NULL,
+        muted_user_id TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY (user_id, muted_user_id),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (muted_user_id) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE(user_id, muted_user_id)
+      )
+    `);
+
     // Create indexes
     db.run('CREATE INDEX IF NOT EXISTS idx_messages_chat ON messages(chat_id)');
     db.run('CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id)');
@@ -4304,6 +4417,8 @@ async function startServer() {
     db.run('CREATE INDEX IF NOT EXISTS idx_login_history_time ON login_history(login_time)');
     db.run('CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id)');
     db.run('CREATE INDEX IF NOT EXISTS idx_push_subscriptions_endpoint ON push_subscriptions(endpoint)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_muted_users ON muted_users(user_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_muted_by ON muted_users(muted_user_id)');
 
     console.log('[DB] Database initialized successfully');
 

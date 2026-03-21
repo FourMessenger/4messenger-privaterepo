@@ -94,7 +94,22 @@ export function App() {
 
   // Set up push notifications when user is authenticated
   useEffect(() => {
-    if (!authToken || !serverUrl || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+    if (!authToken || !serverUrl) {
+      return;
+    }
+
+    // Fetch existing subscriptions and muted users on login
+    const fetchNotificationSettings = async () => {
+      await Promise.all([
+        useStore.getState().fetchPushSubscriptions(),
+        useStore.getState().fetchMutedUsers(),
+      ]);
+    };
+
+    fetchNotificationSettings();
+
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      console.log('[Push] Service Worker or PushManager not available');
       return;
     }
 
