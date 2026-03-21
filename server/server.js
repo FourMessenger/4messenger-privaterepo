@@ -1265,6 +1265,16 @@ app.put('/api/users/me/password', authMiddleware, (req, res) => {
 
 // --- PUSH NOTIFICATION ENDPOINTS ---
 
+// Get VAPID public key (needed for browser to subscribe to push)
+app.get('/api/push/vapid-key', (req, res) => {
+  if (!webpush || !config.push || !config.push.vapidPublicKey) {
+    return res.status(503).json({ error: 'Push notifications not available' });
+  }
+  res.json({ 
+    vapidPublicKey: config.push.vapidPublicKey 
+  });
+});
+
 // Subscribe to push notifications
 app.post('/api/push/subscribe', authMiddleware, (req, res) => {
   if (!webpush) {
@@ -3639,12 +3649,18 @@ function broadcastToAll(data) {
 
 // Send push notifications to offline users
 async function sendPushNotifications(recipientUserIds, notification) {
-  if (!webpush) return;
+  if (!webpush) {
+    console.warn('[PUSH] web-push not available, skipping push notifications');
+    return;
+  }
 
   try {
     // Ensure it's an array
     const userIds = Array.isArray(recipientUserIds) ? recipientUserIds : [recipientUserIds];
     let totalSent = 0;
+    let totalFailed = 0;
+    
+    console.log(`[PUSH] Attempting to send notifications to ${userIds.length} user(s): ${userIds.join(', ')}`);
     
     for (const userId of userIds) {
       // Get all subscriptions for this user
@@ -3652,6 +3668,8 @@ async function sendPushNotifications(recipientUserIds, notification) {
         'SELECT endpoint, auth_key, p256dh_key FROM push_subscriptions WHERE user_id = ?',
         [userId]
       );
+      
+      console.log(`[PUSH] User ${userId} has ${subscriptions.length} active subscription(s)`);
 
       // Send to each subscription
       for (const sub of subscriptions) {
@@ -3667,6 +3685,7 @@ async function sendPushNotifications(recipientUserIds, notification) {
           // Send push notification
           await webpush.sendNotification(pushSubscription, JSON.stringify(notification));
           totalSent++;
+          console.log(`[PUSH] ✓ Successfully sent notification to ${userId}`);
           
           // Update last used timestamp
           dbRun(
@@ -3674,19 +3693,22 @@ async function sendPushNotifications(recipientUserIds, notification) {
             [Date.now(), sub.endpoint]
           );
         } catch (err) {
+          totalFailed++;
           if (err.statusCode === 410 || err.statusCode === 404) {
             // Subscription is no longer valid, remove it
+            console.warn(`[PUSH] ✗ Subscription expired (${err.statusCode}), removing endpoint`);
             dbRun('DELETE FROM push_subscriptions WHERE endpoint = ?', [sub.endpoint]);
           } else {
-            console.warn(`[PUSH] Failed to send to ${userId}:`, err.message);
+            console.error(`[PUSH] ✗ Failed to send to ${userId}: (${err.statusCode || 'Unknown'}) ${err.message}`);
           }
         }
       }
     }
     
+    console.log(`[PUSH] Summary: ${totalSent} sent, ${totalFailed} failed`);
     if (totalSent > 0) saveDatabase();
   } catch (err) {
-    console.error('[PUSH] Error sending push notifications:', err.message);
+    console.error('[PUSH] Error in sendPushNotifications:', err.message);
   }
 }
 

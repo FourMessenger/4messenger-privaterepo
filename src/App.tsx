@@ -124,16 +124,34 @@ export function App() {
           return;
         }
 
+        // Fetch VAPID public key from server
+        const apiUrl = serverUrl.replace(/\/$/, '');
+        let vapidPublicKey = '';
+        try {
+          const vapidResponse = await fetch(`${apiUrl}/api/push/vapid-key`);
+          if (vapidResponse.ok) {
+            const vapidData = await vapidResponse.json();
+            vapidPublicKey = vapidData.vapidPublicKey;
+            console.log('[Push] Retrieved VAPID public key from server');
+          } else {
+            console.warn('[Push] Failed to retrieve VAPID public key');
+          }
+        } catch (err) {
+          console.warn('[Push] Could not fetch VAPID key:', err);
+        }
+
+        // Convert VAPID public key string to Uint8Array
+        const applicationServerKey = vapidPublicKey ? 
+          new Uint8Array(atob(vapidPublicKey.replace(/-/g, '+').replace(/_/g, '/')).split('').map(c => c.charCodeAt(0))) :
+          undefined;
+
         // Subscribe to push notifications
-        // Note: In production, you'd get the VAPID public key from your server config
         const subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
-          // VAPID public key - this should be configured in your server
-          // For now, we'll allow the browser to handle it without VAPID
+          applicationServerKey: applicationServerKey,
         });
 
         // Send subscription to server
-        const apiUrl = serverUrl.replace(/\/$/, '');
         const response = await fetch(`${apiUrl}/api/push/subscribe`, {
           method: 'POST',
           headers: {
