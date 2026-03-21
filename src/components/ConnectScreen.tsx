@@ -280,11 +280,12 @@ export function ConnectScreen() {
             </div>
             <div className="space-y-2">
               {serverShortcuts.map((shortcut) => (
-                <button
+                <div
                   key={shortcut.id}
-                  onClick={() => handleShortcutClick(shortcut)}
-                  disabled={connecting}
-                  className={`group w-full flex items-center gap-3 rounded-xl border p-3 text-left transition disabled:opacity-50 ${
+                  onClick={() => !connecting && handleShortcutClick(shortcut)}
+                  className={`group w-full flex items-center gap-3 rounded-xl border p-3 text-left transition cursor-pointer ${
+                    connecting ? 'opacity-50 cursor-not-allowed' : ''
+                  } ${
                     isDarkTheme
                       ? 'border-white/10 bg-white/5 hover:bg-white/10 hover:border-indigo-500/30'
                       : 'border-gray-300 bg-white/70 hover:bg-white hover:border-indigo-400/50'
@@ -310,7 +311,7 @@ export function ConnectScreen() {
                       <X className="h-4 w-4" />
                     </button>
                   )}
-                </button>
+                </div>
               ))}
             </div>
           </div>
