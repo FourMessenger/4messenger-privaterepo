@@ -51,6 +51,23 @@ try { WebSocket = require('ws'); } catch { console.error('Missing: npm install w
 try { initSqlJs = require('sql.js'); } catch { console.error('Missing: npm install sql.js'); process.exit(1); }
 try { nodemailer = require('nodemailer'); } catch { console.warn('[WARN] nodemailer not installed, email disabled'); }
 try { const { v4 } = require('uuid'); uuidv4 = v4; } catch { uuidv4 = () => crypto.randomUUID(); }
+let webpush;
+try { webpush = require('web-push'); } catch { console.warn('[WARN] web-push not installed, push notifications disabled'); }
+
+// Initialize VAPID keys for push notifications
+if (webpush && config.push && config.push.enabled && config.push.vapidPublicKey && config.push.vapidPrivateKey) {
+  try {
+    webpush.setVapidDetails(
+      config.push.vapidSubject || 'mailto:admin@4messenger.com',
+      config.push.vapidPublicKey,
+      config.push.vapidPrivateKey
+    );
+    console.log('[PUSH] VAPID keys configured successfully');
+  } catch (err) {
+    console.warn('[PUSH] Failed to set VAPID details:', err.message);
+  }
+}
+
 const { spawn } = require('child_process');
 
 // ─── Ensure Directories ────────────────────────────────────
@@ -1246,6 +1263,82 @@ app.put('/api/users/me/password', authMiddleware, (req, res) => {
   res.json({ success: true });
 });
 
+// --- PUSH NOTIFICATION ENDPOINTS ---
+
+// Subscribe to push notifications
+app.post('/api/push/subscribe', authMiddleware, (req, res) => {
+  if (!webpush) {
+    return res.status(503).json({ error: 'Push notifications not available' });
+  }
+
+  const { subscription } = req.body;
+  if (!subscription || !subscription.endpoint || !subscription.keys) {
+    return res.status(400).json({ error: 'Invalid subscription data' });
+  }
+
+  try {
+    const id = uuidv4();
+    const { endpoint, keys } = subscription;
+    const { auth, p256dh } = keys;
+
+    // Check if already exists
+    const existing = dbGet('SELECT id FROM push_subscriptions WHERE endpoint = ?', [endpoint]);
+    
+    if (existing) {
+      // Update existing subscription
+      dbRun(
+        'UPDATE push_subscriptions SET user_id = ?, created_at = ? WHERE endpoint = ?',
+        [req.user.id, Date.now(), endpoint]
+      );
+    } else {
+      // Insert new subscription
+      dbRun(
+        `INSERT INTO push_subscriptions (id, user_id, endpoint, auth_key, p256dh_key, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [id, req.user.id, endpoint, auth, p256dh, Date.now()]
+      );
+    }
+    
+    saveDatabase();
+
+    res.json({ success: true, subscriptionId: id });
+  } catch (err) {
+    console.error('[PUSH] Failed to subscribe:', err.message);
+    res.status(500).json({ error: 'Failed to subscribe to push notifications' });
+  }
+});
+
+// Unsubscribe from push notifications
+app.post('/api/push/unsubscribe', authMiddleware, (req, res) => {
+  const { endpoint } = req.body;
+  if (!endpoint) {
+    return res.status(400).json({ error: 'Endpoint required' });
+  }
+
+  try {
+    dbRun('DELETE FROM push_subscriptions WHERE user_id = ? AND endpoint = ?', [req.user.id, endpoint]);
+    saveDatabase();
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[PUSH] Failed to unsubscribe:', err.message);
+    res.status(500).json({ error: 'Failed to unsubscribe' });
+  }
+});
+
+// Get user's push subscriptions
+app.get('/api/push/subscriptions', authMiddleware, (req, res) => {
+  try {
+    const subscriptions = dbAll(
+      'SELECT id, endpoint, created_at FROM push_subscriptions WHERE user_id = ?',
+      [req.user.id]
+    );
+    res.json(subscriptions);
+  } catch (err) {
+    console.error('[PUSH] Failed to get subscriptions:', err.message);
+    res.status(500).json({ error: 'Failed to get subscriptions' });
+  }
+});
+
 // --- BOT ENDPOINTS ---
 app.get('/api/bots', authMiddleware, (req, res) => {
   const bots = dbAll(`SELECT id, username, display_name as displayName, avatar, bot_script as script, created_at FROM users WHERE is_bot = 1 AND owner_id = ?`, [req.user.id]);
@@ -1958,6 +2051,24 @@ app.post('/api/chats/:id/messages', authMiddleware, (req, res) => {
   });
 
   res.status(201).json(message);
+  
+  // Send push notifications to offline members asynchronously (don't block response)
+  const recipientIds = members.map(m => m.user_id).filter(id => id !== req.user.id);
+  if (recipientIds.length > 0) {
+    const pushNotification = {
+      type: 'message',
+      title: `New message from ${req.user.display_name || req.user.username}`,
+      body: content && content.substring(0, 100) || '[File/Media]',
+      chatId: chatId,
+      senderId: req.user.id,
+      tag: chatId, // Group notifications by chat
+      badge: '/official.txt',
+      requireInteraction: false
+    };
+    sendPushNotifications(recipientIds, pushNotification).catch(err => {
+      console.error('[PUSH] Error sending notifications:', err.message);
+    });
+  }
   
   // Run Custom Bots if any
   try {
@@ -3526,6 +3637,59 @@ function broadcastToAll(data) {
   });
 }
 
+// Send push notifications to offline users
+async function sendPushNotifications(recipientUserIds, notification) {
+  if (!webpush) return;
+
+  try {
+    // Ensure it's an array
+    const userIds = Array.isArray(recipientUserIds) ? recipientUserIds : [recipientUserIds];
+    let totalSent = 0;
+    
+    for (const userId of userIds) {
+      // Get all subscriptions for this user
+      const subscriptions = dbAll(
+        'SELECT endpoint, auth_key, p256dh_key FROM push_subscriptions WHERE user_id = ?',
+        [userId]
+      );
+
+      // Send to each subscription
+      for (const sub of subscriptions) {
+        try {
+          const pushSubscription = {
+            endpoint: sub.endpoint,
+            keys: {
+              auth: sub.auth_key,
+              p256dh: sub.p256dh_key,
+            },
+          };
+
+          // Send push notification
+          await webpush.sendNotification(pushSubscription, JSON.stringify(notification));
+          totalSent++;
+          
+          // Update last used timestamp
+          dbRun(
+            'UPDATE push_subscriptions SET last_used = ? WHERE endpoint = ?',
+            [Date.now(), sub.endpoint]
+          );
+        } catch (err) {
+          if (err.statusCode === 410 || err.statusCode === 404) {
+            // Subscription is no longer valid, remove it
+            dbRun('DELETE FROM push_subscriptions WHERE endpoint = ?', [sub.endpoint]);
+          } else {
+            console.warn(`[PUSH] Failed to send to ${userId}:`, err.message);
+          }
+        }
+      }
+    }
+    
+    if (totalSent > 0) saveDatabase();
+  } catch (err) {
+    console.error('[PUSH] Error sending push notifications:', err.message);
+  }
+}
+
 wss.on('connection', (ws, req) => {
   let userId = null;
 
@@ -4093,6 +4257,20 @@ async function startServer() {
       )
     `);
 
+    // Push notification subscriptions
+    db.run(`
+      CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        endpoint TEXT NOT NULL UNIQUE,
+        auth_key TEXT NOT NULL,
+        p256dh_key TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        last_used INTEGER,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
     // Create indexes
     db.run('CREATE INDEX IF NOT EXISTS idx_messages_chat ON messages(chat_id)');
     db.run('CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id)');
@@ -4102,6 +4280,8 @@ async function startServer() {
     db.run('CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp)');
     db.run('CREATE INDEX IF NOT EXISTS idx_login_history_user ON login_history(user_id)');
     db.run('CREATE INDEX IF NOT EXISTS idx_login_history_time ON login_history(login_time)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_push_subscriptions_endpoint ON push_subscriptions(endpoint)');
 
     console.log('[DB] Database initialized successfully');
 

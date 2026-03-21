@@ -241,3 +241,5 @@ Before deploying to production:
 ## License
 
 MIT
+
+Thank you for every one who use it!
