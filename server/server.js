@@ -53,6 +53,21 @@ try { nodemailer = require('nodemailer'); } catch { console.warn('[WARN] nodemai
 try { const { v4 } = require('uuid'); uuidv4 = v4; } catch { uuidv4 = () => crypto.randomUUID(); }
 let webpush;
 try { webpush = require('web-push'); } catch { console.warn('[WARN] web-push not installed, push notifications disabled'); }
+
+// Initialize VAPID keys for push notifications
+if (webpush && config.push && config.push.enabled && config.push.vapidPublicKey && config.push.vapidPrivateKey) {
+  try {
+    webpush.setVapidDetails(
+      config.push.vapidSubject || 'mailto:admin@4messenger.com',
+      config.push.vapidPublicKey,
+      config.push.vapidPrivateKey
+    );
+    console.log('[PUSH] VAPID keys configured successfully');
+  } catch (err) {
+    console.warn('[PUSH] Failed to set VAPID details:', err.message);
+  }
+}
+
 const { spawn } = require('child_process');
 
 // ─── Ensure Directories ────────────────────────────────────
@@ -3629,6 +3644,7 @@ async function sendPushNotifications(recipientUserIds, notification) {
   try {
     // Ensure it's an array
     const userIds = Array.isArray(recipientUserIds) ? recipientUserIds : [recipientUserIds];
+    let totalSent = 0;
     
     for (const userId of userIds) {
       // Get all subscriptions for this user
@@ -3650,6 +3666,7 @@ async function sendPushNotifications(recipientUserIds, notification) {
 
           // Send push notification
           await webpush.sendNotification(pushSubscription, JSON.stringify(notification));
+          totalSent++;
           
           // Update last used timestamp
           dbRun(
@@ -3667,7 +3684,7 @@ async function sendPushNotifications(recipientUserIds, notification) {
       }
     }
     
-    if (subscriptions.length > 0) saveDatabase();
+    if (totalSent > 0) saveDatabase();
   } catch (err) {
     console.error('[PUSH] Error sending push notifications:', err.message);
   }
