@@ -14,6 +14,9 @@ export function App() {
   const callState = useStore(s => s.callState);
   const appearance = useStore(s => s.appearance);
   const restoreSession = useStore(s => s.restoreSession);
+  const setActiveChat = useStore(s => s.setActiveChat);
+  const authToken = useStore(s => s.authToken);
+  const serverUrl = useStore(s => s.serverUrl);
   const [isRestoring, setIsRestoring] = useState(true);
 
   // Try to restore session on mount
@@ -89,7 +92,91 @@ export function App() {
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, [appearance]);
 
-  // Show loading screen while restoring session
+  // Set up push notifications when user is authenticated
+  useEffect(() => {
+    if (!authToken || !serverUrl || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+      return;
+    }
+
+    const setupPushNotifications = async () => {
+      try {
+        // Request notification permission if not already granted
+        if (Notification.permission === 'default') {
+          const permission = await Notification.requestPermission();
+          if (permission !== 'granted') {
+            console.log('[Push] Notification permission denied');
+            return;
+          }
+        }
+
+        if (Notification.permission !== 'granted') {
+          console.log('[Push] Notifications not permitted');
+          return;
+        }
+
+        // Get service worker registration
+        const registration = await navigator.serviceWorker.ready;
+
+        // Check if already subscribed
+        const existingSubscription = await registration.pushManager.getSubscription();
+        if (existingSubscription) {
+          console.log('[Push] Already subscribed to push notifications');
+          return;
+        }
+
+        // Subscribe to push notifications
+        // Note: In production, you'd get the VAPID public key from your server config
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          // VAPID public key - this should be configured in your server
+          // For now, we'll allow the browser to handle it without VAPID
+        });
+
+        // Send subscription to server
+        const apiUrl = serverUrl.replace(/\/$/, '');
+        const response = await fetch(`${apiUrl}/api/push/subscribe`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`,
+          },
+          body: JSON.stringify({ subscription: subscription.toJSON() }),
+        });
+
+        if (response.ok) {
+          console.log('[Push] Successfully subscribed to push notifications');
+          // Store subscription locally for reference
+          localStorage.setItem('4messenger-push-subscription', JSON.stringify(subscription.toJSON()));
+        } else {
+          console.log('[Push] Failed to register subscription with server');
+        }
+      } catch (error) {
+        console.error('[Push] Failed to set up push notifications:', error);
+      }
+    };
+
+    setupPushNotifications();
+  }, [authToken, serverUrl]);
+
+  // Listen for notification clicks from service worker
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+
+    const handleServiceWorkerMessage = (event: MessageEvent) => {
+      const { type, chatId } = event.data;
+      if (type === 'NOTIFICATION_CLICKED' && chatId) {
+        console.log('[Push] Navigating to chat:', chatId);
+        setActiveChat(chatId);
+      }
+    };
+
+    navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
+    return () => {
+      navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
+    };
+  }, [setActiveChat]);
+
+
   if (isRestoring) {
     return (
       <div className="min-h-screen w-full bg-gray-900 flex items-center justify-center">

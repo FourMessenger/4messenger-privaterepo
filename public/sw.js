@@ -1,7 +1,8 @@
 // Service Worker for 4 Messenger
 // Enables notifications even when the app tab is closed
+// Supports push notifications via Web Push API
 
-const CACHE_NAME = '4messenger-v1';
+const CACHE_NAME = '4messenger-v2';
 const NOTIFICATION_TAG = '4messenger-notification';
 
 // Install event - cache essential files
@@ -25,6 +26,70 @@ self.addEventListener('activate', (event) => {
     })
   );
   self.clients.claim();
+});
+
+// Handle push notifications (server sends these even when tab is closed)
+self.addEventListener('push', (event) => {
+  console.log('[SW] Push event received');
+  
+  try {
+    let notificationData = {
+      title: '4 Messenger',
+      options: {
+        badge: '/official.txt',
+        icon: '/official.txt',
+        requireInteraction: false,
+      }
+    };
+
+    if (event.data) {
+      try {
+        const data = event.data.json();
+        notificationData.title = data.title || '4 Messenger';
+        notificationData.options = {
+          body: data.body || 'New message',
+          badge: data.badge || '/official.txt',
+          icon: data.icon || '/official.txt',
+          tag: data.tag || NOTIFICATION_TAG,
+          data: {
+            chatId: data.chatId,
+            senderId: data.senderId,
+            timestamp: Date.now()
+          },
+          requireInteraction: data.requireInteraction || false,
+        };
+      } catch (e) {
+        // If not JSON, treat as plain text
+        notificationData.options.body = event.data.text();
+      }
+    }
+
+    event.waitUntil(
+      self.registration.showNotification(notificationData.title, notificationData.options)
+    );
+  } catch (error) {
+    console.error('[SW] Failed to handle push event:', error);
+  }
+});
+
+// Handle push subscription errors
+self.addEventListener('pushsubscriptionchange', (event) => {
+  console.log('[SW] Push subscription changed');
+  event.waitUntil(
+    self.registration.pushManager
+      .subscribe({ userVisibleOnly: true })
+      .then((subscription) => {
+        // Send new subscription to the server
+        return fetch('/api/push/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subscription })
+        });
+      })
+      .catch((err) => {
+        console.error('[SW] Failed to resubscribe to push:', err);
+      })
+  );
 });
 
 // Handle messages from clients (the app)
