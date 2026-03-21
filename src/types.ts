@@ -76,6 +76,24 @@ export interface Chat {
   unreadCount: number;
 }
 
+// Notification preferences for individual chats
+export interface ChatNotificationPreference {
+  chatId: string;
+  soundEnabled?: boolean;        // Override global setting
+  desktopEnabled?: boolean;      // Override global setting
+  badgeEnabled?: boolean;        // Show unread badge
+  mutedUntil: 0 | -1 | number;  // 0=unmuted, -1=forever, else=timestamp when mute expires
+}
+
+// Global notification preferences with DND scheduling
+export interface NotificationPreferences {
+  chatPreferences: Record<string, ChatNotificationPreference>;
+  dndEnabled: boolean;           // Do Not Disturb
+  dndStart: number;              // minutes from midnight (e.g., 22*60 = 10pm)
+  dndEnd: number;                // minutes from midnight (e.g., 8*60 = 8am)
+  serverMuted: boolean;          // Mute all notifications from server
+}
+
 export interface ServerConfig {
   emailVerification: boolean;
   serverPassword: string;

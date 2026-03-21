@@ -5,7 +5,7 @@ import {
   Send, Paperclip, Smile, Phone, Video, MoreVertical, Image,
   Edit2, Trash2, ChevronLeft, Shield, Crown, UserPlus, X,
   Lock, Menu, Info, FileText, Download, Play, Music, Film,
-  Mic, Square, BarChart2, Check, Bot
+  Mic, Square, BarChart2, Check, Bot, Bell, BellOff
 } from 'lucide-react';
 import { MediaViewer } from './MediaViewer';
 import { UserSettings } from './UserSettings';
@@ -144,8 +144,9 @@ export function ChatScreen() {
     setActiveChat, sendMessage, editMessage, deleteMessage, createDirectChat,
     createGroup, leaveGroup, addToGroup, removeFromGroup,
     startCall, toggleSidebar, setShowChatInfo, setShowNewChat, setShowNewGroup,
-    setSearchQuery, setScreen, logout, decryptMessage, markAsRead,
+    setSearchQuery, setScreen, logout, leaveServer, decryptMessage, markAsRead,
     searchUsers, fetchUsers, appearance, chatKeys, e2eeKeyPair,
+    isChatMuted, muteChat, unmuteChat, addNotification,
   } = useStore();
   
   const makeChannelAdmin = useStore(s => s.makeChannelAdmin);
@@ -172,6 +173,7 @@ export function ChatScreen() {
   } | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showLogoutMenu, setShowLogoutMenu] = useState(false);
   const [youtubePlayer, setYoutubePlayer] = useState<string | null>(null);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [savedStickers, setSavedStickers] = useState<string[]>([]);
@@ -194,6 +196,7 @@ export function ChatScreen() {
   const [editChatDescription, setEditChatDescription] = useState('');
   const [editChatAvatar, setEditChatAvatar] = useState<string | null>(null);
   const [savingChatSettings, setSavingChatSettings] = useState(false);
+  const [showMuteMenu, setShowMuteMenu] = useState(false);
   const chatAvatarInputRef = useRef<HTMLInputElement>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -771,9 +774,47 @@ export function ChatScreen() {
                 <Crown className="h-5 w-5" />
               </button>
             )}
-            <button onClick={logout} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-red-400" title="Logout">
-              <LogOut className="h-5 w-5" />
-            </button>
+            <div className="relative">
+              <button 
+                onClick={() => setShowLogoutMenu(!showLogoutMenu)} 
+                className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-red-400" 
+                title="Server or Logout"
+              >
+                <LogOut className="h-5 w-5" />
+              </button>
+              
+              {showLogoutMenu && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowLogoutMenu(false)}
+                  />
+                  <div className="absolute right-0 mt-2 z-50 w-48 rounded-lg border border-white/10 bg-gray-800 shadow-xl overflow-hidden">
+                    <button
+                      onClick={() => {
+                        leaveServer();
+                        setShowLogoutMenu(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-4 py-3 text-sm text-gray-300 hover:bg-white/10 transition text-left"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Leave Server
+                    </button>
+                    <div className="border-t border-white/10" />
+                    <button
+                      onClick={() => {
+                        logout();
+                        setShowLogoutMenu(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition text-left"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Logout
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
@@ -937,6 +978,79 @@ export function ChatScreen() {
                       : 'E2EE off'}
                   </div>
                 )}
+                <div className="relative">
+                  <button 
+                    onClick={() => setShowMuteMenu(!showMuteMenu)} 
+                    className={`rounded-lg p-2 transition ${
+                      activeChat && isChatMuted(activeChat)
+                        ? 'bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30'
+                        : 'text-gray-400 hover:bg-white/10 hover:text-white'
+                    }`}
+                    title={activeChat && isChatMuted(activeChat) ? 'Chat muted' : 'Mute chat'}
+                  >
+                    {activeChat && isChatMuted(activeChat) ? <BellOff className="h-5 w-5" /> : <Bell className="h-5 w-5" />}
+                  </button>
+                  
+                  {showMuteMenu && activeChat && (
+                    <div className="absolute right-0 top-12 z-50 rounded-lg border border-white/10 bg-gray-800 shadow-xl py-1 min-w-[180px]">
+                      {isChatMuted(activeChat) ? (
+                        <button
+                          onClick={() => {
+                            unmuteChat(activeChat);
+                            setShowMuteMenu(false);
+                            addNotification('Chat unmuted', 'success');
+                          }}
+                          className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-white/10"
+                        >
+                          <Bell className="h-4 w-4" /> Unmute chat
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => {
+                              muteChat(activeChat, 60);
+                              setShowMuteMenu(false);
+                              addNotification('Chat muted for 1 hour', 'success');
+                            }}
+                            className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-white/10"
+                          >
+                            Mute 1 hour
+                          </button>
+                          <button
+                            onClick={() => {
+                              muteChat(activeChat, 480);
+                              setShowMuteMenu(false);
+                              addNotification('Chat muted for 8 hours', 'success');
+                            }}
+                            className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-white/10"
+                          >
+                            Mute 8 hours
+                          </button>
+                          <button
+                            onClick={() => {
+                              muteChat(activeChat, 1440);
+                              setShowMuteMenu(false);
+                              addNotification('Chat muted for 24 hours', 'success');
+                            }}
+                            className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-white/10"
+                          >
+                            Mute 24 hours
+                          </button>
+                          <button
+                            onClick={() => {
+                              muteChat(activeChat, 0);
+                              setShowMuteMenu(false);
+                              addNotification('Chat muted forever', 'success');
+                            }}
+                            className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-white/10"
+                          >
+                            Mute forever
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <button onClick={() => startCall(chat.id, 'voice')} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-white" title="Voice call">
                   <Phone className="h-5 w-5" />
                 </button>

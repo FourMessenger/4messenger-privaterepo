@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { User, Message, Chat, ServerConfig, CallState, AppScreen, UserRole } from './types';
+import type { User, Message, Chat, ServerConfig, CallState, AppScreen, UserRole, ChatNotificationPreference, NotificationPreferences } from './types';
 import { type Language, getTranslation } from './translations';
 import { E2EE } from './e2ee';
 
@@ -173,6 +173,35 @@ const savePrivacyPolicyAcceptance = () => {
   }
 };
 
+// Notification preferences storage
+const defaultNotificationPreferences: NotificationPreferences = {
+  chatPreferences: {},
+  dndEnabled: false,
+  dndStart: 22 * 60,  // 10 PM
+  dndEnd: 8 * 60,     // 8 AM
+  serverMuted: false,
+};
+
+const loadNotificationPreferences = (): NotificationPreferences => {
+  try {
+    const saved = localStorage.getItem('4messenger-notification-prefs');
+    if (saved) {
+      return { ...defaultNotificationPreferences, ...JSON.parse(saved) };
+    }
+  } catch (e) {
+    console.error('Failed to load notification preferences:', e);
+  }
+  return defaultNotificationPreferences;
+};
+
+const saveNotificationPreferences = (prefs: NotificationPreferences) => {
+  try {
+    localStorage.setItem('4messenger-notification-prefs', JSON.stringify(prefs));
+  } catch (e) {
+    console.error('Failed to save notification preferences:', e);
+  }
+};
+
 // Session persistence
 interface SavedSession {
   serverUrl: string;
@@ -212,6 +241,45 @@ const clearSession = () => {
     localStorage.removeItem('4messenger-session');
   } catch (e) {
     console.error('Failed to clear session:', e);
+  }
+};
+
+// Cookie utilities for WS token (auto-login)
+const saveWsTokenToCookie = (serverUrl: string, token: string, user: User) => {
+  try {
+    const wsTokenData = { token, user, timestamp: Date.now() };
+    // Use server URL as key in localStorage (simulating cookie behavior)
+    const serverKey = `4messenger-ws-token-${btoa(serverUrl)}`;
+    localStorage.setItem(serverKey, JSON.stringify(wsTokenData));
+  } catch (e) {
+    console.error('Failed to save WS token:', e);
+  }
+};
+
+const loadWsTokenFromCookie = (serverUrl: string): { token: string; user: User } | null => {
+  try {
+    const serverKey = `4messenger-ws-token-${btoa(serverUrl)}`;
+    const saved = localStorage.getItem(serverKey);
+    if (saved) {
+      const data = JSON.parse(saved) as { token: string; user: User; timestamp: number };
+      // Token expires after 30 days
+      if (Date.now() - data.timestamp < 30 * 24 * 60 * 60 * 1000) {
+        return { token: data.token, user: data.user };
+      }
+      localStorage.removeItem(serverKey);
+    }
+  } catch (e) {
+    console.error('Failed to load WS token:', e);
+  }
+  return null;
+};
+
+const clearWsTokenFromCookie = (serverUrl: string) => {
+  try {
+    const serverKey = `4messenger-ws-token-${btoa(serverUrl)}`;
+    localStorage.removeItem(serverKey);
+  } catch (e) {
+    console.error('Failed to clear WS token:', e);
   }
 };
 
@@ -267,6 +335,7 @@ interface AppState {
   typingUsers: Record<string, string[]>;
   notifications: Array<{ id: string; text: string; type: 'success' | 'error' | 'info' }>;
   appearance: AppearanceSettings;
+  notificationPreferences: NotificationPreferences;
 
   // Actions
   setServerUrl: (url: string) => void;
@@ -276,6 +345,7 @@ interface AppState {
   login: (username: string, password: string) => Promise<boolean>;
   register: (username: string, email: string, password: string) => Promise<boolean>;
   logout: () => void;
+  leaveServer: () => void;
   verifyServerPassword: (password: string) => Promise<boolean>;
   verifyCaptcha: (answer: string) => Promise<boolean>;
   generateCaptcha: () => Promise<void>;
@@ -324,6 +394,16 @@ interface AppState {
   // Appearance
   setAppearance: (settings: Partial<AppearanceSettings>) => void;
   resetAppearance: () => void;
+  
+  // Notification Preferences
+  muteChat: (chatId: string, minutesToMute: number) => void;  // 0 = forever, >0 = minutes
+  unmuteChat: (chatId: string) => void;
+  isChatMuted: (chatId: string) => boolean;
+  toggleChatNotificationSound: (chatId: string) => void;
+  toggleChatDesktopNotification: (chatId: string) => void;
+  toggleServerMute: () => void;
+  isInDND: () => boolean;
+  setDND: (enabled: boolean, startHour: number, endHour: number) => void;
   
   // Server Shortcuts
   serverShortcuts: ServerShortcut[];
@@ -400,6 +480,7 @@ export const useStore = create<AppState>((set, get) => ({
   typingUsers: {},
   notifications: [],
   appearance: loadAppearance(),
+  notificationPreferences: loadNotificationPreferences(),
 
   setServerUrl: (url) => {
     // Normalize the URL: add protocol if missing, remove trailing slashes
@@ -503,7 +584,71 @@ export const useStore = create<AppState>((set, get) => ({
         },
       });
       
-      // If no password required and no captcha, go straight to login
+      // Check if we have a saved WS token for auto-login
+      const savedWsToken = loadWsTokenFromCookie(serverUrl);
+      if (savedWsToken) {
+        console.log('[Auto-Login] Found saved WS token, attempting auto-login...');
+        
+        try {
+          // Set initial state for auto-login
+          set({ 
+            currentUser: savedWsToken.user,
+            authToken: savedWsToken.token,
+            connected: true,
+            connecting: false,
+          });
+          
+          console.log('[Auto-Login] Fetching user data...');
+          
+          // Fetch initial data
+          await Promise.all([
+            get().fetchUsers(),
+            get().fetchChats(),
+            get().fetchBots(),
+          ]);
+          
+          console.log('[Auto-Login] Setting up encryption...');
+          
+          // Try to load encryption key store
+          const keyStoreExists = await E2EE.keyStoreExists();
+          if (keyStoreExists) {
+            try {
+              const chatsToLoad = get().chats;
+              for (const c of chatsToLoad) {
+                const existing = get().chatKeys[c.id];
+                if (!existing) {
+                  const loaded = await E2EE.loadChatKey(c.id);
+                  if (loaded) {
+                    set(s => ({ chatKeys: { ...s.chatKeys, [c.id]: loaded } }));
+                  }
+                }
+              }
+              console.log('[Auto-Login] Chat keys loaded');
+            } catch (e) {
+              console.warn('[Auto-Login] Failed to load chat keys:', e);
+            }
+          }
+          
+          console.log('[Auto-Login] Success, going to chat');
+          set({ screen: 'chat' });
+          get().addNotification(`Auto-logged in as ${savedWsToken.user.username}`, 'success');
+          return;
+        } catch (error) {
+          console.warn('[Auto-Login] Failed:', error);
+          // Clear the invalid token and fall through to normal login
+          clearWsTokenFromCookie(serverUrl);
+          
+          // Reset auth state
+          set({ 
+            currentUser: null,
+            authToken: null,
+            connected: false,
+            connecting: false,
+          });
+        }
+      }
+      
+      // No auto-login available, show normal login flow
       if (!serverInfo.requiresPassword && !serverInfo.captchaEnabled) {
         set({ screen: 'login' });
       } else {
@@ -608,6 +753,9 @@ export const useStore = create<AppState>((set, get) => ({
       
       // Save session for auto-login on page reload
       saveSession(serverUrl, data.token, data.user);
+      
+      // Save WS token to cookies for auto-login when rejoining same server
+      saveWsTokenToCookie(serverUrl, data.token, data.user);
       
       // Fetch initial data
       await Promise.all([
@@ -720,7 +868,12 @@ export const useStore = create<AppState>((set, get) => ({
                       };
                     });
 
-                    if (!isActiveChat && state.appearance.soundsEnabled) {
+                    // Play notification sound if enabled
+                    const isMuted = get().isChatMuted(chatId);
+                    const isInDND = get().isInDND();
+                    const shouldNotify = !isActiveChat && !isMuted && !isInDND && state.appearance.notificationsEnabled;
+
+                    if (shouldNotify && state.appearance.soundsEnabled) {
                       try {
                         const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbsGczHDdlj8XX3a1YMB04ZI3E1d2sWjIfOGWPxNXdrFoyHw==');
                         audio.volume = 0.3;
@@ -728,7 +881,16 @@ export const useStore = create<AppState>((set, get) => ({
                       } catch {}
                     }
 
-                    if (!isActiveChat && state.appearance.notificationsEnabled && document.hidden) {
+                    // Show in-app notification immediately
+                    if (shouldNotify) {
+                      const senderUser = state.users.find(u => u.id === senderId);
+                      const senderName = senderUser?.displayName || senderUser?.username || 'Someone';
+                      const preview = mappedMsg.type === 'text' ? mappedMsg.content.substring(0, 100) : `Sent a ${mappedMsg.type}`;
+                      get().addNotification(`${senderName}: ${preview}`, 'info');
+                    }
+
+                    // Show browser notification (works whenever tab is open or hidden)
+                    if (shouldNotify) {
                       try {
                         if (Notification.permission === 'granted') {
                           const senderUser = state.users.find(u => u.id === senderId);
@@ -736,6 +898,8 @@ export const useStore = create<AppState>((set, get) => ({
                           new Notification(`${senderName}`, {
                             body: mappedMsg.type === 'text' ? mappedMsg.content : `Sent a ${mappedMsg.type}`,
                             icon: senderUser?.avatar || undefined,
+                            tag: chatId,
+                            badge: senderUser?.avatar || undefined,
                           });
                         }
                       } catch {}
@@ -910,31 +1074,65 @@ export const useStore = create<AppState>((set, get) => ({
 
   logout: () => {
     // Close WebSocket connection
-    const { websocket } = get();
+    const { websocket, serverUrl } = get();
     if (websocket) {
       websocket.close();
     }
     
     // Clear saved session
     clearSession();
+    
+    // Clear WS token from cookies when logging out completely
+    if (serverUrl) {
+      clearWsTokenFromCookie(serverUrl);
+    }
+    
     // Do NOT clear encryption keys from IndexedDB - they are tied to this device.
     // But clear the in-memory key pair so it must be unlocked on next login.
     
     set({
       currentUser: null,
       authToken: null,
-      screen: 'connect',
+      screen: 'login',  // Go to login screen, not connect screen
       activeChat: null,
       users: [],
       chats: [],
       messages: [],
       allMessages: {},
       connected: false,
-      serverUrl: '',
       websocket: null,
       e2eeKeyPair: null,  // Clear in-memory key pair after logout
     });
     get().addNotification('Logged out successfully', 'info');
+  },
+
+  leaveServer: () => {
+    // Close WebSocket connection but keep session
+    const { websocket, serverUrl } = get();
+    if (websocket) {
+      websocket.close();
+    }
+    
+    // Save current auth token to cookies for auto-login
+    const { authToken, currentUser } = get();
+    if (authToken && currentUser && serverUrl) {
+      saveWsTokenToCookie(serverUrl, authToken, currentUser);
+    }
+    
+    set({
+      activeChat: null,
+      users: [],
+      chats: [],
+      messages: [],
+      allMessages: {},
+      connected: false,
+      websocket: null,
+      screen: 'connect',  // Go to server selection screen
+      currentUser: null,
+      authToken: null,
+      e2eeKeyPair: null,  // Clear in-memory key pair but keys stay in IndexedDB
+    });
+    get().addNotification('You have left the server. Your login token is saved for quick reconnection.', 'info');
   },
 
   verifyServerPassword: async (password) => {
@@ -1194,13 +1392,21 @@ export const useStore = create<AppState>((set, get) => ({
           });
         }
         
-        set(state => ({
-          allMessages: {
-            ...state.allMessages,
-            [chatId]: mappedMessages,
-          },
-          messages: mappedMessages,
-        }));
+        // Merge with existing messages instead of replacing
+        // This preserves any messages that arrived via WebSocket during the fetch
+        set(state => {
+          const existingIds = new Set(mappedMessages.map(m => m.id));
+          const recentMessages = state.messages.filter(m => m.chatId === chatId && !existingIds.has(m.id));
+          const mergedMessages = [...mappedMessages, ...recentMessages].sort((a, b) => a.timestamp - b.timestamp);
+          
+          return {
+            allMessages: {
+              ...state.allMessages,
+              [chatId]: mergedMessages,
+            },
+            messages: state.activeChat === chatId ? mergedMessages : state.messages,
+          };
+        });
       }
     } catch (error) {
       console.error('Failed to fetch messages:', error);
@@ -2001,6 +2207,101 @@ export const useStore = create<AppState>((set, get) => ({
   resetAppearance: () => {
     saveAppearance(defaultAppearance);
     set({ appearance: defaultAppearance });
+  },
+
+  // Notification preferences
+  muteChat: (chatId, minutesToMute) => {
+    set(state => {
+      const newPrefs = { ...state.notificationPreferences };
+      const mutedUntil = minutesToMute === 0 ? -1 : Date.now() + minutesToMute * 60 * 1000;
+      newPrefs.chatPreferences = {
+        ...newPrefs.chatPreferences,
+        [chatId]: {
+          ...(newPrefs.chatPreferences[chatId] || {}),
+          chatId,
+          mutedUntil,
+        },
+      };
+      saveNotificationPreferences(newPrefs);
+      return { notificationPreferences: newPrefs };
+    });
+  },
+
+  unmuteChat: (chatId) => {
+    set(state => {
+      const newPrefs = { ...state.notificationPreferences };
+      if (newPrefs.chatPreferences[chatId]) {
+        newPrefs.chatPreferences[chatId].mutedUntil = 0;
+      }
+      saveNotificationPreferences(newPrefs);
+      return { notificationPreferences: newPrefs };
+    });
+  },
+
+  isChatMuted: (chatId) => {
+    const state = get();
+    if (state.notificationPreferences.serverMuted) return true;
+    const pref = state.notificationPreferences.chatPreferences[chatId];
+    if (!pref || pref.mutedUntil === 0) return false;
+    if (pref.mutedUntil === -1) return true;
+    return pref.mutedUntil > Date.now();
+  },
+
+  toggleChatNotificationSound: (chatId) => {
+    set(state => {
+      const newPrefs = { ...state.notificationPreferences };
+      const existing = newPrefs.chatPreferences[chatId] || { chatId, mutedUntil: 0 };
+      existing.soundEnabled = existing.soundEnabled === undefined ? false : !existing.soundEnabled;
+      newPrefs.chatPreferences[chatId] = existing;
+      saveNotificationPreferences(newPrefs);
+      return { notificationPreferences: newPrefs };
+    });
+  },
+
+  toggleChatDesktopNotification: (chatId) => {
+    set(state => {
+      const newPrefs = { ...state.notificationPreferences };
+      const existing = newPrefs.chatPreferences[chatId] || { chatId, mutedUntil: 0 };
+      existing.desktopEnabled = existing.desktopEnabled === undefined ? false : !existing.desktopEnabled;
+      newPrefs.chatPreferences[chatId] = existing;
+      saveNotificationPreferences(newPrefs);
+      return { notificationPreferences: newPrefs };
+    });
+  },
+
+  toggleServerMute: () => {
+    set(state => {
+      const newPrefs = { ...state.notificationPreferences };
+      newPrefs.serverMuted = !newPrefs.serverMuted;
+      saveNotificationPreferences(newPrefs);
+      return { notificationPreferences: newPrefs };
+    });
+  },
+
+  isInDND: () => {
+    const state = get();
+    if (!state.notificationPreferences.dndEnabled) return false;
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const { dndStart, dndEnd } = state.notificationPreferences;
+    
+    // Handle case where DND spans midnight
+    if (dndStart < dndEnd) {
+      return currentMinutes >= dndStart && currentMinutes < dndEnd;
+    } else {
+      return currentMinutes >= dndStart || currentMinutes < dndEnd;
+    }
+  },
+
+  setDND: (enabled, startHour, endHour) => {
+    set(state => {
+      const newPrefs = { ...state.notificationPreferences };
+      newPrefs.dndEnabled = enabled;
+      newPrefs.dndStart = startHour * 60;
+      newPrefs.dndEnd = endHour * 60;
+      saveNotificationPreferences(newPrefs);
+      return { notificationPreferences: newPrefs };
+    });
   },
   
   // Bots implementation

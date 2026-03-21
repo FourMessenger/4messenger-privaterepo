@@ -189,8 +189,18 @@ html.light {
 .light,
 .light body,
 .light #root {
-  background-color: #f3f4f6 !important;
+  background-color: #f9fafb !important;
   color: #111827 !important;
+}
+
+/* Connect Screen light theme background */
+.light .from-gray-900.via-indigo-950.to-gray-900 {
+  background: linear-gradient(to bottom right, #f9fafb, #e0e7ff) !important;
+}
+
+/* Light mode gradient fixes for ConnectScreen */
+.light .from-indigo-500.to-purple-600 {
+  background: linear-gradient(to bottom right, #6366f1, #9333ea) !important;
 }
 
 /* Background colors */
@@ -214,7 +224,31 @@ html.light {
   background-color: rgba(243, 244, 246, 0.9) !important;
 }
 
-/* Text colors */
+.light .bg-indigo-500\/5 {
+  background-color: rgba(99, 102, 241, 0.08) !important;
+}
+
+.light .bg-indigo-500\/20 {
+  background-color: rgba(99, 102, 241, 0.15) !important;
+}
+
+/* Text colors for light mode */
+
+/* Keep white text on colored/gradient backgrounds and buttons */
+.light [class*="bg-indigo"] .text-white,
+.light [class*="bg-purple"] .text-white,
+.light [class*="bg-blue"] .text-white,
+.light [class*="bg-green"] .text-white,
+.light [class*="bg-red"] .text-white,
+.light [class*="gradient"] .text-white,
+.light button .text-white,
+.light [role="button"] .text-white,
+.light button,
+.light [role="button"] {
+  color: #ffffff !important;
+}
+
+/* Dark text on light backgrounds (default) */
 .light .text-white {
   color: #111827 !important;
 }
@@ -271,11 +305,11 @@ html.light {
 
 /* Hover states */
 .light .hover\:bg-white\/5:hover {
-  background-color: rgba(0, 0, 0, 0.03) !important;
+  background-color: rgba(99, 102, 241, 0.05) !important;
 }
 
 .light .hover\:bg-white\/10:hover {
-  background-color: rgba(0, 0, 0, 0.08) !important;
+  background-color: rgba(99, 102, 241, 0.1) !important;
 }
 
 .light .hover\:bg-gray-700:hover {
@@ -284,6 +318,10 @@ html.light {
 
 .light .hover\:bg-gray-800:hover {
   background-color: #f3f4f6 !important;
+}
+
+.light .hover\:border-indigo-500\/30:hover {
+  border-color: rgba(99, 102, 241, 0.5) !important;
 }
 
 /* Chat backgrounds for light mode */
@@ -396,6 +434,31 @@ html.light {
   background-color: #ffffff !important;
   border: 1px solid #e5e7eb !important;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Additional light mode button and link states */
+.light .text-indigo-400:hover,
+.light .hover\:text-indigo-300:hover {
+  color: #4f46e5 !important;
+}
+
+.light .text-indigo-400 {
+  color: #6366f1 !important;
+}
+
+.light .text-yellow-500 {
+  color: #eab308 !important;
+}
+
+/* Rounded button backgrounds for light mode */
+.light .rounded-xl.border.border-white\/10.bg-white\/5 {
+  background-color: rgba(99, 102, 241, 0.05) !important;
+  border-color: #e5e7eb !important;
+}
+
+.light .rounded-xl.border.border-white\/10.bg-white\/5:hover {
+  background-color: rgba(99, 102, 241, 0.1) !important;
+  border-color: #6366f1 !important;
 }
 
 /* Table styles */

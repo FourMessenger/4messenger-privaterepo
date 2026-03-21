@@ -5,7 +5,8 @@ import {
   X, User, Palette, Lock, Camera, Save, Eye, EyeOff,
   Sun, Moon, Monitor, Check, Loader2, Type, MessageSquare,
   Layout, Bell, Volume2, VolumeX, RotateCcw, Clock,
-  CircleDot, Square, Maximize2, Minimize2, Globe, Bot, Code, Trash2
+  CircleDot, Square, Maximize2, Minimize2, Globe, Bot, Code, Trash2,
+  Moon as MoonIcon, AlertCircle
 } from 'lucide-react';
 
 interface UserSettingsProps {
@@ -25,7 +26,8 @@ export function UserSettings({ onClose }: UserSettingsProps) {
     currentUser, serverUrl, authToken, addNotification,
     appearance, setAppearance, resetAppearance,
     language, setLanguage, t: translate,
-    bots, fetchBots, createBot, updateBot, deleteBot
+    bots, fetchBots, createBot, updateBot, deleteBot,
+    notificationPreferences, setDND, toggleServerMute
   } = useStore();
   const [tab, setTab] = useState<'profile' | 'appearance' | 'security' | 'language' | 'bots'>('profile');
   const [loading, setLoading] = useState(false);
@@ -44,6 +46,11 @@ export function UserSettings({ onClose }: UserSettingsProps) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
+
+  // DND state
+  const [dndEnabled, setDndEnabled] = useState(notificationPreferences.dndEnabled);
+  const [dndStartHour, setDndStartHour] = useState(Math.floor(notificationPreferences.dndStart / 60));
+  const [dndEndHour, setDndEndHour] = useState(Math.floor(notificationPreferences.dndEnd / 60));
 
   useEffect(() => {
     fetchBots();
@@ -653,6 +660,84 @@ export function UserSettings({ onClose }: UserSettingsProps) {
                       localAppearance.notificationsEnabled ? 'translate-x-5' : 'translate-x-0.5'
                     }`} />
                   </button>
+                </div>
+
+                {/* Mute Server */}
+                <div className="flex items-center justify-between p-3 rounded-xl bg-white/5">
+                  <div className="flex items-center gap-3">
+                    <AlertCircle className="h-4 w-4 text-gray-400" />
+                    <span className="text-white text-sm">Mute All Notifications</span>
+                  </div>
+                  <button
+                    onClick={() => toggleServerMute()}
+                    className={`w-11 h-6 rounded-full transition ${
+                      notificationPreferences.serverMuted ? 'bg-indigo-500' : 'bg-gray-600'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 rounded-full bg-white shadow-sm transform transition ${
+                      notificationPreferences.serverMuted ? 'translate-x-5' : 'translate-x-0.5'
+                    }`} />
+                  </button>
+                </div>
+
+                {/* Do Not Disturb */}
+                <div className="space-y-3 p-3 rounded-xl bg-white/5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <MoonIcon className="h-4 w-4 text-gray-400" />
+                      <span className="text-white text-sm">Do Not Disturb</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setDndEnabled(!dndEnabled);
+                        setDND(!dndEnabled, dndStartHour, dndEndHour);
+                      }}
+                      className={`w-11 h-6 rounded-full transition ${
+                        dndEnabled ? 'bg-indigo-500' : 'bg-gray-600'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-full bg-white shadow-sm transform transition ${
+                        dndEnabled ? 'translate-x-5' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </div>
+
+                  {dndEnabled && (
+                    <div className="grid grid-cols-2 gap-3 mt-2">
+                      <div>
+                        <label className="text-xs text-gray-400 mb-1 block">Start (Hour)</label>
+                        <select
+                          value={dndStartHour}
+                          onChange={(e) => {
+                            const hour = parseInt(e.target.value);
+                            setDndStartHour(hour);
+                            setDND(true, hour, dndEndHour);
+                          }}
+                          className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-white text-sm outline-none focus:border-indigo-500"
+                        >
+                          {Array.from({ length: 24 }, (_, i) => (
+                            <option key={i} value={i}>{i.toString().padStart(2, '0')}:00</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-400 mb-1 block">End (Hour)</label>
+                        <select
+                          value={dndEndHour}
+                          onChange={(e) => {
+                            const hour = parseInt(e.target.value);
+                            setDndEndHour(hour);
+                            setDND(true, dndStartHour, hour);
+                          }}
+                          className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-white text-sm outline-none focus:border-indigo-500"
+                        >
+                          {Array.from({ length: 24 }, (_, i) => (
+                            <option key={i} value={i}>{i.toString().padStart(2, '0')}:00</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
