@@ -1582,12 +1582,13 @@ app.get('/api/users', authMiddleware, (req, res) => {
         AND id != ?
       `, [searchPattern, searchPattern, searchPattern, req.user.id]);
     } else {
+      const searchPattern = `%${search.trim().toLowerCase()}%`;
       users = dbAll(`
         SELECT id, username, email, public_key, role, avatar, display_name, online, last_seen, email_verified, created_at, is_bot, bot_approved
         FROM users 
-        WHERE LOWER(username) = LOWER(?) AND id != ? AND role != 'banned'
+        WHERE (LOWER(username) LIKE ? OR LOWER(display_name) LIKE ?) AND id != ? AND role != 'banned'
           AND (is_bot = 0 OR COALESCE(bot_approved, 1) = 1)
-      `, [search.trim(), req.user.id]);
+      `, [searchPattern, searchPattern, req.user.id]);
     }
     
     return res.json(users.map(u => ({ ...u, displayName: u.display_name, publicKey: safeParseKey(u.public_key), isBot: !!u.is_bot })));

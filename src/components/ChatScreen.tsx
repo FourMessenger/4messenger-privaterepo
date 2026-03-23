@@ -147,6 +147,7 @@ export function ChatScreen() {
     setSearchQuery, setScreen, logout, leaveServer, decryptMessage, markAsRead,
     searchUsers, fetchUsers, appearance, chatKeys, e2eeKeyPair,
     isChatMuted, muteChat, unmuteChat, addNotification,
+    blockUser, unblockUser, isBlocked,
   } = useStore();
   
   const makeChannelAdmin = useStore(s => s.makeChannelAdmin);
@@ -232,6 +233,9 @@ export function ChatScreen() {
 
   const chat = activeChat ? chats.find(c => c.id === activeChat) : null;
   const chatMessages = activeChat ? messages.filter(m => m.chatId === activeChat) : [];
+  const otherUser = chat && !chat.isChannel && chat.participants
+    ? users.find(u => u.id === chat.participants.find(p => p !== currentUser.id))
+    : null;
 
   const hasBotInChat = (c: Chat) => {
     return c.participants.some(uid => {
@@ -1525,10 +1529,15 @@ export function ChatScreen() {
 
       {/* Chat Info Panel */}
       {showChatInfo && chat && (
-        <div className="w-80 shrink-0 border-l border-white/10 bg-gray-900/80 overflow-y-auto hidden lg:block">
-          <div className="p-4">
+        <div className="fixed inset-0 z-40 bg-black/50 lg:static lg:inset-auto lg:z-auto">
+          <div className="relative h-full w-full max-w-md overflow-y-auto border-l border-white/10 bg-gray-900/90 p-4 lg:h-auto lg:max-w-none lg:bg-gray-900/80 lg:border-none">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-white">Chat Info</h3>
+              <div>
+                <h3 className="font-semibold text-white">Chat Info</h3>
+                {otherUser && (
+                  <p className="text-sm text-gray-400">@{otherUser.username}</p>
+                )}
+              </div>
               <div className="flex items-center gap-1">
                 {canEditChatSettings(chat) && !editingChatSettings && (
                   <button onClick={startEditingChatSettings} className="text-gray-400 hover:text-white p-1" title="Edit settings">
@@ -1634,6 +1643,47 @@ export function ChatScreen() {
                 </p>
                 {chat.description && <p className="text-sm text-gray-400 mt-2">{chat.description}</p>}
                 {(chat.type === 'group' || chat.isChannel) && <p className="text-xs text-gray-500 mt-1">{chat.participants.length} {chat.isChannel ? 'subscribers' : 'members'}</p>}
+                
+                {/* Block/Message/Call actions for Direct Chats */}
+                {chat.type !== 'group' && !chat.isChannel && otherUser && (
+                  <div className="mt-4">
+                    <p className="text-xs text-gray-300 mb-2">
+                      Selected user: <span className="text-white font-medium">{otherUser.displayName || otherUser.username}</span>
+                    </p>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => {
+                          createDirectChat(otherUser.id);
+                          setShowChatInfo(false);
+                        }}
+                        className="rounded-lg border border-white/10 bg-blue-500/20 px-2 py-2 text-xs font-medium text-blue-200 hover:bg-blue-500/30"
+                      >
+                        Message
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          startCall(chat.id, 'voice');
+                          setShowChatInfo(false);
+                        }}
+                        className="rounded-lg border border-white/10 bg-indigo-500/20 px-2 py-2 text-xs font-medium text-indigo-200 hover:bg-indigo-500/30"
+                      >
+                        Call
+                      </button>
+
+                      <button
+                        onClick={() => isBlocked(otherUser.id) ? unblockUser(otherUser.id) : blockUser(otherUser.id)}
+                        className={`rounded-lg px-2 py-2 text-xs font-medium transition ${
+                          isBlocked(otherUser.id)
+                            ? 'border border-yellow-500/30 bg-yellow-500/20 text-yellow-200 hover:bg-yellow-500/30'
+                            : 'border border-red-500/30 bg-red-500/20 text-red-200 hover:bg-red-500/30'
+                        }`}
+                      >
+                        {isBlocked(otherUser.id) ? 'Unblock' : 'Block'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1819,25 +1869,37 @@ export function ChatScreen() {
                 </p>
               ) : (
                 (userSearchQuery ? searchedUsers : users).filter(u => u.id !== currentUser.id && u.role !== 'banned').map(u => (
-                  <button
-                    key={u.id}
-                    onClick={async () => { await createDirectChat(u.id); }}
-                    className="flex w-full items-center gap-3 rounded-xl p-3 transition hover:bg-white/5"
-                  >
-                    <div className="relative">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 font-bold text-white">
-                        {u.username[0].toUpperCase()}
+                  <div key={u.id} className="flex items-center gap-2">
+                    <button
+                      onClick={async () => { await createDirectChat(u.id); }}
+                      className="flex flex-1 items-center gap-3 rounded-xl p-3 transition hover:bg-white/5"
+                    >
+                      <div className="relative">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 font-bold text-white">
+                          {u.username[0].toUpperCase()}
+                        </div>
+                        {u.online && <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-gray-900 bg-green-500" />}
                       </div>
-                      {u.online && <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-gray-900 bg-green-500" />}
-                    </div>
-                    <div className="text-left">
-                      <div className="flex items-center gap-1">
-                        <span className="font-medium text-white">{u.username}</span>
-                        {roleIcon(u.role)}
+                      <div className="text-left">
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium text-white">{u.username}</span>
+                          {roleIcon(u.role)}
+                        </div>
+                        <span className="text-xs text-gray-400">{u.role === 'bot' ? 'Bot' : (u.online ? 'Online' : 'Offline')}</span>
                       </div>
-                      <span className="text-xs text-gray-400">{u.role === 'bot' ? 'Bot' : (u.online ? 'Online' : 'Offline')}</span>
-                    </div>
-                  </button>
+                    </button>
+                    <button
+                      onClick={() => isBlocked(u.id) ? unblockUser(u.id) : blockUser(u.id)}
+                      className={`p-2 rounded-lg transition ${
+                        isBlocked(u.id)
+                          ? 'text-yellow-400 hover:bg-yellow-500/20'
+                          : 'text-red-400 hover:bg-red-500/20'
+                      }`}
+                      title={isBlocked(u.id) ? 'Unblock user' : 'Block user'}
+                    >
+                      {isBlocked(u.id) ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                    </button>
+                  </div>
                 ))
               )}
             </div>
