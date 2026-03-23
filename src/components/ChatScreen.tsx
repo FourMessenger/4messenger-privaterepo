@@ -773,8 +773,8 @@ export function ChatScreen() {
             <button onClick={() => setShowSettings(true)} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-white" title="Settings">
               <Settings className="h-5 w-5" />
             </button>
-            {(currentUser.role === 'admin' || currentUser.role === 'moderator') && (
-              <button onClick={() => setScreen('admin')} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-amber-400" title={currentUser.role === 'admin' ? 'Admin Panel' : 'Moderation Panel'}>
+            {(currentUser.role === 'owner' || currentUser.role === 'admin' || currentUser.role === 'moderator') && (
+              <button onClick={() => setScreen('admin')} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10" style={{color: currentUser.role === 'owner' ? '#fbbf24' : '#fcd34d'}} title={currentUser.role === 'owner' ? 'Owner Panel' : currentUser.role === 'admin' ? 'Admin Panel' : 'Moderation Panel'}>
                 <Crown className="h-5 w-5" />
               </button>
             )}

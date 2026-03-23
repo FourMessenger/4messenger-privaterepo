@@ -36,7 +36,7 @@ export function AdminPanel() {
     fetchUsers, addNotification, authToken,
   } = useStore();
 
-  const [tab, setTab] = useState<'overview' | 'users' | 'config' | 'moderation' | 'logs' | 'announcements' | 'storage' | 'sessions' | 'browsers' | 'botApprovals' | 'auditLogs' | 'loginHistory' | 'messageModeration' | 'userActivity'>('overview');
+  const [tab, setTab] = useState<'overview' | 'users' | 'config' | 'moderation' | 'logs' | 'announcements' | 'storage' | 'sessions' | 'browsers' | 'botApprovals' | 'auditLogs' | 'loginHistory' | 'messageModeration' | 'userActivity' | 'owner'>('overview');
   const [browserData, setBrowserData] = useState<Record<string, { firstSeen: string; lastSeen: string; userId?: string; username?: string; visits: Array<{ timestamp?: string; action?: string; screenWidth?: number; screenHeight?: number; platform?: string; hardwareConcurrency?: number; deviceMemory?: number; userAgent?: string; timezone?: string; language?: string }> }>>({});
   const [editConfig, setEditConfig] = useState({ ...serverConfig });
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -70,6 +70,15 @@ export function AdminPanel() {
   const [selectedUserActivity, setSelectedUserActivity] = useState<string | null>(null);
   const [userActivityData, setUserActivityData] = useState<any>(null);
   const [loadingUserActivity, setLoadingUserActivity] = useState(false);
+
+  // Owner-specific state
+  const [showOwnerRemovalModal, setShowOwnerRemovalModal] = useState(false);
+  const [ownerRemovalPassword, setOwnerRemovalPassword] = useState('');
+  const [ownerRemovalEmailCode, setOwnerRemovalEmailCode] = useState('');
+  const [removingOwnerRole, setRemovingOwnerRole] = useState(false);
+  const [showOwnerRemovalPasswordField, setShowOwnerRemovalPasswordField] = useState(false);
+  const [showOwnerRoleWarning, setShowOwnerRoleWarning] = useState(false);
+  const [pendingOwnerRoleUser, setPendingOwnerRoleUser] = useState<string | null>(null);
 
   // Fetch server stats
   useEffect(() => {
@@ -213,9 +222,9 @@ export function AdminPanel() {
     }
   };
 
-  // Fetch pending bots when opening approvals tab (admin only)
+  // Fetch pending bots when opening approvals tab (admin/owner only)
   useEffect(() => {
-    if (tab === 'botApprovals' && currentUser?.role === 'admin') {
+    if (tab === 'botApprovals' && (currentUser?.role === 'admin' || currentUser?.role === 'owner')) {
       fetchPendingBots();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -306,7 +315,7 @@ export function AdminPanel() {
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchUsers();
-    if (tab === 'botApprovals' && currentUser?.role === 'admin') {
+    if (tab === 'botApprovals' && (currentUser?.role === 'admin' || currentUser?.role === 'owner')) {
       await fetchPendingBots();
     }
     setTimeout(() => setRefreshing(false), 500);
@@ -315,8 +324,9 @@ export function AdminPanel() {
 
   const isAdmin = currentUser?.role === 'admin';
   const isModerator = currentUser?.role === 'moderator';
+  const isOwner = currentUser?.role === 'owner';
 
-  if (!currentUser || (!isAdmin && !isModerator)) {
+  if (!currentUser || (!isOwner && !isAdmin && !isModerator)) {
     return (
       <div className="flex h-full items-center justify-center bg-gray-950">
         <p className="text-red-400">Access denied. Admin or Moderator only.</p>
@@ -327,6 +337,7 @@ export function AdminPanel() {
   // Check if user can change role (admin only, can't change admin/mod roles as mod)
   const canChangeRole = (targetUser: { id: string; role: string }) => {
     if (targetUser.id === currentUser.id) return false;
+    if (isOwner) return true;
     if (isAdmin) return true;
     // Moderator restrictions: can't change admin/mod roles
     if (isModerator && (targetUser.role === 'admin' || targetUser.role === 'moderator')) return false;
@@ -335,7 +346,15 @@ export function AdminPanel() {
 
   // Get available role options for a user
   const getRoleOptions = (targetUser: { id: string; role: string }) => {
+    const isOwner = currentUser?.role === 'owner';
+    const isAdmin = currentUser?.role === 'admin';
+    
+    if (isOwner) {
+      // Owner can set any role including owner
+      return ['user', 'moderator', 'admin', 'owner', 'banned', 'bot'];
+    }
     if (isAdmin) {
+      // Admin cannot set owner role
       return ['user', 'moderator', 'admin', 'banned', 'bot'];
     }
     // Moderators can only set user or banned
@@ -358,6 +377,7 @@ export function AdminPanel() {
 
   const roleColor = (role: UserRole) => {
     switch (role) {
+      case 'owner': return 'text-yellow-300 bg-yellow-300/10 border border-yellow-300/20';
       case 'admin': return 'text-amber-400 bg-amber-400/10';
       case 'moderator': return 'text-blue-400 bg-blue-400/10';
       case 'banned': return 'text-red-400 bg-red-400/10';
@@ -496,11 +516,11 @@ export function AdminPanel() {
             <ArrowLeft className="h-4 w-4" /> Back to Chat
           </button>
                       <div className="flex items-center gap-3">
-            <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${isAdmin ? 'from-amber-500 to-orange-600' : 'from-blue-500 to-indigo-600'}`}>
-              {isAdmin ? <Crown className="h-5 w-5 text-white" /> : <Shield className="h-5 w-5 text-white" />}
+            <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${isOwner ? 'from-yellow-400 to-yellow-600' : isAdmin ? 'from-amber-500 to-orange-600' : 'from-blue-500 to-indigo-600'}`}>
+              {isOwner || isAdmin ? <Crown className="h-5 w-5 text-white" /> : <Shield className="h-5 w-5 text-white" />}
             </div>
             <div>
-              <h2 className="font-bold text-white">{isAdmin ? 'Admin Panel' : 'Mod Panel'}</h2>
+              <h2 className="font-bold text-white">{isOwner ? 'Owner Panel' : isAdmin ? 'Admin Panel' : 'Mod Panel'}</h2>
               <p className="text-xs text-gray-400">{serverConfig.serverName}</p>
             </div>
           </div>
@@ -522,7 +542,11 @@ export function AdminPanel() {
             { id: 'announcements' as const, icon: Bell, label: 'Announcements', adminOnly: false },
             { id: 'browsers' as const, icon: Globe, label: 'Browser Data', adminOnly: true },
             { id: 'config' as const, icon: Settings, label: 'Server Config', adminOnly: true },
-          ].filter(item => isAdmin || !item.adminOnly).map(item => (
+            { id: 'owner' as const, icon: Crown, label: 'Remove Owner', adminOnly: false, ownerOnly: true },
+          ].filter(item => {
+            if ((item as any).ownerOnly) return currentUser?.role === 'owner';
+            return isOwner || isAdmin || !item.adminOnly;
+          }).map(item => (
             <button
               key={item.id}
               onClick={() => { setTab(item.id); setShowMobileMenu(false); }}
@@ -532,7 +556,7 @@ export function AdminPanel() {
             >
               <item.icon className="h-5 w-5" />
               {item.label}
-              {item.id === 'botApprovals' && isAdmin && pendingBots.length > 0 && (
+              {item.id === 'botApprovals' && (isAdmin || isOwner) && pendingBots.length > 0 && (
                 <span className="ml-auto rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-400">
                   {pendingBots.length}
                 </span>
@@ -768,7 +792,7 @@ export function AdminPanel() {
                   <option value="unverified">Unverified</option>
                 </select>
 
-                {isAdmin && (
+                {(isAdmin || isOwner) && (
                   <button
                     onClick={exportUsers}
                     className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-gray-400 transition hover:bg-white/10 hover:text-white"
@@ -801,7 +825,7 @@ export function AdminPanel() {
                       <button onClick={() => handleBulkAction('unban')} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-green-400 hover:bg-white/5">
                         <UserCheck className="h-4 w-4" /> Unban All
                       </button>
-                      {isAdmin && (
+                      {(isAdmin || isOwner) && (
                         <>
                           <button onClick={() => handleBulkAction('makemod')} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-blue-400 hover:bg-white/5">
                             <Shield className="h-4 w-4" /> Make Moderators
@@ -900,7 +924,16 @@ export function AdminPanel() {
                           {canChangeRole(u) ? (
                             <select
                               value={u.role}
-                              onChange={e => updateUserRole(u.id, e.target.value as UserRole)}
+                              onChange={e => {
+                                const newRole = e.target.value as UserRole;
+                                if (newRole === 'owner') {
+                                  // Show warning modal
+                                  setShowOwnerRoleWarning(true);
+                                  setPendingOwnerRoleUser(u.id);
+                                } else {
+                                  updateUserRole(u.id, newRole);
+                                }
+                              }}
                               className={`rounded-lg border border-white/10 bg-transparent px-2 py-1 text-sm outline-none ${roleColor(u.role)}`}
                             >
                               {getRoleOptions(u).map(role => (
@@ -2203,7 +2236,200 @@ export function AdminPanel() {
             </div>
           </div>
         )}
+
+        {/* Remove Owner */}
+        {tab === 'owner' && currentUser?.role === 'owner' && (
+          <div>
+            <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+              <Crown className="h-6 w-6 text-amber-400" />
+              Remove Owner Role
+            </h2>
+
+            {/* Owner Privileges Info */}
+            <div className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-6">
+              <h3 className="text-lg font-semibold text-amber-400 mb-3 flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5" />
+                Owner Privileges
+              </h3>
+              <ul className="space-y-2 text-sm text-gray-300">
+                <li>✓ Full access to admin panel</li>
+                <li>✓ Can manage all users and their roles</li>
+                <li>✓ Can view and manage server logs</li>
+                <li>✓ Can control server configuration</li>
+                <li>✓ Cannot be modified by admins</li>
+                <li>✓ Must use special removal process with password verification</li>
+              </ul>
+            </div>
+
+            {/* Remove Owner Role */}
+            <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-6">
+              <h3 className="text-lg font-semibold text-red-400 mb-4">Remove Owner Role</h3>
+              <p className="text-sm text-gray-400 mb-6">
+                To remove the owner role from your account, you must verify your identity with your password
+                {serverConfig.emailVerification && ' and email verification code'}. This action is irreversible within this session.
+              </p>
+
+              {!showOwnerRemovalModal ? (
+                <button
+                  onClick={() => setShowOwnerRemovalModal(true)}
+                  className="px-4 py-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 font-medium transition"
+                >
+                  Begin Owner Role Removal
+                </button>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm text-gray-400 mb-2 block">Password</label>
+                    <div className="flex flex-row gap-2">
+                      <input
+                        type={showOwnerRemovalPasswordField ? 'text' : 'password'}
+                        value={ownerRemovalPassword}
+                        onChange={(e) => setOwnerRemovalPassword(e.target.value)}
+                        placeholder="Enter your password"
+                        className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder-gray-500 outline-none focus:border-red-500"
+                      />
+                      <button
+                        onClick={() => setShowOwnerRemovalPasswordField(!showOwnerRemovalPasswordField)}
+                        className="px-3 py-2 text-gray-400 hover:text-white"
+                      >
+                        {showOwnerRemovalPasswordField ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {serverConfig.emailVerification && (
+                    <div>
+                      <label className="text-sm text-gray-400 mb-2 block">Email Verification Code (6 digits)</label>
+                      <input
+                        type="text"
+                        value={ownerRemovalEmailCode}
+                        onChange={(e) => setOwnerRemovalEmailCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        placeholder="000000"
+                        maxLength={6}
+                        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder-gray-500 outline-none focus:border-red-500"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Check your email for the verification code</p>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setShowOwnerRemovalModal(false);
+                        setOwnerRemovalPassword('');
+                        setOwnerRemovalEmailCode('');
+                        setShowOwnerRemovalPasswordField(false);
+                      }}
+                      className="flex-1 px-4 py-2 bg-gray-700/50 text-gray-300 rounded-lg hover:bg-gray-700 font-medium transition"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!ownerRemovalPassword) {
+                          addNotification('Password required', 'error');
+                          return;
+                        }
+                        if (serverConfig.emailVerification && ownerRemovalEmailCode.length !== 6) {
+                          addNotification('Email code must be 6 digits', 'error');
+                          return;
+                        }
+
+                        setRemovingOwnerRole(true);
+                        try {
+                          const response = await fetch(`${serverUrl.replace(/\/$/, '')}/api/owner/remove-owner`, {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'Authorization': `Bearer ${authToken}`,
+                            },
+                            body: JSON.stringify({
+                              password: ownerRemovalPassword,
+                              emailCode: serverConfig.emailVerification ? ownerRemovalEmailCode : undefined,
+                            }),
+                          });
+
+                          const data = await response.json();
+                          if (response.ok) {
+                            addNotification(data.message || 'Owner role removed successfully', 'success');
+                            setShowOwnerRemovalModal(false);
+                            setOwnerRemovalPassword('');
+                            setOwnerRemovalEmailCode('');
+                            setShowOwnerRemovalPasswordField(false);
+                            // Refresh user data to reflect role change
+                            await fetchUsers();
+                          } else {
+                            addNotification(data.error || 'Failed to remove owner role', 'error');
+                          }
+                        } catch (error) {
+                          addNotification('Error removing owner role', 'error');
+                          console.error('Owner removal error:', error);
+                        } finally {
+                          setRemovingOwnerRole(false);
+                        }
+                      }}
+                      disabled={removingOwnerRole || !ownerRemovalPassword}
+                      className="flex-1 px-4 py-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 font-medium transition disabled:opacity-50"
+                    >
+                      {removingOwnerRole ? 'Removing...' : 'Confirm Removal'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Owner Role Warning Modal */}
+      {showOwnerRoleWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur">
+          <div className="w-full max-w-md rounded-2xl border border-amber-500/30 bg-gray-900 p-6 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <AlertTriangle className="h-6 w-6 text-amber-400" />
+              <h3 className="text-xl font-bold text-white">Grant Owner Role?</h3>
+            </div>
+
+            <p className="text-sm text-gray-300 mb-4">
+              Owner role grants complete control over the server and can only be removed through a special password-protected process. Grant this role carefully.
+            </p>
+
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4 mb-6">
+              <p className="text-xs text-amber-300 font-medium mb-2">Owner Privileges Include:</p>
+              <ul className="text-xs text-amber-200 space-y-1">
+                <li>✓ Full server administration</li>
+                <li>✓ Cannot be modified by admins</li>
+                <li>✓ Access to console logs</li>
+                <li>✓ Can only self-remove with password verification</li>
+              </ul>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowOwnerRoleWarning(false);
+                  setPendingOwnerRoleUser(null);
+                }}
+                className="flex-1 px-4 py-2 bg-gray-700/50 text-gray-300 rounded-lg hover:bg-gray-700 font-medium transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (pendingOwnerRoleUser) {
+                    updateUserRole(pendingOwnerRoleUser, 'owner');
+                    setShowOwnerRoleWarning(false);
+                    setPendingOwnerRoleUser(null);
+                  }
+                }}
+                className="flex-1 px-4 py-2 bg-amber-500/20 text-amber-300 rounded-lg hover:bg-amber-500/30 font-medium transition"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
