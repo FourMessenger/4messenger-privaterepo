@@ -4326,6 +4326,30 @@ async function startServer() {
     try { db.run('ALTER TABLE users ADD COLUMN bot_script TEXT'); } catch(e){}
     try { db.run('ALTER TABLE users ADD COLUMN bot_approved INTEGER DEFAULT 1'); } catch(e){}
 
+    // Ensure blocked_users table exists (migration for existing databases)
+    try {
+      const blockedUsersTest = dbGet("SELECT name FROM sqlite_master WHERE type='table' AND name='blocked_users'");
+      if (!blockedUsersTest) {
+        console.log('[DB] Creating blocked_users table...');
+        db.run(`
+          CREATE TABLE IF NOT EXISTS blocked_users (
+            user_id TEXT NOT NULL,
+            blocked_user_id TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            PRIMARY KEY (user_id, blocked_user_id),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (blocked_user_id) REFERENCES users(id) ON DELETE CASCADE,
+            UNIQUE(user_id, blocked_user_id)
+          )
+        `);
+        db.run('CREATE INDEX IF NOT EXISTS idx_blocked_users ON blocked_users(user_id)');
+        db.run('CREATE INDEX IF NOT EXISTS idx_blocked_by ON blocked_users(blocked_user_id)');
+        console.log('[DB] blocked_users table and indexes created');
+      }
+    } catch (e) {
+      console.error('[DB] Error checking/creating blocked_users table:', e.message);
+    }
+
     // Fix old CHECK constraint on messages table that doesn't include 'voice' and 'poll'
     // We need to recreate the table to change CHECK constraints
     try {
