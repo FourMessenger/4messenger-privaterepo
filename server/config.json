@@ -117,9 +117,10 @@
   },
   "admin": {
     "createDefaultAdmin": true,
-    "defaultAdminUsername": "admin",
-    "defaultAdminPassword": "admin123",
-    "defaultAdminEmail": "admin@4messenger.com"
+    "defaultAdminUsername": "owner",
+    "defaultAdminPassword": "owner123",
+    "defaultAdminEmail": "owner@4messenger.com",
+    "defaultAdminRole": "owner"
   },
   "bots": {
     "maxMemoryMB": 50,

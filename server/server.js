@@ -641,8 +641,8 @@ function authMiddleware(req, res, next) {
     if (!user) return res.status(401).json({ error: 'User not found' });
     if (user.role === 'banned') return res.status(403).json({ error: 'Account banned' });
     
-    // Check maintenance mode - only admins can access during maintenance
-    if (maintenanceMode && user.role !== 'admin') {
+    // Check maintenance mode - only owners and admins can access during maintenance
+    if (maintenanceMode && user.role !== 'admin' && user.role !== 'owner') {
       return res.status(503).json({ error: 'Server is under maintenance', maintenanceMessage });
     }
     
@@ -654,12 +654,18 @@ function authMiddleware(req, res, next) {
 }
 
 function adminMiddleware(req, res, next) {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin access required' });
+  // Owner and admin both have admin access
+  if (!['admin', 'owner'].includes(req.user.role)) return res.status(403).json({ error: 'Admin access required' });
+  next();
+}
+
+function ownerMiddleware(req, res, next) {
+  if (req.user.role !== 'owner') return res.status(403).json({ error: 'Owner access required' });
   next();
 }
 
 function modMiddleware(req, res, next) {
-  if (!['admin', 'moderator'].includes(req.user.role)) return res.status(403).json({ error: 'Moderator access required' });
+  if (!['admin', 'moderator', 'owner'].includes(req.user.role)) return res.status(403).json({ error: 'Moderator access required' });
   next();
 }
 
@@ -1616,15 +1622,31 @@ app.get('/api/users', authMiddleware, (req, res) => {
   res.json(users.map(u => ({ ...u, displayName: u.display_name, publicKey: safeParseKey(u.public_key), isBot: !!u.is_bot })));
 });
 
-// Update user role (admin only)
+// Update user role (admin and owner only, with restrictions)
 app.put('/api/users/:id/role', authMiddleware, adminMiddleware, (req, res) => {
   const { role } = req.body;
-  if (!['admin', 'moderator', 'user', 'banned'].includes(role)) {
+  
+  // Owner can set any role, admin cannot set owner role
+  if (req.user.role === 'admin' && role === 'owner') {
+    return res.status(403).json({ error: 'Only owners can set the owner role' });
+  }
+  
+  if (!['admin', 'moderator', 'user', 'banned', 'owner'].includes(role)) {
     return res.status(400).json({ error: 'Invalid role' });
   }
   
   const targetUser = dbGet('SELECT * FROM users WHERE id = ?', [req.params.id]);
   if (!targetUser) return res.status(404).json({ error: 'User not found' });
+  
+  // Prevent changing owner roles (only allowed via special owner removal endpoint)
+  if (targetUser.role === 'owner' && req.user.role !== 'owner') {
+    return res.status(403).json({ error: 'Cannot modify owner role from here. Use the special owner management panel.' });
+  }
+  
+  // Owner cannot remove other owner roles directly
+  if (targetUser.role === 'owner' && req.user.role === 'owner' && req.params.id !== req.user.id) {
+    return res.status(403).json({ error: 'Cannot remove another owner. Use the special owner management panel.' });
+  }
   
   const ipAddress = getRealIp(req);
   
@@ -1636,6 +1658,48 @@ app.put('/api/users/:id/role', authMiddleware, adminMiddleware, (req, res) => {
   
   broadcastToAll({ type: 'user_updated', userId: req.params.id, role });
   res.json({ success: true });
+});
+
+// Special owner removal endpoint (owner only, requires password verification)
+app.post('/api/owner/remove-owner', authMiddleware, ownerMiddleware, async (req, res) => {
+  const { password, emailCode } = req.body;
+  
+  // Only owner role can use this
+  if (req.user.role !== 'owner') {
+    return res.status(403).json({ error: 'Owner access required' });
+  }
+  
+  // Verify password
+  const isPasswordValid = await bcrypt.compare(password, req.user.password);
+  if (!isPasswordValid) {
+    return res.status(401).json({ error: 'Invalid password' });
+  }
+  
+  // If email verification is enabled, check email code
+  if (config.email.verificationEnabled && req.user.email_verified) {
+    // For now, we'll accept the email code if provided (in production, you'd verify against code sent)
+    // In a real implementation, we'd store the code in DB with expiry and compare
+    if (!emailCode || emailCode.length !== 6 || !/^\d+$/.test(emailCode)) {
+      return res.status(401).json({ error: 'Invalid email verification code' });
+    }
+    
+    // In production, verify the code against DB
+    // For demo, we accept any 6-digit code (should be replaced with actual verification)
+    console.log('[OWNER] Email code provided (not actually verified in this demo)');
+  }
+  
+  const ipAddress = getRealIp(req);
+  
+  // Remove owner role, set to admin
+  dbRun('UPDATE users SET role = ? WHERE id = ?', ['admin', req.user.id]);
+  saveDatabase();
+  
+  // Log audit action
+  logAuditAction(req.user.id, 'remove_owner_role', req.user.id, 'user', 'owner', 'admin', ipAddress);
+  
+  console.log(`[OWNER] Owner ${req.user.username} removed owner role from themselves`);
+  broadcastToAll({ type: 'user_updated', userId: req.user.id, role: 'admin' });
+  res.json({ success: true, message: 'Owner role removed. You now have admin role.' });
 });
 
 // Ban user
@@ -4592,12 +4656,13 @@ async function startServer() {
       if (!existing) {
         const id = uuidv4();
         const hashedPassword = bcrypt.hashSync(config.admin.defaultAdminPassword, config.security.bcryptRounds);
+        const defaultRole = config.admin.defaultAdminRole || 'admin';
         dbRun(`
           INSERT INTO users (id, username, email, password, role, online, email_verified, created_at)
-          VALUES (?, ?, ?, ?, 'admin', 0, 1, ?)
-        `, [id, config.admin.defaultAdminUsername, config.admin.defaultAdminEmail, hashedPassword, Date.now()]);
+          VALUES (?, ?, ?, ?, ?, 0, 1, ?)
+        `, [id, config.admin.defaultAdminUsername, config.admin.defaultAdminEmail, hashedPassword, defaultRole, Date.now()]);
         saveDatabase();
-        console.log(`[ADMIN] Default admin created: ${config.admin.defaultAdminUsername} / ${config.admin.defaultAdminPassword}`);
+        console.log(`[ADMIN] Default admin created with role '${defaultRole}': ${config.admin.defaultAdminUsername} / ${config.admin.defaultAdminPassword}`);
       }
     }
 
