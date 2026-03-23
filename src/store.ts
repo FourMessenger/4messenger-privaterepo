@@ -322,6 +322,8 @@ interface AppState {
   // E2EE
   e2eeKeyPair: { publicKey: any, privateKey: any } | null;
   chatKeys: Record<string, CryptoKey>;
+  chatKeyRetryAttempts: Record<string, number>;
+  attemptChatKeyUnwrap: (chatId: string, encryptedKey: string) => void;
 
   // Call
   callState: CallState;
@@ -480,6 +482,7 @@ export const useStore = create<AppState>((set, get) => ({
   pushSubscriptions: [],
   e2eeKeyPair: null,
   chatKeys: {},
+  chatKeyRetryAttempts: {},
   callState: { active: false, chatId: null, type: 'voice', participants: [], startTime: null },
   beginCall: (chatId, type, participants) => {
     set({
@@ -1291,8 +1294,48 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
+  attemptChatKeyUnwrap: async (chatId, encryptedKey) => {
+    const { e2eeKeyPair, chatKeys, chatKeyRetryAttempts, addNotification } = get();
+    if (!e2eeKeyPair) return;
+    if (chatKeys[chatId]) return;
+
+    const currentAttempts = chatKeyRetryAttempts[chatId] || 0;
+    if (currentAttempts >= 5) {
+      // Stop retrying after max attempts; user still can continue and pairing attempt can happen later in next fetch
+      return;
+    }
+
+    try {
+      const key = await E2EE.unwrapKey(encryptedKey, e2eeKeyPair.privateKey);
+      if (key) {
+        set(s => ({
+          chatKeys: { ...s.chatKeys, [chatId]: key },
+          chatKeyRetryAttempts: { ...s.chatKeyRetryAttempts, [chatId]: 0 },
+        }));
+        E2EE.saveChatKey(chatId, key).catch(() => {});
+        addNotification(`E2EE key paired for chat ${chatId}`, 'success');
+      } else {
+        throw new Error('Unwrap failed');
+      }
+    } catch (e) {
+      console.warn('[E2EE] Chat key unwrap failed for', chatId, e);
+      set(s => ({
+        chatKeyRetryAttempts: { ...s.chatKeyRetryAttempts, [chatId]: currentAttempts + 1 },
+      }));
+
+      // Retry after delay, no re-login needed
+      setTimeout(() => {
+        const state = get();
+        // ensure we are still missing the key and still have a retry budget
+        if (!state.chatKeys[chatId] && (state.chatKeyRetryAttempts[chatId] || 0) < 5) {
+          state.attemptChatKeyUnwrap(chatId, encryptedKey);
+        }
+      }, 3000);
+    }
+  },
+
   fetchChats: async () => {
-    const { serverUrl, authToken, e2eeKeyPair, chatKeys } = get();
+    const { serverUrl, authToken, e2eeKeyPair, chatKeys, attemptChatKeyUnwrap } = get();
     if (!authToken) return;
     
     try {
@@ -1311,14 +1354,8 @@ export const useStore = create<AppState>((set, get) => ({
         
         const mappedChats = chatsData.map((c: any) => {
           if (c.encryptedKey && e2eeKeyPair && !newChatKeys[c.id]) {
-            // Background unwrapping of chat keys
-            E2EE.unwrapKey(c.encryptedKey, e2eeKeyPair.privateKey).then(key => {
-              if (key) {
-                set(s => ({ chatKeys: { ...s.chatKeys, [c.id]: key } }));
-                // Also persist for offline use
-                E2EE.saveChatKey(c.id, key).catch(() => {});
-              }
-            });
+            // Background unwrapping of chat keys with retry logic (no relogin required)
+            attemptChatKeyUnwrap(c.id, c.encryptedKey);
           }
           // Preserve local unread count if higher (from WebSocket messages)
           const existingChat = existingChats.find(ec => ec.id === c.id);
