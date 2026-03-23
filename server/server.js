@@ -1708,6 +1708,16 @@ app.post('/api/users/:id/ban', authMiddleware, modMiddleware, (req, res) => {
   const targetUser = dbGet('SELECT * FROM users WHERE id = ?', [req.params.id]);
   if (!targetUser) return res.status(404).json({ error: 'User not found' });
   
+  // Can't ban owner
+  if (targetUser.role === 'owner') {
+    return res.status(403).json({ error: 'Cannot ban the owner' });
+  }
+  
+  // Admins can't ban other admins
+  if (req.user.role === 'admin' && targetUser.role === 'admin' && req.params.id !== req.user.id) {
+    return res.status(403).json({ error: 'Admins cannot ban other admins' });
+  }
+  
   // Moderators can't ban admins or other moderators
   if (req.user.role === 'moderator' && ['admin', 'moderator'].includes(targetUser.role)) {
     return res.status(403).json({ error: 'Moderators cannot ban admins or other moderators' });
@@ -1771,6 +1781,16 @@ app.delete('/api/users/:id', authMiddleware, adminMiddleware, (req, res) => {
 app.post('/api/users/:id/kick', authMiddleware, modMiddleware, (req, res) => {
   const targetUser = dbGet('SELECT * FROM users WHERE id = ?', [req.params.id]);
   if (!targetUser) return res.status(404).json({ error: 'User not found' });
+  
+  // Can't kick owner
+  if (targetUser.role === 'owner') {
+    return res.status(403).json({ error: 'Cannot kick the owner' });
+  }
+  
+  // Admins can't kick other admins
+  if (req.user.role === 'admin' && targetUser.role === 'admin' && req.params.id !== req.user.id) {
+    return res.status(403).json({ error: 'Admins cannot kick other admins' });
+  }
   
   // Moderators can't kick admins or other moderators
   if (req.user.role === 'moderator' && ['admin', 'moderator'].includes(targetUser.role)) {
@@ -3608,11 +3628,28 @@ app.post('/api/admin/announcement', authMiddleware, adminMiddleware, (req, res) 
 
 // Get system logs (basic implementation)
 app.get('/api/admin/logs', authMiddleware, adminMiddleware, (req, res) => {
-  // In a real app, you'd read from a log file or database
-  const logs = [
-    { id: '1', timestamp: Date.now(), type: 'info', action: 'Server started', details: `Port ${config.server.port}` },
-  ];
-  res.json(logs);
+  const limit = Math.min(parseInt(req.query.limit) || 100, 1000);
+  const offset = parseInt(req.query.offset) || 0;
+  
+  // Get audit logs from database (real data)
+  const logs = dbAll('SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT ? OFFSET ?', [limit, offset]);
+  
+  // Format logs for response
+  const formattedLogs = logs.map(log => ({
+    id: log.id,
+    timestamp: log.timestamp,
+    type: 'audit',
+    action: log.action,
+    admin: log.admin_id,
+    target: log.target_id,
+    targetType: log.target_type,
+    oldValue: log.old_value,
+    newValue: log.new_value,
+    ipAddress: log.ip_address,
+    details: `${log.action} on ${log.target_type} (${log.target_id})`
+  }));
+  
+  res.json(formattedLogs);
 });
 
 // Get maintenance mode status
