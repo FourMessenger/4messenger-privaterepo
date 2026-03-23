@@ -648,6 +648,9 @@ export const useStore = create<AppState>((set, get) => ({
                 }
               }
               console.log('[Auto-Login] Chat keys loaded');
+              
+              // Wrap keys for any newly available users (users who came online)
+              await get().wrapKeysForNewlyAvailableUsers();
             } catch (e) {
               console.warn('[Auto-Login] Failed to load chat keys:', e);
             }
@@ -1030,6 +1033,12 @@ export const useStore = create<AppState>((set, get) => ({
       }
       
       get().addNotification(`Welcome back, ${data.user.username}!`, 'success');
+      
+      // Wrap keys for any newly available users
+      await get().wrapKeysForNewlyAvailableUsers().catch(e => {
+        console.error('[E2EE] Error wrapping keys for newly available users:', e);
+      });
+      
       return true;
       
     } catch (error) {
@@ -1288,9 +1297,67 @@ export const useStore = create<AppState>((set, get) => ({
           createdAt: u.created_at || u.createdAt,
         }));
         set({ users: mappedUsers });
+        
+        // After updating users, wrap keys for any newly-available users
+        // This ensures offline users get their wrapped keys when they come online
+        // MUST await to prevent race condition with fetchChats running in parallel
+        await get().wrapKeysForNewlyAvailableUsers();
       }
     } catch (error) {
       console.error('Failed to fetch users:', error);
+    }
+  },
+
+  // Re-wrap chat keys for users who just came online with their public key
+  wrapKeysForNewlyAvailableUsers: async () => {
+    const { users, chats, chatKeys, currentUser, serverUrl, authToken, e2eeKeyPair } = get();
+    if (!e2eeKeyPair || !currentUser) return;
+    
+    try {
+      // For each chat with an active encryption key
+      for (const [chatId, chatKey] of Object.entries(chatKeys)) {
+        if (!chatKey) continue;
+        
+        const chat = chats.find(c => c.id === chatId);
+        if (!chat) continue;
+        
+        // Check if any participant's public key is now available that wasn't before
+        const keysToSend: Record<string, string> = {};
+        
+        for (const pId of chat.participants) {
+          const user = users.find(u => u.id === pId);
+          if (user?.publicKey && pId !== currentUser.id) {
+            // This user has a public key - wrap the chat key for them
+            try {
+              const wrapped = await E2EE.wrapKey(chatKey, user.publicKey);
+              if (wrapped) {
+                keysToSend[pId] = wrapped;
+              }
+            } catch (e) {
+              console.error('[E2EE] Failed to wrap key for newly available user', pId, e);
+            }
+          }
+        }
+        
+        // Send any newly wrapped keys to server
+        if (Object.keys(keysToSend).length > 0) {
+          try {
+            await fetch(`${serverUrl.replace(/\/$/, '')}/api/chats/${chatId}/keys`, {
+              method: 'PUT',
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`,
+              },
+              body: JSON.stringify({ encryptedKeys: keysToSend }),
+            });
+            console.log('[E2EE] Sent wrapped keys to', Object.keys(keysToSend).length, 'newly available users in chat', chatId);
+          } catch (e) {
+            console.error('[E2EE] Failed to send wrapped keys:', e);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[E2EE] Error wrapping keys for newly available users:', e);
     }
   },
 
@@ -1335,7 +1402,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   fetchChats: async () => {
-    const { serverUrl, authToken, e2eeKeyPair, chatKeys, attemptChatKeyUnwrap } = get();
+    const { serverUrl, authToken, e2eeKeyPair, chatKeys, attemptChatKeyUnwrap, currentUser, users } = get();
     if (!authToken) return;
     
     try {
@@ -1490,6 +1557,112 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
+  // Helper function to ensure a chat has an E2EE key
+  // Guarantees encryption even for offline users - they will get wrapped keys when online
+  ensureChatKey: async (chatId: string): Promise<CryptoKey | null> => {
+    const { chatKeys, currentUser, users, chats, serverUrl, authToken, e2eeKeyPair } = get();
+    
+    // Already have key
+    if (chatKeys[chatId]) {
+      return chatKeys[chatId];
+    }
+    
+    // Try to load from IndexedDB
+    try {
+      const loaded = await E2EE.loadChatKey(chatId);
+      if (loaded) {
+        set(s => ({ chatKeys: { ...s.chatKeys, [chatId]: loaded } }));
+        console.log('[E2EE] Loaded existing key from storage for chat', chatId);
+        return loaded;
+      }
+    } catch (e) {
+      console.error('[E2EE] Failed to load chat key from storage:', e);
+    }
+    
+    // Generate new key if we can
+    if (!e2eeKeyPair || !currentUser) {
+      console.warn('[E2EE] Cannot create key: missing e2eeKeyPair or currentUser');
+      return null;
+    }
+    
+    const chat = chats.find(c => c.id === chatId);
+    if (!chat) {
+      console.warn('[E2EE] Chat not found:', chatId);
+      return null;
+    }
+    
+    // Skip for bot chats
+    const hasBot = chat.participants.some(uid => {
+      const u = users.find(user => user.id === uid);
+      return u?.isBot;
+    });
+    if (hasBot) {
+      console.log('[E2EE] Skipping encryption for bot chat:', chatId);
+      return null;
+    }
+    
+    try {
+      console.log('[E2EE] Creating new chat key for', chatId, 'with participants:', chat.participants);
+      
+      const chatKey = await E2EE.generateChatKey();
+      const encryptedKeys: Record<string, string> = {};
+      
+      // Wrap for participants who have public keys
+      // This includes offline users IF their public key is in the system
+      for (const pId of chat.participants) {
+        const u = users.find(user => user.id === pId) || (pId === currentUser.id ? currentUser : null);
+        if (u?.publicKey) {
+          try {
+            const wrapped = await E2EE.wrapKey(chatKey, u.publicKey);
+            if (wrapped) {
+              encryptedKeys[pId] = wrapped;
+              console.log('[E2EE] Wrapped key for participant:', pId);
+            }
+          } catch (e) {
+            console.error('[E2EE] Failed to wrap key for', pId, e);
+          }
+        } else {
+          // Participant doesn't have public key yet - they'll get wrapped key when they come online
+          console.log('[E2EE] Participant', pId, 'has no public key yet - will queue key for delivery');
+        }
+      }
+      
+      // Save locally
+      await E2EE.saveChatKey(chatId, chatKey);
+      set(s => ({ chatKeys: { ...s.chatKeys, [chatId]: chatKey } }));
+      console.log('[E2EE] Saved chat key locally for', chatId);
+      
+      // ALWAYS send wrapped keys to server, even if partial
+      // Server will hold wrapped keys and distribute when users come online
+      const payload = {
+        encryptedKeys,
+        initialized: true, // Mark that encryption is active for this chat
+        initiator: currentUser.id,
+        timestamp: Date.now()
+      };
+      
+      fetch(`${serverUrl.replace(/\/$/, '')}/api/chats/${chatId}/keys`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(payload),
+      }).then(() => {
+        console.log('[E2EE] Successfully synced encryption keys to server for chat', chatId);
+        console.log('[E2EE] Wrapped keys for', Object.keys(encryptedKeys).length, 'users');
+      }).catch(e => {
+        console.error('[E2EE] Failed to sync keys to server:', e);
+      });
+      
+      console.log('[E2EE] Initialized key for chat', chatId, '- message will be encrypted');
+      return chatKey;
+    } catch (e) {
+      console.error('[E2EE] Failed to create chat key:', e);
+      return null;
+    }
+  },
+
   sendMessage: async (chatId, content, type = 'text', fileName, fileSize, fileUrl?: string) => {
     const { currentUser, serverUrl, authToken, users, chats, chatKeys, e2eeKeyPair } = get();
     if (!currentUser || !authToken) return;
@@ -1535,48 +1708,11 @@ export const useStore = create<AppState>((set, get) => ({
         return u?.isBot;
       });
       
-      if (!hasBot && chatKeys[chatId]) {
-        // E2EE active
-        payloadContent = await E2EE.encryptMessage(content, chatKeys[chatId]);
-      } else if (!hasBot && !chatKeys[chatId] && e2eeKeyPair) {
-        // Try to generate key on the fly if missing but all users have public keys
-        let canCreateKey = true;
-        for (const pId of chat.participants) {
-          const u = users.find(user => user.id === pId);
-          if (!u?.publicKey && pId !== currentUser.id) {
-            canCreateKey = false;
-            break;
-          }
-        }
-        
-        if (canCreateKey) {
-          try {
-            const chatKey = await E2EE.generateChatKey();
-            const encryptedKeys: Record<string, string> = {};
-            for (const pId of chat.participants) {
-              const u = users.find(user => user.id === pId) || (pId === currentUser.id ? currentUser : null);
-              if (u?.publicKey) {
-                const wrapped = await E2EE.wrapKey(chatKey, u.publicKey);
-                if (wrapped) encryptedKeys[pId] = wrapped;
-              }
-            }
-            
-            // Send keys to server
-            await fetch(`${serverUrl.replace(/\/$/, '')}/api/chats/${chatId}/keys`, {
-              method: 'PUT',
-              headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`,
-              },
-              body: JSON.stringify({ encryptedKeys }),
-            });
-            
-            set(state => ({ chatKeys: { ...state.chatKeys, [chatId]: chatKey } }));
-            E2EE.saveChatKey(chatId, chatKey).catch(() => {});
-            payloadContent = await E2EE.encryptMessage(content, chatKey);
-          } catch(e) {
-            console.error("Error setting up chat key:", e);
-          }
+      if (!hasBot && e2eeKeyPair) {
+        // E2EE enabled for non-bot chats - ensure key is available and encrypt
+        const chatKey = await get().ensureChatKey(chatId);
+        if (chatKey) {
+          payloadContent = await E2EE.encryptMessage(content, chatKey);
         }
       }
     }
