@@ -2,7 +2,7 @@
 
 ## Overview
 
-Added comprehensive push notification support to 4 Messenger, allowing users to receive notifications even when their browser tab is closed.
+Added comprehensive push notification support to 4 Messenger, allowing users to receive notifications even when their browser tab is closed. But need to generate vapid keys
 
 ## Implementation Details
 
