@@ -996,7 +996,7 @@ export function ChatScreen() {
                   </button>
                   
                   {showMuteMenu && activeChat && (
-                    <div className="absolute right-0 top-12 z-50 rounded-lg border border-white/10 bg-gray-800 shadow-xl py-1 min-w-[180px]">
+                    <div className="absolute right-0 top-12 z-50 rounded-lg border border-white/10 bg-gray-800 shadow-xl py-1 min-w-[140px] sm:min-w-[180px]">
                       {isChatMuted(activeChat) ? (
                         <button
                           onClick={() => {
@@ -1110,7 +1110,7 @@ export function ChatScreen() {
 
                     return (
                       <div key={m.id} className={`${getMessageSpacing()} flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`group relative max-w-[75%] ${isMe ? 'order-2' : ''}`}>
+                        <div className={`group relative max-w-[90%] sm:max-w-[75%] ${isMe ? 'order-2' : ''}`}>
                           {!isMe && (chat.type === 'group' || chat.isChannel) && appearance.showAvatars && (() => {
                             const avatar = getUserAvatar(m.senderId);
                             const isAvatarUrl = avatar && (avatar.startsWith('http') || avatar.startsWith('data:') || avatar.startsWith('/'));
@@ -1278,7 +1278,7 @@ export function ChatScreen() {
                             })()}
                             {/* Sticker message */}
                             {m.type === 'sticker' && (
-                              <div className="min-w-[100px]">
+                              <div className="min-w-[80px] sm:min-w-[100px]">
                                 <StickerMessage 
                                   stickerId={m.content}
                                   onSave={handleSaveSticker}
@@ -1288,7 +1288,7 @@ export function ChatScreen() {
                             )}
                             {/* Poll message */}
                             {m.type === 'poll' && m.poll && (
-                              <div className="min-w-[250px]">
+                              <div className="min-w-[160px] sm:min-w-[220px] md:min-w-[250px]">
                                 <div className="flex items-center gap-2 mb-2">
                                   <BarChart2 className="h-4 w-4 text-indigo-400" />
                                   <span className="text-xs text-indigo-400 font-medium">Poll</span>
@@ -1488,7 +1488,7 @@ export function ChatScreen() {
                     <Smile className="h-5 w-5" />
                   </button>
                   {showEmoji && (
-                    <div className="absolute bottom-12 right-0 z-50 rounded-xl border border-white/10 bg-gray-800 p-3 shadow-xl w-[280px]" onClick={e => e.stopPropagation()}>
+                    <div className="absolute bottom-12 right-0 z-50 rounded-xl border border-white/10 bg-gray-800 p-3 shadow-xl w-[240px] sm:w-[280px]" onClick={e => e.stopPropagation()}>
                       <div className="grid grid-cols-5 gap-2">
                         {emojis.map(em => (
                           <button
