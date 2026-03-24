@@ -1738,6 +1738,25 @@ export const useStore = create<AppState>((set, get) => ({
             [chatId]: (state.allMessages[chatId] || []).filter(m => m.id !== localMessage.id),
           },
         }));
+      } else {
+        // Server successfully created the message - update local message with server ID
+        const serverMessage = await response.json();
+        const serverId = serverMessage.id || serverMessage._id;
+        
+        if (serverId && serverId !== localMessage.id) {
+          // Replace client-generated ID with server ID to avoid duplicates
+          set(state => ({
+            messages: state.messages.map(m => 
+              m.id === localMessage.id ? { ...m, id: serverId } : m
+            ),
+            allMessages: {
+              ...state.allMessages,
+              [chatId]: (state.allMessages[chatId] || []).map(m => 
+                m.id === localMessage.id ? { ...m, id: serverId } : m
+              ),
+            },
+          }));
+        }
       }
     } catch (error) {
       console.error('Failed to send message:', error);
