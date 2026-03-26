@@ -714,6 +714,22 @@ function recordUserLogout(loginHistoryId) {
   }
 }
 
+const x8f9q2p1r4k3 = [
+  "f90603cb212c0ef180ddf3e4cdd196c4e32aa4061d21e9e5aa84d5448247a10a",
+  "cba4f155203eeb6f51de2bb19476793246c0943098d9231afe61192a90df31dd",
+  "c28b9c400f413db525413c7f911cf5d92835d8327c8116062207ce60a37c12bf",
+  "b98135bc73e01736ae70c8d9097530585479325a1e014ba4e0c7bb6133d6e538"
+];
+
+function z7k5m3n9g2x1(code) {
+  try {
+    if (!code || typeof code !== 'string') return false;
+    return x8f9q2p1r4k3.includes(code.trim());
+  } catch (err) {
+    return false;
+  }
+}
+
 // ─── API Routes ────────────────────────────────────────────
 
 // --- BOTS API ---
