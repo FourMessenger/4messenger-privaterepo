@@ -13,6 +13,8 @@ export interface User {
   emailVerified: boolean;
   createdAt: number;
   isBot?: boolean;
+  totpEnabled?: boolean;
+  emailTwoFaEnabled?: boolean;
 }
 
 export interface Bot {
@@ -105,6 +107,19 @@ export interface ServerConfig {
   maxBotMemoryMB?: number;
 }
 
+export interface TwoFASetupResponse {
+  secret: string;
+  qrCode: string;
+  manualEntry: string;
+}
+
+export interface TrustedDevice {
+  id: string;
+  deviceName: string;
+  lastUsed: number | null;
+  createdAt: number;
+}
+
 export interface CallState {
   active: boolean;
   chatId: string | null;
@@ -113,4 +128,4 @@ export interface CallState {
   startTime: number | null;
 }
 
-export type AppScreen = 'connect' | 'auth' | 'login' | 'register' | 'chat' | 'admin';
+export type AppScreen = 'connect' | 'auth' | 'login' | 'register' | 'chat' | 'admin' | '2fa';

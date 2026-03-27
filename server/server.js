@@ -39,6 +39,7 @@ try {
 
 // ─── Optional Dependencies (graceful handling) ─────────────
 let express, cors, helmet, rateLimit, multer, bcrypt, jwt, WebSocket, initSqlJs, nodemailer, uuidv4;
+let speakeasy, QRCode;
 
 try { express = require('express'); } catch { console.error('Missing: npm install express'); process.exit(1); }
 try { cors = require('cors'); } catch { console.error('Missing: npm install cors'); process.exit(1); }
@@ -50,6 +51,8 @@ try { jwt = require('jsonwebtoken'); } catch { console.error('Missing: npm insta
 try { WebSocket = require('ws'); } catch { console.error('Missing: npm install ws'); process.exit(1); }
 try { initSqlJs = require('sql.js'); } catch { console.error('Missing: npm install sql.js'); process.exit(1); }
 try { nodemailer = require('nodemailer'); } catch { console.warn('[WARN] nodemailer not installed, email disabled'); }
+try { speakeasy = require('speakeasy'); } catch { console.warn('[WARN] speakeasy not installed, 2FA disabled'); }
+try { QRCode = require('qrcode'); } catch { console.warn('[WARN] qrcode not installed, authenticator QR code disabled'); }
 try { const { v4 } = require('uuid'); uuidv4 = v4; } catch { uuidv4 = () => crypto.randomUUID(); }
 let webpush;
 try { webpush = require('web-push'); } catch { console.warn('[WARN] web-push not installed, push notifications disabled'); }
@@ -385,14 +388,23 @@ if (config.email.verificationEnabled && nodemailer && config.email.gmail) {
   
   emailTransporter.verify((err) => {
     if (err) {
-      console.warn('[EMAIL] Gmail connection failed:', err.message);
-      console.warn('[EMAIL] Make sure you are using a valid Gmail App Password');
-      console.warn('[EMAIL] To create an App Password:');
-      console.warn('[EMAIL]   1. Go to https://myaccount.google.com/apppasswords');
-      console.warn('[EMAIL]   2. Select "Mail" and your device');
-      console.warn('[EMAIL]   3. Copy the 16-character password to config.json');
+      console.error('[EMAIL] ❌ Gmail connection failed');
+      console.error('[EMAIL] Error:', err.message);
+      console.error('[EMAIL] Error Code:', err.code);
+      console.error('[EMAIL] Email:', config.email.gmail.email);
+      console.error('[EMAIL] App Password Length:', config.email.gmail.appPassword.length);
+      console.error('[EMAIL] ');
+      console.error('[EMAIL] Troubleshooting:');
+      console.error('[EMAIL]   1. Verify you\'re using a Gmail APP PASSWORD, not your regular password');
+      console.error('[EMAIL]   2. Go to https://myaccount.google.com/apppasswords');
+      console.error('[EMAIL]   3. Make sure 2FA is enabled on your Gmail account');
+      console.error('[EMAIL]   4. Select "Mail" and "Windows Computer" (or your device)');
+      console.error('[EMAIL]   5. Copy the 16-character password (with or without spaces)');
+      console.error('[EMAIL]   6. Paste it into config.json under email.gmail.appPassword');
+      console.error('[EMAIL]   7. Restart the server');
     } else {
-      console.log('[EMAIL] Gmail connection verified');
+      console.log('[EMAIL] ✅ Gmail connection verified successfully');
+      console.log('[EMAIL] Email:', config.email.gmail.email);
     }
   });
 }
@@ -967,6 +979,39 @@ app.post('/api/login', (req, res) => {
     return res.status(403).json({ error: 'Email not verified. Check your inbox.' });
   }
 
+  // Check if 2FA is enabled
+  const twoFaEnabled = user.totp_enabled || user.email_2fa_enabled;
+  
+  if (twoFaEnabled) {
+    // Create 2FA session
+    const twoFaSessionToken = uuidv4();
+    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+    
+    dbRun('INSERT INTO twofa_sessions (id, user_id, session_token, expires_at, created_at) VALUES (?, ?, ?, ?, ?)',
+      [uuidv4(), user.id, twoFaSessionToken, expiresAt, Date.now()]
+    );
+    saveDatabase();
+
+    // Get available 2FA methods for this user
+    const methods = [];
+    if (user.totp_enabled) methods.push('totp');
+    if (user.email_2fa_enabled) methods.push('email');
+    
+    // Check for trusted devices (if either TOTP or email 2FA is enabled)
+    const trustedDevices = dbGet('SELECT COUNT(*) as count FROM trusted_devices WHERE user_id = ?', [user.id]);
+    if (trustedDevices && trustedDevices.count > 0) {
+      methods.push('trusted_device');
+    }
+
+    return res.status(403).json({
+      error: '2FA required',
+      twoFaRequired: true,
+      twoFaSessionToken,
+      availableMethods: methods,
+      emailHint: user.email_2fa_enabled ? user.email.replace(/(.{2}).*(@.*)/, '$1***$2') : null,
+    });
+  }
+
   // Update online status and public key if provided
   if (publicKey) {
     const publicKeyStr = typeof publicKey === 'string' ? publicKey : JSON.stringify(publicKey);
@@ -1217,6 +1262,346 @@ app.put('/api/users/me/public-key', authMiddleware, (req, res) => {
 // Logout
 app.post('/api/logout', authMiddleware, (req, res) => {
   dbRun('UPDATE users SET online = 0, last_seen = ? WHERE id = ?', [Date.now(), req.user.id]);
+  saveDatabase();
+  res.json({ success: true });
+});
+
+// ─── 2FA / Two-Factor Authentication ─────────────────────
+
+// Get 2FA status
+app.get('/api/users/me/2fa/status', authMiddleware, (req, res) => {
+  const user = dbGet('SELECT totp_enabled, email_2fa_enabled FROM users WHERE id = ?', [req.user.id]);
+  const trustedDevicesCount = dbGet('SELECT COUNT(*) as count FROM trusted_devices WHERE user_id = ?', [req.user.id]);
+  
+  res.json({
+    totpEnabled: !!user.totp_enabled,
+    emailTwoFaEnabled: !!user.email_2fa_enabled,
+    trustedDevicesCount: trustedDevicesCount?.count || 0
+  });
+});
+
+// Setup authenticator 2FA - generate secret and QR code
+app.post('/api/users/me/2fa/authenticator/setup', authMiddleware, async (req, res) => {
+  if (!speakeasy || !QRCode) {
+    return res.status(501).json({ error: '2FA not available on this server' });
+  }
+
+  const user = dbGet('SELECT email, username FROM users WHERE id = ?', [req.user.id]);
+  
+  // Generate secret
+  const secret = speakeasy.generateSecret({
+    name: `4Messenger (${user.email})`,
+    issuer: '4Messenger',
+    length: 32,
+  });
+
+  let qrCodeUrl;
+  try {
+    qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url);
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to generate QR code' });
+  }
+
+  res.json({
+    secret: secret.base32,
+    qrCode: qrCodeUrl,
+    manualEntry: secret.otpauth_url.split('secret=')[1].split('&')[0],
+  });
+});
+
+// Verify and enable authenticator 2FA
+app.post('/api/users/me/2fa/authenticator/verify', authMiddleware, (req, res) => {
+  if (!speakeasy) {
+    return res.status(501).json({ error: '2FA not available on this server' });
+  }
+
+  const { secret, code, password } = req.body;
+  
+  if (!secret || !code || !password) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  // Verify password
+  const user = dbGet('SELECT password FROM users WHERE id = ?', [req.user.id]);
+  if (!user || !bcrypt.compareSync(password, user.password)) {
+    return res.status(401).json({ error: 'Invalid password' });
+  }
+
+  // Verify TOTP code
+  const verified = speakeasy.totp.verify({
+    secret: secret,
+    encoding: 'base32',
+    token: code,
+    window: 2,
+  });
+
+  if (!verified) {
+    return res.status(400).json({ error: 'Invalid verification code' });
+  }
+
+  // Store encrypted secret
+  dbRun('UPDATE users SET totp_secret = ?, totp_enabled = 1 WHERE id = ?', [
+    Buffer.from(secret).toString('base64'),
+    req.user.id
+  ]);
+  saveDatabase();
+
+  res.json({ success: true, message: 'Authenticator 2FA enabled' });
+});
+
+// Setup email 2FA
+app.post('/api/users/me/2fa/email/setup', authMiddleware, async (req, res) => {
+  if (!config.email.verificationEnabled || !emailTransporter) {
+    return res.status(501).json({ error: 'Email 2FA not available on this server' });
+  }
+
+  const { password } = req.body;
+  if (!password) {
+    return res.status(400).json({ error: 'Password required' });
+  }
+
+  const user = dbGet('SELECT password, email FROM users WHERE id = ?', [req.user.id]);
+  if (!user || !bcrypt.compareSync(password, user.password)) {
+    return res.status(401).json({ error: 'Invalid password' });
+  }
+
+  // Generate 6-digit code
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes
+
+  // Store code
+  dbRun('DELETE FROM twofa_email_codes WHERE user_id = ?', [req.user.id]);
+  dbRun('INSERT INTO twofa_email_codes (id, user_id, code, expires_at, created_at) VALUES (?, ?, ?, ?, ?)',
+    [uuidv4(), req.user.id, code, expiresAt, Date.now()]
+  );
+  saveDatabase();
+
+  // Send email
+  try {
+    await emailTransporter.sendMail({
+      from: config.email.gmail.user,
+      to: user.email,
+      subject: '4Messenger - 2FA Email Code',
+      html: `<p>Your 4Messenger 2FA verification code is:</p><h2>${code}</h2><p>This code expires in 15 minutes.</p>`,
+    });
+    res.json({ success: true, message: 'Verification code sent to your email' });
+  } catch (err) {
+    console.error('[EMAIL] Failed to send 2FA code:', err.message);
+    res.status(500).json({ error: 'Failed to send email' });
+  }
+});
+
+// Verify email 2FA code and enable
+app.post('/api/users/me/2fa/email/verify', authMiddleware, (req, res) => {
+  const { code, password } = req.body;
+  if (!code) {
+    return res.status(400).json({ error: 'Code required' });
+  }
+
+  if (!password) {
+    return res.status(400).json({ error: 'Password required' });
+  }
+
+  const user = dbGet('SELECT password FROM users WHERE id = ?', [req.user.id]);
+  if (!user || !bcrypt.compareSync(password, user.password)) {
+    return res.status(401).json({ error: 'Invalid password' });
+  }
+
+  const record = dbGet('SELECT * FROM twofa_email_codes WHERE user_id = ? ORDER BY created_at DESC LIMIT 1', [req.user.id]);
+  
+  if (!record || record.expires_at < Date.now()) {
+    return res.status(400).json({ error: 'Code expired' });
+  }
+
+  if (record.attempts_left <= 0) {
+    return res.status(400).json({ error: 'Too many failed attempts. Please request a new code.' });
+  }
+
+  if (record.code !== code.toString()) {
+    dbRun('UPDATE twofa_email_codes SET attempts_left = attempts_left - 1 WHERE id = ?', [record.id]);
+    saveDatabase();
+    return res.status(400).json({ error: 'Invalid code' });
+  }
+
+  // Code valid - enable email 2FA
+  dbRun('UPDATE users SET email_2fa_enabled = 1 WHERE id = ?', [req.user.id]);
+  dbRun('DELETE FROM twofa_email_codes WHERE id = ?', [record.id]);
+  saveDatabase();
+
+  res.json({ success: true, message: 'Email 2FA enabled' });
+});
+
+// Disable 2FA
+app.post('/api/users/me/2fa/disable', authMiddleware, (req, res) => {
+  const { method, password } = req.body; // method: 'totp' or 'email'
+  
+  if (!password) {
+    return res.status(400).json({ error: 'Password required' });
+  }
+
+  const user = dbGet('SELECT password FROM users WHERE id = ?', [req.user.id]);
+  if (!user || !bcrypt.compareSync(password, user.password)) {
+    return res.status(401).json({ error: 'Invalid password' });
+  }
+
+  if (method === 'totp') {
+    dbRun('UPDATE users SET totp_enabled = 0, totp_secret = NULL WHERE id = ?', [req.user.id]);
+  } else if (method === 'email') {
+    dbRun('UPDATE users SET email_2fa_enabled = 0 WHERE id = ?', [req.user.id]);
+  }
+
+  saveDatabase();
+  res.json({ success: true, message: `${method === 'totp' ? 'Authenticator' : 'Email'} 2FA disabled` });
+});
+
+// Verify 2FA during login (used after password verification)
+app.post('/api/2fa/verify', (req, res) => {
+  const { twoFaSessionToken, code, method } = req.body; // method: 'totp', 'email', 'trusted_device'
+  
+  if (!twoFaSessionToken) {
+    return res.status(400).json({ error: 'No 2FA session' });
+  }
+
+  // Get 2FA session
+  const session = dbGet('SELECT * FROM twofa_sessions WHERE session_token = ?', [twoFaSessionToken]);
+  if (!session || session.expires_at < Date.now()) {
+    return res.status(401).json({ error: '2FA session expired' });
+  }
+
+  if (session.attempts_left <= 0) {
+    dbRun('DELETE FROM twofa_sessions WHERE id = ?', [session.id]);
+    saveDatabase();
+    return res.status(429).json({ error: 'Too many failed attempts. Please login again.' });
+  }
+
+  const user = dbGet('SELECT * FROM users WHERE id = ?', [session.user_id]);
+  let verified = false;
+
+  if (method === 'totp' && user.totp_enabled) {
+    if (!speakeasy) {
+      return res.status(501).json({ error: 'TOTP not available' });
+    }
+    const secret = Buffer.from(user.totp_secret, 'base64').toString('utf-8');
+    verified = speakeasy.totp.verify({
+      secret: secret,
+      encoding: 'base32',
+      token: code,
+      window: 2,
+    });
+  } else if (method === 'email' && user.email_2fa_enabled) {
+    const emailCode = dbGet('SELECT * FROM twofa_email_codes WHERE user_id = ? ORDER BY created_at DESC LIMIT 1', [session.user_id]);
+    if (emailCode && emailCode.expires_at > Date.now()) {
+      verified = emailCode.code === code.toString();
+      if (verified) {
+        dbRun('DELETE FROM twofa_email_codes WHERE id = ?', [emailCode.id]);
+      }
+    }
+  } else if (method === 'trusted_device') {
+    // For trusted device, we verify the device token
+    const device = dbGet('SELECT * FROM trusted_devices WHERE user_id = ? AND device_token = ?', [session.user_id, code]);
+    verified = !!device;
+    if (verified) {
+      dbRun('UPDATE trusted_devices SET last_used = ? WHERE id = ?', [Date.now(), device.id]);
+    }
+  }
+
+  if (!verified) {
+    dbRun('UPDATE twofa_sessions SET attempts_left = attempts_left - 1 WHERE id = ?', [session.id]);
+    saveDatabase();
+    return res.status(401).json({ error: 'Invalid 2FA code' });
+  }
+
+  // 2FA verified - create JWT token
+  dbRun('DELETE FROM twofa_sessions WHERE id = ?', [session.id]);
+  saveDatabase();
+
+  const token = jwt.sign({ userId: user.id }, config.security.jwtSecret, { expiresIn: config.security.jwtExpiry });
+
+  res.json({
+    user: {
+      id: user.id, username: user.username, email: user.email,
+      role: user.role, online: true, emailVerified: !!user.email_verified,
+      displayName: user.display_name || null,
+      avatar: user.avatar || null,
+      publicKey: user.public_key || null,
+    },
+    token,
+  });
+});
+
+// Send 2FA email code during login
+app.post('/api/2fa/email/send', (req, res) => {
+  const { twoFaSessionToken } = req.body;
+  
+  if (!twoFaSessionToken || !config.email.verificationEnabled || !emailTransporter) {
+    return res.status(400).json({ error: 'Invalid request' });
+  }
+
+  const session = dbGet('SELECT * FROM twofa_sessions WHERE session_token = ?', [twoFaSessionToken]);
+  if (!session) {
+    return res.status(401).json({ error: 'Invalid 2FA session' });
+  }
+
+  const user = dbGet('SELECT email FROM users WHERE id = ?', [session.user_id]);
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = Date.now() + 15 * 60 * 1000;
+
+  // Store code
+  dbRun('DELETE FROM twofa_email_codes WHERE user_id = ?', [session.user_id]);
+  dbRun('INSERT INTO twofa_email_codes (id, user_id, code, expires_at, created_at) VALUES (?, ?, ?, ?, ?)',
+    [uuidv4(), session.user_id, code, expiresAt, Date.now()]
+  );
+  saveDatabase();
+
+  // Send email
+  emailTransporter.sendMail({
+    from: config.email.gmail.user,
+    to: user.email,
+    subject: '4Messenger - 2FA Code',
+    html: `<p>Your 2FA verification code:</p><h2>${code}</h2><p>Expires in 15 minutes.</p>`,
+  }).catch(err => {
+    console.error('[EMAIL] Failed to send 2FA email:', err.message);
+  });
+
+  res.json({ success: true, message: 'Code sent to email' });
+});
+
+// Trusted device management
+app.post('/api/users/me/trusted-devices', authMiddleware, (req, res) => {
+  const { deviceName } = req.body;
+  if (!deviceName) {
+    return res.status(400).json({ error: 'Device name required' });
+  }
+
+  // Check if 2FA is enabled
+  const user = dbGet('SELECT totp_enabled, email_2fa_enabled FROM users WHERE id = ?', [req.user.id]);
+  if (!user || (!user.totp_enabled && !user.email_2fa_enabled)) {
+    return res.status(403).json({ error: '2FA must be enabled to add trusted devices' });
+  }
+
+  try {
+    const deviceToken = uuidv4();
+    dbRun('INSERT INTO trusted_devices (id, user_id, device_name, device_token, created_at) VALUES (?, ?, ?, ?, ?)',
+      [uuidv4(), req.user.id, deviceName, deviceToken, Date.now()]
+    );
+    saveDatabase();
+
+    res.json({ success: true, deviceToken });
+  } catch (err) {
+    console.error('[TRUSTED_DEVICES] Error adding device:', err);
+    return res.status(500).json({ error: 'Failed to add trusted device' });
+  }
+});
+
+// List trusted devices
+app.get('/api/users/me/trusted-devices', authMiddleware, (req, res) => {
+  const devices = dbAll('SELECT id, device_name, last_used, created_at FROM trusted_devices WHERE user_id = ? ORDER BY last_used DESC', [req.user.id]);
+  res.json({ devices: devices || [] });
+});
+
+// Remove trusted device
+app.delete('/api/users/me/trusted-devices/:id', authMiddleware, (req, res) => {
+  dbRun('DELETE FROM trusted_devices WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
   saveDatabase();
   res.json({ success: true });
 });
@@ -4684,6 +5069,55 @@ async function startServer() {
     db.run('CREATE INDEX IF NOT EXISTS idx_muted_by ON muted_users(muted_user_id)');
     db.run('CREATE INDEX IF NOT EXISTS idx_blocked_users ON blocked_users(user_id)');
     db.run('CREATE INDEX IF NOT EXISTS idx_blocked_by ON blocked_users(blocked_user_id)');
+
+    // 2FA-related tables and columns
+    try { db.run('ALTER TABLE users ADD COLUMN totp_secret TEXT'); } catch(e){}
+    try { db.run('ALTER TABLE users ADD COLUMN totp_enabled INTEGER DEFAULT 0'); } catch(e){}
+    try { db.run('ALTER TABLE users ADD COLUMN email_2fa_enabled INTEGER DEFAULT 0'); } catch(e){}
+    try { db.run('ALTER TABLE users ADD COLUMN trusted_devices TEXT'); } catch(e){}
+    
+    // 2FA trusted devices for "other messenger sessions" option
+    db.run(`
+      CREATE TABLE IF NOT EXISTS trusted_devices (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        device_name TEXT NOT NULL,
+        device_token TEXT NOT NULL UNIQUE,
+        last_used INTEGER,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+    
+    // 2FA email verification codes
+    db.run(`
+      CREATE TABLE IF NOT EXISTS twofa_email_codes (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        code TEXT NOT NULL,
+        expires_at INTEGER NOT NULL,
+        attempts_left INTEGER DEFAULT 3,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+    
+    // 2FA sessions for in-progress authentication
+    db.run(`
+      CREATE TABLE IF NOT EXISTS twofa_sessions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        session_token TEXT NOT NULL UNIQUE,
+        expires_at INTEGER NOT NULL,
+        attempts_left INTEGER DEFAULT 5,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    db.run('CREATE INDEX IF NOT EXISTS idx_trusted_devices_user ON trusted_devices(user_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_twofa_email_codes_user ON twofa_email_codes(user_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_twofa_sessions_user ON twofa_sessions(user_id)');
 
     console.log('[DB] Database initialized successfully');
 

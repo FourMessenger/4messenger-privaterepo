@@ -6,7 +6,7 @@ import {
   Sun, Moon, Monitor, Check, Loader2, Type, MessageSquare,
   Layout, Bell, Volume2, VolumeX, RotateCcw, Clock,
   CircleDot, Square, Maximize2, Minimize2, Globe, Bot, Code, Trash2,
-  Moon as MoonIcon, AlertCircle
+  Moon as MoonIcon, AlertCircle, Smartphone, Mail, QrCode, Copy, Shield
 } from 'lucide-react';
 
 interface UserSettingsProps {
@@ -29,9 +29,11 @@ export function UserSettings({ onClose }: UserSettingsProps) {
     bots, fetchBots, createBot, updateBot, deleteBot,
     notificationPreferences, setDND, toggleServerMute,
     mutedUsers, fetchMutedUsers, muteUser, unmuteUser, isMuted,
-    blockedUsers, fetchBlockedUsers, blockUser, unblockUser, isBlocked
+    blockedUsers, fetchBlockedUsers, blockUser, unblockUser, isBlocked,
+    setupAuthenticatorTwoFa, verifyAuthenticatorSetup, setupEmailTwoFa, verifyEmailTwoFaCode,
+    disableTwoFa, getTwoFaStatus, twoFaStatus, setupTrustedDevice, getTrustedDevices, removeTrustedDevice
   } = useStore();
-  const [tab, setTab] = useState<'profile' | 'appearance' | 'security' | 'language' | 'notifications' | 'bots'>('profile');
+  const [tab, setTab] = useState<'profile' | 'appearance' | 'security' | '2fa' | 'language' | 'notifications' | 'bots'>('profile');
   const [loading, setLoading] = useState(false);
   const [unmutingUserId, setUnmutingUserId] = useState<string | null>(null);
   
@@ -55,6 +57,28 @@ export function UserSettings({ onClose }: UserSettingsProps) {
   const [dndStartHour, setDndStartHour] = useState(Math.floor(notificationPreferences.dndStart / 60));
   const [dndEndHour, setDndEndHour] = useState(Math.floor(notificationPreferences.dndEnd / 60));
 
+  // 2FA state - separate password fields for each action
+  const [authenticatorSetupPassword, setAuthenticatorSetupPassword] = useState('');
+  const [authenticatorSetupPasswordVisible, setAuthenticatorSetupPasswordVisible] = useState(false);
+  const [authenticatorVerifyPassword, setAuthenticatorVerifyPassword] = useState('');
+  const [authenticatorVerifyPasswordVisible, setAuthenticatorVerifyPasswordVisible] = useState(false);
+  const [emailSetupPassword, setEmailSetupPassword] = useState('');
+  const [emailSetupPasswordVisible, setEmailSetupPasswordVisible] = useState(false);
+  const [emailVerifyPassword, setEmailVerifyPassword] = useState('');
+  const [emailVerifyPasswordVisible, setEmailVerifyPasswordVisible] = useState(false);
+  const [disableTotpPassword, setDisableTotpPassword] = useState('');
+  const [disableTotpPasswordVisible, setDisableTotpPasswordVisible] = useState(false);
+  const [disableEmailPassword, setDisableEmailPassword] = useState('');
+  const [disableEmailPasswordVisible, setDisableEmailPasswordVisible] = useState(false);
+  
+  const [authenticatorSetupStep, setAuthenticatorSetupStep] = useState<'choose' | 'display' | 'verify'>('choose');
+  const [authenticatorSecret, setAuthenticatorSecret] = useState<string | null>(null);
+  const [authenticatorQR, setAuthenticatorQR] = useState<string | null>(null);
+  const [authenticatorCode, setAuthenticatorCode] = useState('');
+  const [emailStep, setEmailStep] = useState<'choose' | 'verify'>('choose');
+  const [emailCode, setEmailCode] = useState('');
+  const [trustedDevices, setTrustedDevices] = useState<any[]>([]);
+
   useEffect(() => {
     fetchBots();
   }, [fetchBots]);
@@ -65,6 +89,18 @@ export function UserSettings({ onClose }: UserSettingsProps) {
       fetchBlockedUsers();
     }
   }, [tab, fetchMutedUsers, fetchBlockedUsers]);
+
+  useEffect(() => {
+    if (tab === '2fa') {
+      getTwoFaStatus();
+      loadTrustedDevices();
+    }
+  }, [tab]);
+
+  const loadTrustedDevices = async () => {
+    const devices = await getTrustedDevices();
+    setTrustedDevices(devices);
+  };
 
   // Bot state
   const [editingBotId, setEditingBotId] = useState<string | null>(null);
@@ -225,6 +261,130 @@ export function UserSettings({ onClose }: UserSettingsProps) {
     }
   };
 
+  // 2FA Handlers
+  const handleSetupAuthenticator = async () => {
+    if (!authenticatorSetupPassword) {
+      addNotification('Please enter your password', 'error');
+      return;
+    }
+
+    setLoading(true);
+    const result = await setupAuthenticatorTwoFa();
+    setLoading(false);
+
+    if (result) {
+      setAuthenticatorSecret(result.secret);
+      setAuthenticatorQR(result.qrCode);
+      setAuthenticatorSetupStep('display');
+      // Keep password - don't clear it yet, it's needed for verification
+    }
+  };
+
+  const handleVerifyAuthenticator = async () => {
+    if (!authenticatorCode || !authenticatorSecret) {
+      addNotification('Please enter the code', 'error');
+      return;
+    }
+
+    if (!authenticatorVerifyPassword) {
+      addNotification('Please enter your password', 'error');
+      return;
+    }
+
+    setLoading(true);
+    const success = await verifyAuthenticatorSetup(authenticatorSecret, authenticatorCode, authenticatorVerifyPassword);
+    setLoading(false);
+
+    if (success) {
+      setAuthenticatorSetupStep('choose');
+      setAuthenticatorSecret(null);
+      setAuthenticatorQR(null);
+      setAuthenticatorCode('');
+      setAuthenticatorSetupPassword('');
+      setAuthenticatorVerifyPassword('');
+    }
+  };
+
+  const handleSetupEmail2FA = async () => {
+    if (!emailSetupPassword) {
+      addNotification('Please enter your password', 'error');
+      return;
+    }
+
+    setLoading(true);
+    const success = await setupEmailTwoFa(emailSetupPassword);
+    setLoading(false);
+
+    if (success) {
+      setEmailStep('verify');
+      setEmailSetupPassword('');
+    }
+  };
+
+  const handleVerifyEmail2FA = async () => {
+    if (!emailCode) {
+      addNotification('Please enter the code', 'error');
+      return;
+    }
+
+    if (!emailVerifyPassword) {
+      addNotification('Please enter your password', 'error');
+      return;
+    }
+
+    setLoading(true);
+    const success = await verifyEmailTwoFaCode(emailCode, emailVerifyPassword);
+    setLoading(false);
+
+    if (success) {
+      setEmailStep('choose');
+      setEmailCode('');
+      setEmailSetupPassword('');
+      setEmailVerifyPassword('');
+    }
+  };
+
+  const handleDisable2FA = async (method: 'totp' | 'email') => {
+    const password = method === 'totp' ? disableTotpPassword : disableEmailPassword;
+    
+    if (!password) {
+      addNotification('Please enter your password', 'error');
+      return;
+    }
+
+    setLoading(true);
+    const success = await disableTwoFa(method, password);
+    setLoading(false);
+
+    if (success) {
+      setDisableTotpPassword('');
+      setDisableEmailPassword('');
+    }
+  };
+
+  const handleSetupTrustedDevice =async () => {
+    const deviceName = prompt('Device name (e.g., "My Laptop"):');
+    if (!deviceName) return;
+
+    setLoading(true);
+    const token = await setupTrustedDevice(deviceName);
+    setLoading(false);
+
+    if (token) {
+      await loadTrustedDevices();
+    }
+  };
+
+  const handleRemoveTrustedDevice = async (deviceId: string) => {
+    setLoading(true);
+    const success = await removeTrustedDevice(deviceId);
+    setLoading(false);
+
+    if (success) {
+      await loadTrustedDevices();
+    }
+  };
+
   const updateLocal = (key: keyof AppearanceSettings, value: AppearanceSettings[keyof AppearanceSettings]) => {
     setLocalAppearance(prev => ({ ...prev, [key]: value }));
   };
@@ -288,6 +448,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
             { id: 'profile' as const, icon: User, label: translate('profile') },
             { id: 'appearance' as const, icon: Palette, label: translate('appearance') },
             { id: 'security' as const, icon: Lock, label: translate('security') },
+            { id: '2fa' as const, icon: Shield, label: '2FA' },
             { id: 'language' as const, icon: Globe, label: translate('language') },
             { id: 'notifications' as const, icon: Bell, label: 'Notifications' },
             { id: 'bots' as const, icon: Bot, label: 'Bots' },
@@ -855,6 +1016,368 @@ export function UserSettings({ onClose }: UserSettingsProps) {
                   )}
                   {translate('changePassword')}
                 </button>
+              </div>
+            </div>
+          )}
+
+          {tab === '2fa' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-2">Two-Factor Authentication</h3>
+                <p className="text-sm text-gray-400 mb-6">Add an extra layer of security to your account</p>
+
+                {/* Authenticator App */}
+                <div className="mb-8 p-4 border border-gray-700 rounded-xl">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <Smartphone className="text-indigo-400" size={20} />
+                      <div>
+                        <h4 className="font-semibold text-white">Authenticator App</h4>
+                        <p className="text-sm text-gray-400">Google Authenticator, Authy, Microsoft Authenticator, etc.</p>
+                      </div>
+                    </div>
+                    {twoFaStatus?.totpEnabled && (
+                      <span className="px-2 py-1 bg-green-500/20 text-green-300 rounded text-xs font-semibold">Enabled</span>
+                    )}
+                  </div>
+
+                  {!twoFaStatus?.totpEnabled ? (
+                    <div>
+                      {authenticatorSetupStep === 'choose' && (
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">Password</label>
+                            <div className="relative">
+                              <input
+                                type={authenticatorSetupPasswordVisible ? 'text' : 'password'}
+                                value={authenticatorSetupPassword}
+                                onChange={e => setAuthenticatorSetupPassword(e.target.value)}
+                                placeholder="Enter password to confirm"
+                                className="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-white text-sm pr-10"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setAuthenticatorSetupPasswordVisible(!authenticatorSetupPasswordVisible)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                              >
+                                {authenticatorSetupPasswordVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+                              </button>
+                            </div>
+                          </div>
+                          <button
+                            onClick={handleSetupAuthenticator}
+                            disabled={loading || !authenticatorSetupPassword}
+                            className="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold text-sm transition disabled:opacity-50"
+                          >
+                            {loading ? <Loader2 className="animate-spin h-4 w-4 inline" /> : 'Setup Authenticator'}
+                          </button>
+                        </div>
+                      )}
+
+                      {authenticatorSetupStep === 'display' && authenticatorQR && (
+                        <div className="space-y-4">
+                          <div className="p-4 bg-gray-800 rounded-lg flex flex-col items-center">
+                            <img src={authenticatorQR} alt="QR Code" className="w-40 h-40" />
+                            <p className="text-xs text-gray-400 mt-2">Scan with your authenticator app</p>
+                          </div>
+                          
+                          <div className="p-4 bg-gray-800 rounded-lg">
+                            <p className="text-xs text-gray-400 mb-2">Or enter manually:</p>
+                            <div className="flex items-center gap-2">
+                              <code className="flex-1 bg-gray-900 p-2 rounded text-xs text-gray-300 break-all">{authenticatorSecret}</code>
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(authenticatorSecret || '');
+                                  addNotification('Copied!', 'success');
+                                }}
+                                className="p-2 hover:bg-gray-700 rounded transition"
+                              >
+                                <Copy size={16} className="text-gray-400" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => setAuthenticatorSetupStep('verify')}
+                            className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold text-sm transition"
+                          >
+                            I've scanned the code
+                          </button>
+                        </div>
+                      )}
+
+                      {authenticatorSetupStep === 'verify' && (
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">6-digit code from authenticator app</label>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              maxLength={6}
+                              value={authenticatorCode}
+                              onChange={e => setAuthenticatorCode(e.target.value.replace(/\D/g, ''))}
+                              placeholder="000000"
+                              className="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-white text-center tracking-widest text-lg"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">Password</label>
+                            <div className="relative">
+                              <input
+                                type={authenticatorVerifyPasswordVisible ? 'text' : 'password'}
+                                value={authenticatorVerifyPassword}
+                                onChange={e => setAuthenticatorVerifyPassword(e.target.value)}
+                                placeholder="Enter password to confirm"
+                                className="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-white text-sm pr-10"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setAuthenticatorVerifyPasswordVisible(!authenticatorVerifyPasswordVisible)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                              >
+                                {authenticatorVerifyPasswordVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+                              </button>
+                            </div>
+                          </div>
+                          <button
+                            onClick={handleVerifyAuthenticator}
+                            disabled={loading || authenticatorCode.length !== 6 || !authenticatorVerifyPassword}
+                            className="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold text-sm transition disabled:opacity-50"
+                          >
+                            {loading ? <Loader2 className="animate-spin h-4 w-4 inline" /> : 'Verify & Enable'}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setAuthenticatorSetupStep('choose');
+                              setAuthenticatorCode('');
+                              setAuthenticatorSecret(null);
+                              setAuthenticatorQR(null);
+                              setAuthenticatorSetupPassword('');
+                              setAuthenticatorSetupPasswordVisible(false);
+                              setAuthenticatorVerifyPassword('');
+                              setAuthenticatorVerifyPasswordVisible(false);
+                            }}
+                            className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold text-sm transition"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Password</label>
+                        <div className="relative">
+                          <input
+                            type={disableTotpPasswordVisible ? 'text' : 'password'}
+                            value={disableTotpPassword}
+                            onChange={e => setDisableTotpPassword(e.target.value)}
+                            placeholder="Enter password to confirm"
+                            className="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-white text-sm pr-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setDisableTotpPasswordVisible(!disableTotpPasswordVisible)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                          >
+                            {disableTotpPasswordVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+                          </button>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleDisable2FA('totp')}
+                        disabled={loading || !disableTotpPassword}
+                        className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold text-sm transition disabled:opacity-50"
+                      >
+                        {loading ? <Loader2 className="animate-spin h-4 w-4 inline" /> : 'Disable Authenticator'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Email 2FA */}
+                <div className="mb-8 p-4 border border-gray-700 rounded-xl">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <Mail className="text-blue-400" size={20} />
+                      <div>
+                        <h4 className="font-semibold text-white">Email Verification</h4>
+                        <p className="text-sm text-gray-400">Receive a code via email</p>
+                      </div>
+                    </div>
+                    {twoFaStatus?.emailTwoFaEnabled && (
+                      <span className="px-2 py-1 bg-green-500/20 text-green-300 rounded text-xs font-semibold">Enabled</span>
+                    )}
+                  </div>
+
+                  {!twoFaStatus?.emailTwoFaEnabled ? (
+                    <div>
+                      {emailStep === 'choose' && (
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">Password</label>
+                            <div className="relative">
+                              <input
+                                type={emailSetupPasswordVisible ? 'text' : 'password'}
+                                value={emailSetupPassword}
+                                onChange={e => setEmailSetupPassword(e.target.value)}
+                                placeholder="Enter password to confirm"
+                                className="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-white text-sm pr-10"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setEmailSetupPasswordVisible(!emailSetupPasswordVisible)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                              >
+                                {emailSetupPasswordVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+                              </button>
+                            </div>
+                          </div>
+                          <button
+                            onClick={handleSetupEmail2FA}
+                            disabled={loading || !emailSetupPassword}
+                            className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm transition disabled:opacity-50"
+                          >
+                            {loading ? <Loader2 className="animate-spin h-4 w-4 inline" /> : 'Setup Email 2FA'}
+                          </button>
+                        </div>
+                      )}
+
+                      {emailStep === 'verify' && (
+                        <div className="space-y-4">
+                          <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded text-sm text-blue-300">
+                            Verification code sent to your email
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">Verification code</label>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              maxLength={6}
+                              value={emailCode}
+                              onChange={e => setEmailCode(e.target.value)}
+                              placeholder="000000"
+                              className="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-white text-center tracking-widest"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">Password</label>
+                            <div className="relative">
+                              <input
+                                type={emailVerifyPasswordVisible ? 'text' : 'password'}
+                                value={emailVerifyPassword}
+                                onChange={e => setEmailVerifyPassword(e.target.value)}
+                                placeholder="Enter password to confirm"
+                                className="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-white text-sm pr-10"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setEmailVerifyPasswordVisible(!emailVerifyPasswordVisible)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                              >
+                                {emailVerifyPasswordVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+                              </button>
+                            </div>
+                          </div>
+                          <button
+                            onClick={handleVerifyEmail2FA}
+                            disabled={loading || emailCode.length === 0 || !emailVerifyPassword}
+                            className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm transition disabled:opacity-50"
+                          >
+                            {loading ? <Loader2 className="animate-spin h-4 w-4 inline" /> : 'Verify & Enable'}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEmailStep('choose');
+                              setEmailCode('');
+                              setEmailSetupPassword('');
+                              setEmailSetupPasswordVisible(false);
+                              setEmailVerifyPassword('');
+                              setEmailVerifyPasswordVisible(false);
+                            }}
+                            className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold text-sm transition"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Password</label>
+                        <div className="relative">
+                          <input
+                            type={disableEmailPasswordVisible ? 'text' : 'password'}
+                            value={disableEmailPassword}
+                            onChange={e => setDisableEmailPassword(e.target.value)}
+                            placeholder="Enter password to confirm"
+                            className="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-white text-sm pr-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setDisableEmailPasswordVisible(!disableEmailPasswordVisible)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                          >
+                            {disableEmailPasswordVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+                          </button>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleDisable2FA('email')}
+                        disabled={loading || !disableEmailPassword}
+                        className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold text-sm transition disabled:opacity-50"
+                      >
+                        {loading ? <Loader2 className="animate-spin h-4 w-4 inline" /> : 'Disable Email 2FA'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Trusted Devices */}
+                {(twoFaStatus?.totpEnabled || twoFaStatus?.emailTwoFaEnabled) && (
+                  <div className="p-4 border border-gray-700 rounded-xl">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <Smartphone className="text-green-400" size={20} />
+                        <div>
+                          <h4 className="font-semibold text-white">Trusted Devices</h4>
+                          <p className="text-sm text-gray-400">Skip 2FA verification on this device</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 mb-4">
+                      {trustedDevices.length > 0 ? (
+                        trustedDevices.map(device => (
+                          <div key={device.id} className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
+                            <div className="text-sm">
+                              <p className="font-medium text-white">{device.device_name}</p>
+                              <p className="text-xs text-gray-400">Added {new Date(device.created_at).toLocaleDateString()}</p>
+                            </div>
+                            <button
+                              onClick={() => handleRemoveTrustedDevice(device.id)}
+                              className="text-red-400 hover:text-red-300 transition"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-400">No trusted devices yet</p>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={handleSetupTrustedDevice}
+                      disabled={loading}
+                      className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold text-sm transition disabled:opacity-50"
+                    >
+                      {loading ? <Loader2 className="animate-spin h-4 w-4 inline" /> : '+ Add This Device'}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -8,6 +8,7 @@ import { ChatScreen } from './components/ChatScreen';
 import { AdminPanel } from './components/AdminPanel';
 import { CallOverlay } from './components/CallOverlay';
 import { Notifications } from './components/Notifications';
+import { TwoFAVerification } from './components/TwoFAVerification';
 
 export function App() {
   const screen = useStore(s => s.screen);
@@ -310,6 +311,7 @@ export function App() {
       {screen === 'connect' && <ConnectScreen />}
       {screen === 'auth' && <AuthScreen />}
       {screen === 'login' && <LoginScreen />}
+      {screen === '2fa' && <TwoFAVerification />}
       {screen === 'register' && <RegisterScreen />}
       {screen === 'chat' && <ChatScreen />}
       {screen === 'admin' && <AdminPanel />}
