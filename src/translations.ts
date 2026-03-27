@@ -26,6 +26,8 @@ export const translations: Record<Language, Record<string, string>> = {
     'connect.cancel': 'Cancel',
     'connect.save': 'Save',
     'connect.official': 'Official',
+    'server.officialGlobal': 'Official 4 Messenger Server',
+    'server.officialRussia': 'Official 4 Messenger Server (Russia users)',
     
     // Auth Screen
     'auth.serverPassword': 'Server Password',
@@ -427,6 +429,8 @@ export const translations: Record<Language, Record<string, string>> = {
     'connect.cancel': 'Отмена',
     'connect.save': 'Сохранить',
     'connect.official': 'Официальный',
+    'server.officialGlobal': 'Официальный сервер 4 Мессенджер',
+    'server.officialRussia': 'Официальный сервер 4 Мессенджер (для пользователей из России)',
     
     // Экран авторизации
     'auth.serverPassword': 'Пароль сервера',
