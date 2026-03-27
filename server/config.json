@@ -39,7 +39,7 @@
   "email": {
     "verificationEnabled": false,
     "gmail": {
-      "email": "your-gmail@gmail.com",
+      "email": "email@gmail.com",
       "appPassword": "xxxx xxxx xxxx xxxx"
     },
     "from": "4 Messenger",
@@ -119,7 +119,7 @@
     "createDefaultAdmin": true,
     "defaultAdminUsername": "owner",
     "defaultAdminPassword": "owner123",
-    "defaultAdminEmail": "owner@4messenger.com",
+    "defaultAdminEmail": "owner@gmail.com",
     "defaultAdminRole": "owner"
   },
   "bots": {

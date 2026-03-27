@@ -446,6 +446,23 @@ interface AppState {
   checkPrivacyPolicy: () => boolean;
   acceptPrivacyPolicy: () => void;
   setShowPrivacyPolicy: (show: boolean) => void;
+
+  // 2FA
+  twoFaSessionToken: string | null;
+  twoFaAvailableMethods: ('totp' | 'email' | 'trusted_device')[];
+  twoFaEmailHint: string | null;
+  twoFaStatus: { totpEnabled: boolean; emailTwoFaEnabled: boolean; trustedDevicesCount: number } | null;
+  setupAuthenticatorTwoFa: () => Promise<{ secret: string; qrCode: string; manualEntry: string } | null>;
+  verifyAuthenticatorSetup: (secret: string, code: string, password: string) => Promise<boolean>;
+  setupEmailTwoFa: (password: string) => Promise<boolean>;
+  verifyEmailTwoFaCode: (code: string, password: string) => Promise<boolean>;
+  verify2Fa: (method: 'totp' | 'email' | 'trusted_device', code: string) => Promise<boolean>;
+  send2FaEmailCode: () => Promise<boolean>;
+  disableTwoFa: (method: 'totp' | 'email', password: string) => Promise<boolean>;
+  getTwoFaStatus: () => Promise<void>;
+  setupTrustedDevice: (deviceName: string) => Promise<string | null>;
+  getTrustedDevices: () => Promise<any[]>;
+  removeTrustedDevice: (deviceId: string) => Promise<boolean>;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -505,6 +522,12 @@ export const useStore = create<AppState>((set, get) => ({
   notifications: [],
   appearance: loadAppearance(),
   notificationPreferences: loadNotificationPreferences(),
+  
+  // 2FA
+  twoFaSessionToken: null,
+  twoFaAvailableMethods: [],
+  twoFaEmailHint: null,
+  twoFaStatus: null,
 
   setServerUrl: (url) => {
     // Normalize the URL: add protocol if missing, remove trailing slashes
@@ -766,6 +789,17 @@ export const useStore = create<AppState>((set, get) => ({
       });
       
       const data = await response.json();
+      
+      // Handle 2FA required
+      if (response.status === 403 && data.twoFaRequired) {
+        set({ 
+          twoFaSessionToken: data.twoFaSessionToken,
+          twoFaAvailableMethods: data.availableMethods || [],
+          twoFaEmailHint: data.emailHint,
+          screen: '2fa'
+        });
+        return true; // Success, but 2FA needed
+      }
       
       if (!response.ok) {
         get().addNotification(data.error || 'Login failed', 'error');
@@ -2805,6 +2839,333 @@ export const useStore = create<AppState>((set, get) => ({
   privacyPolicyAccepted: false,
   showPrivacyPolicy: false,
   
+  // 2FA implementations
+  setupAuthenticatorTwoFa: async () => {
+    const { serverUrl, authToken } = get();
+    if (!serverUrl || !authToken) return null;
+    
+    try {
+      const response = await fetch(`${serverUrl}/api/users/me/2fa/authenticator/setup`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        get().addNotification(errorData.error || 'Failed to setup authenticator', 'error');
+        return null;
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (err) {
+      get().addNotification('Error setting up authenticator', 'error');
+      return null;
+    }
+  },
+
+  verifyAuthenticatorSetup: async (secret, code, password) => {
+    const { serverUrl, authToken } = get();
+    if (!serverUrl || !authToken) return false;
+    
+    try {
+      const response = await fetch(`${serverUrl}/api/users/me/2fa/authenticator/verify`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ secret, code, password }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        get().addNotification(data.error || 'Failed to verify code', 'error');
+        return false;
+      }
+      
+      get().addNotification('Authenticator 2FA enabled successfully', 'success');
+      await get().getTwoFaStatus();
+      return true;
+    } catch (err) {
+      get().addNotification('Error verifying 2FA setup', 'error');
+      return false;
+    }
+  },
+
+  setupEmailTwoFa: async (password) => {
+    const { serverUrl, authToken } = get();
+    if (!serverUrl || !authToken) return false;
+    
+    try {
+      const response = await fetch(`${serverUrl}/api/users/me/2fa/email/setup`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ password }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        get().addNotification(data.error || 'Failed to setup email 2FA', 'error');
+        return false;
+      }
+      
+      get().addNotification('Verification code sent to your email', 'success');
+      return true;
+    } catch (err) {
+      get().addNotification('Error setting up email 2FA', 'error');
+      return false;
+    }
+  },
+
+  verifyEmailTwoFaCode: async (code, password) => {
+    const { serverUrl, authToken } = get();
+    if (!serverUrl || !authToken) return false;
+    
+    try {
+      const response = await fetch(`${serverUrl}/api/users/me/2fa/email/verify`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ code, password }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        get().addNotification(data.error || 'Invalid code', 'error');
+        return false;
+      }
+      
+      get().addNotification('Email 2FA enabled successfully', 'success');
+      await get().getTwoFaStatus();
+      return true;
+    } catch (err) {
+      get().addNotification('Error verifying email code', 'error');
+      return false;
+    }
+  },
+
+  verify2Fa: async (method, code) => {
+    const { serverUrl, twoFaSessionToken } = get();
+    if (!serverUrl || !twoFaSessionToken) return false;
+    
+    try {
+      const response = await fetch(`${serverUrl}/api/2fa/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ twoFaSessionToken, code, method }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        get().addNotification(data.error || 'Invalid 2FA code', 'error');
+        return false;
+      }
+      
+      // Login successful - set auth data
+      set({
+        currentUser: data.user,
+        authToken: data.token,
+        twoFaSessionToken: null,
+        screen: 'chat',
+      });
+      
+      saveSession(serverUrl, data.token, data.user);
+      saveWsTokenToCookie(serverUrl, data.token, data.user);
+      
+      // Initialize WebSocket and fetch data
+      await Promise.all([
+        get().fetchUsers(),
+        get().fetchChats(),
+        get().fetchBots(),
+      ]);
+      
+      return true;
+    } catch (err) {
+      get().addNotification('Error verifying 2FA', 'error');
+      return false;
+    }
+  },
+
+  send2FaEmailCode: async () => {
+    const { serverUrl, twoFaSessionToken } = get();
+    if (!serverUrl || !twoFaSessionToken) return false;
+    
+    try {
+      const response = await fetch(`${serverUrl}/api/2fa/email/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ twoFaSessionToken }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        get().addNotification(data.error || 'Failed to send code', 'error');
+        return false;
+      }
+      
+      get().addNotification('Code sent to your email', 'success');
+      return true;
+    } catch (err) {
+      get().addNotification('Error sending 2FA code', 'error');
+      return false;
+    }
+  },
+
+  disableTwoFa: async (method, password) => {
+    const { serverUrl, authToken } = get();
+    if (!serverUrl || !authToken) return false;
+    
+    try {
+      const response = await fetch(`${serverUrl}/api/users/me/2fa/disable`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ method, password }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        get().addNotification(data.error || 'Failed to disable 2FA', 'error');
+        return false;
+      }
+      
+      get().addNotification(data.message, 'success');
+      await get().getTwoFaStatus();
+      return true;
+    } catch (err) {
+      get().addNotification('Error disabling 2FA', 'error');
+      return false;
+    }
+  },
+
+  getTwoFaStatus: async () => {
+    const { serverUrl, authToken } = get();
+    if (!serverUrl || !authToken) return;
+    
+    try {
+      const response = await fetch(`${serverUrl}/api/users/me/2fa/status`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${authToken}` },
+      });
+      
+      if (!response.ok) return;
+      
+      const data = await response.json();
+      set({ twoFaStatus: data });
+    } catch (err) {
+      console.error('Error fetching 2FA status:', err);
+    }
+  },
+
+  setupTrustedDevice: async (deviceName) => {
+    const { serverUrl, authToken } = get();
+    if (!serverUrl || !authToken) {
+      get().addNotification('Not authenticated', 'error');
+      return null;
+    }
+    
+    try {
+      const response = await fetch(`${serverUrl}/api/users/me/trusted-devices`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ deviceName }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        get().addNotification(data.error || 'Failed to setup trusted device', 'error');
+        console.error('[setupTrustedDevice] Error:', data.error);
+        return null;
+      }
+      
+      get().addNotification('Device registered successfully', 'success');
+      return data.deviceToken;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error setting up trusted device';
+      get().addNotification(message, 'error');
+      console.error('[setupTrustedDevice] Exception:', err);
+      return null;
+    }
+  },
+
+  getTrustedDevices: async () => {
+    const { serverUrl, authToken } = get();
+    if (!serverUrl || !authToken) {
+      console.warn('[getTrustedDevices] Not authenticated');
+      return [];
+    }
+    
+    try {
+      const response = await fetch(`${serverUrl}/api/users/me/trusted-devices`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${authToken}` },
+      });
+      
+      if (!response.ok) {
+        console.error('[getTrustedDevices] Response not ok:', response.status);
+        return [];
+      }
+      
+      const data = await response.json();
+      return data.devices || [];
+    } catch (err) {
+      console.error('[getTrustedDevices] Error:', err);
+      return [];
+    }
+  },
+
+  removeTrustedDevice: async (deviceId) => {
+    const { serverUrl, authToken } = get();
+    if (!serverUrl || !authToken) {
+      get().addNotification('Not authenticated', 'error');
+      return false;
+    }
+    
+    try {
+      const response = await fetch(`${serverUrl}/api/users/me/trusted-devices/${deviceId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${authToken}` },
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        get().addNotification(data.error || 'Failed to remove device', 'error');
+        console.error('[removeTrustedDevice] Error:', data.error);
+        return false;
+      }
+      
+      get().addNotification('Device removed successfully', 'success');
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error removing device';
+      get().addNotification(message, 'error');
+      console.error('[removeTrustedDevice] Exception:', err);
+      return false;
+    }
+  },
+
   checkPrivacyPolicy: () => {
     return hasAcceptedPrivacyPolicy();
   },
