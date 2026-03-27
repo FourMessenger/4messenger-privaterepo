@@ -298,7 +298,7 @@ export function ConnectScreen() {
                     <p className={`font-medium truncate ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>{shortcut.name}</p>
                     <p className={`text-xs truncate ${isDarkTheme ? 'text-gray-500' : 'text-gray-600'}`}>{shortcut.url}</p>
                   </div>
-                  {shortcut.id !== 'official-4messenger' && (
+                  {shortcut.id !== 'official-4messenger' && shortcut.id !== 'official-4messenger-russia' && (
                     <button
                       onClick={(e) => handleRemoveShortcut(e, shortcut.id)}
                       className={`p-1.5 rounded-lg transition ${
