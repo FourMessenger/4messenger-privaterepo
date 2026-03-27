@@ -13,29 +13,46 @@ export interface ServerShortcut {
   createdAt: number;
 }
 
-// Official server shortcut - loaded from official.txt
-let officialServerUrl = ''; // Will be loaded from /official.txt
-let officialServerLoaded = false;
+// Official server shortcuts - loaded from official.txt and official2.txt
+let officialServerUrls: { global: string; russia: string } = { global: '', russia: '' };
+let officialServersLoaded = false;
 
-// Load official server URL from file (will be called after store is created)
-const loadOfficialServerUrl = async (): Promise<string> => {
-  if (officialServerLoaded) return officialServerUrl;
+// Load official server URLs from files (will be called after store is created)
+const loadOfficialServerUrls = async (): Promise<{ global: string; russia: string }> => {
+  if (officialServersLoaded) return officialServerUrls;
   
   try {
-    const response = await fetch('/official.txt');
-    if (response.ok) {
-      const url = (await response.text()).trim();
-      if (url && url.startsWith('http')) {
-        officialServerUrl = url;
-        officialServerLoaded = true;
-        return url;
+    // Load global official server
+    try {
+      const globalResponse = await fetch('/official.txt');
+      if (globalResponse.ok) {
+        const url = (await globalResponse.text()).trim();
+        if (url && url.startsWith('http')) {
+          officialServerUrls.global = url;
+        }
       }
+    } catch (e) {
+      console.error('Failed to load global official server URL:', e);
+    }
+    
+    // Load Russia official server
+    try {
+      const russiaResponse = await fetch('/official2.txt');
+      if (russiaResponse.ok) {
+        const url = (await russiaResponse.text()).trim();
+        if (url && url.startsWith('http')) {
+          officialServerUrls.russia = url;
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load Russia official server URL:', e);
     }
   } catch (e) {
-    console.error('Failed to load official server URL:', e);
+    console.error('Failed to load official server URLs:', e);
   }
-  officialServerLoaded = true;
-  return '';
+  
+  officialServersLoaded = true;
+  return officialServerUrls;
 };
 
 // Load shortcuts from localStorage (without official - that's loaded async)
@@ -46,9 +63,9 @@ const loadShortcuts = (): ServerShortcut[] => {
     const saved = localStorage.getItem('4messenger-shortcuts');
     if (saved) {
       const parsed = JSON.parse(saved) as ServerShortcut[];
-      // Add user shortcuts but avoid duplicating the official one
+      // Add user shortcuts but avoid duplicating the official ones
       for (const s of parsed) {
-        if (s.id !== 'official-4messenger') {
+        if (s.id !== 'official-4messenger' && s.id !== 'official-4messenger-russia') {
           shortcuts.push(s);
         }
       }
@@ -2802,19 +2819,19 @@ export const useStore = create<AppState>((set, get) => ({
     };
     set(state => {
       const updated = [...state.serverShortcuts, newShortcut];
-      saveShortcuts(updated.filter(s => s.id !== 'official-4messenger')); // Don't save official to localStorage
+      saveShortcuts(updated.filter(s => s.id !== 'official-4messenger' && s.id !== 'official-4messenger-russia')); // Don't save official shortcuts to localStorage
       return { serverShortcuts: updated };
     });
   },
 
   removeServerShortcut: (id) => {
-    // Prevent removing the official shortcut
-    if (id === 'official-4messenger') {
+    // Prevent removing the official shortcuts
+    if (id === 'official-4messenger' || id === 'official-4messenger-russia') {
       return;
     }
     set(state => {
       const updated = state.serverShortcuts.filter(s => s.id !== id);
-      saveShortcuts(updated.filter(s => s.id !== 'official-4messenger')); // Don't save official to localStorage
+      saveShortcuts(updated.filter(s => s.id !== 'official-4messenger' && s.id !== 'official-4messenger-russia')); // Don't save official shortcuts to localStorage
       return { serverShortcuts: updated };
     });
   },
@@ -3177,29 +3194,42 @@ export const useStore = create<AppState>((set, get) => ({
   
   setShowPrivacyPolicy: (show) => set({ showPrivacyPolicy: show }),
 
-  // Initialize official server shortcut
+  // Initialize official server shortcuts
   initOfficialShortcut: async () => {
-    const url = await loadOfficialServerUrl();
-    if (url) {
-      const hasOfficial = get().serverShortcuts.some(s => s.id === 'official-4messenger');
-      const officialShortcut: ServerShortcut = {
+    const urls = await loadOfficialServerUrls();
+    const state = get();
+    const officialShortcuts: ServerShortcut[] = [];
+    
+    // Add global official server
+    if (urls.global) {
+      officialShortcuts.push({
         id: 'official-4messenger',
-        name: 'Official 4 Messenger Server',
-        url,
+        name: state.t('server.officialGlobal'),
+        url: urls.global,
         createdAt: 0,
-      };
-      
-      if (!hasOfficial) {
-        set(state => ({
-          serverShortcuts: [officialShortcut, ...state.serverShortcuts],
-        }));
-      } else {
-        set(state => ({
-          serverShortcuts: state.serverShortcuts.map(s => 
-            s.id === 'official-4messenger' ? officialShortcut : s
-          ),
-        }));
-      }
+      });
+    }
+    
+    // Add Russia official server
+    if (urls.russia) {
+      officialShortcuts.push({
+        id: 'official-4messenger-russia',
+        name: state.t('server.officialRussia'),
+        url: urls.russia,
+        createdAt: 0,
+      });
+    }
+    
+    if (officialShortcuts.length > 0) {
+      set(state => {
+        // Remove any existing official shortcuts and add the new ones
+        const filtered = state.serverShortcuts.filter(s => 
+          s.id !== 'official-4messenger' && s.id !== 'official-4messenger-russia'
+        );
+        return {
+          serverShortcuts: [...officialShortcuts, ...filtered],
+        };
+      });
     }
   },
 

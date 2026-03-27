@@ -5,13 +5,14 @@ import {
   Send, Paperclip, Smile, Phone, Video, MoreVertical, Image,
   Edit2, Trash2, ChevronLeft, Shield, Crown, UserPlus, X,
   Lock, Menu, Info, FileText, Download, Play, Music, Film,
-  Mic, Square, BarChart2, Check, Bot, Bell, BellOff
+  Mic, Square, BarChart2, Check, Bot, Bell, BellOff, AlertCircle
 } from 'lucide-react';
 import { MediaViewer } from './MediaViewer';
 import { UserSettings } from './UserSettings';
 import { CallOverlay } from './CallOverlay';
 import { YouTubePreview, YouTubePlayer, isYouTubeUrl, extractYouTubeId } from './YouTubePlayer';
 import { StickerPicker, StickerMessage } from './StickerPicker';
+import { encryptFileForUpload, decryptFileBlob, arrayBufferToBase64, base64ToArrayBuffer } from '../utils/fileEncryption';
 import type { Chat, Message } from '../types';
 
 // Cache for blob URLs
@@ -173,6 +174,7 @@ export function ChatScreen() {
     fileName: string;
   } | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [fileUploadError, setFileUploadError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showLogoutMenu, setShowLogoutMenu] = useState(false);
   const [youtubePlayer, setYoutubePlayer] = useState<string | null>(null);
@@ -318,12 +320,48 @@ export function ChatScreen() {
     const file = e.target.files?.[0];
     if (!file || !activeChat || !authToken) return;
     
+    setFileUploadError(null);
     setUploadingFile(true);
     
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      
+      // Check file size
+      const maxFileSize = serverConfig.maxFileSize || 10485760; // Default 10MB
+      if (file.size > maxFileSize) {
+        const maxSizeMB = (maxFileSize / 1048576).toFixed(1);
+        const fileSizeMB = (file.size / 1048576).toFixed(1);
+        const error = `File too large (${fileSizeMB}MB). Maximum size is ${maxSizeMB}MB`;
+        setFileUploadError(error);
+        addNotification(error, 'error');
+        setUploadingFile(false);
+        e.target.value = '';
+        return;
+      }
+
+      // Encrypt file if E2EE is active
+      let formData = new FormData();
+      let encryptionMetadata = null;
+      let isEncrypted = false;
+
+      if (serverConfig.encryptionEnabled && isE2EEActive(chat)) {
+        try {
+          const keyPair = e2eeKeyPair;
+          if (keyPair?.privateKey) {
+            const encrypted = await encryptFileForUpload(file, keyPair.privateKey);
+            formData = encrypted.formData;
+            encryptionMetadata = encrypted.encryptionMetadata;
+            isEncrypted = true;
+          }
+        } catch (encryptError) {
+          console.error('File encryption failed:', encryptError);
+          // Continue without encryption if it fails
+        }
+      }
+
+      // If not encrypted, add file normally
+      if (!isEncrypted) {
+        formData.append('file', file);
+      }
+
       const response = await fetch(`${serverUrl.replace(/\/$/, '')}/api/upload`, {
         method: 'POST',
         headers: {
@@ -333,19 +371,50 @@ export function ChatScreen() {
       });
       
       if (!response.ok) {
-        throw new Error('Upload failed');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Upload failed');
       }
       
       const data = await response.json();
       
-      // Determine file type
-      const mimeType = data.mimeType || file.type;
-      let messageType: 'image' | 'file' = 'file';
-      if (mimeType.startsWith('image/')) messageType = 'image';
+      // Build file display info - use original name if available
+      const fileName = encryptionMetadata?.originalName || data.fileName;
+      const mimeType = encryptionMetadata?.mimeType || data.mimeType || file.type;
+      let messageType: 'image' | 'video' | 'audio' | 'file' = 'file';
       
-      // Send message with file info
-      sendMessage(activeChat, data.fileName, messageType, data.fileName, data.fileSize, data.fileUrl);
+      // Determine file type based on mime type or extension
+      if (mimeType.startsWith('image/')) {
+        messageType = 'image';
+      } else if (mimeType.startsWith('video/')) {
+        messageType = 'video';
+      } else if (mimeType.startsWith('audio/')) {
+        messageType = 'audio';
+      }
+      
+      // Send message with file info and encryption metadata if applicable
+      const messageContent = isEncrypted 
+        ? JSON.stringify({
+            fileUrl: data.fileUrl,
+            encryptionMetadata,
+            originalSize: file.size,
+          })
+        : data.fileUrl;
+
+      sendMessage(
+        activeChat, 
+        messageContent, 
+        messageType, 
+        fileName, 
+        file.size, 
+        data.fileUrl,
+        isEncrypted ? { encryptionMetadata } : undefined
+      );
+
+      addNotification('File uploaded successfully', 'success');
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'File upload failed';
+      setFileUploadError(errorMsg);
+      addNotification(errorMsg, 'error');
       console.error('File upload failed:', error);
     } finally {
       setUploadingFile(false);
@@ -1148,24 +1217,47 @@ export function ChatScreen() {
                               if (!hasFile) return null;
 
                               const fileName = m.fileName || m.content || m.fileUrl?.split('/').pop() || 'file';
-                              const fileUrl = m.fileUrl || m.content || '';
+                              let fileUrl = m.fileUrl || m.content || '';
+                              
+                              // Check if message content has encryption metadata
+                              let encryptionMetadata = null;
+                              let isEncrypted = false;
+                              try {
+                                if (typeof m.content === 'string' && m.content.includes('encryptionMetadata')) {
+                                  const parsed = JSON.parse(m.content);
+                                  encryptionMetadata = parsed.encryptionMetadata;
+                                  fileUrl = parsed.fileUrl || fileUrl;
+                                  isEncrypted = !!encryptionMetadata;
+                                }
+                              } catch (e) {
+                                // Not JSON, use content as-is
+                              }
+                              
                               const isImage = isImageFile(fileName);
                               const isVideo = isVideoFile(fileName);
                               const isAudio = isAudioFile(fileName);
                               
                               return (
                               <div className="mb-2">
+                                {/* Encryption indicator */}
+                                {isEncrypted && (
+                                  <div className="mb-2 flex items-center gap-1.5 text-xs px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 w-fit">
+                                    <Lock className="h-3 w-3" />
+                                    <span>Encrypted file</span>
+                                  </div>
+                                )}
+                                
                                 {/* Preview for images */}
                                 {fileUrl && isImage && (
                                   <div 
-                                    className="mb-2 cursor-pointer rounded-lg overflow-hidden max-w-xs"
+                                    className="mb-2 cursor-pointer rounded-lg overflow-hidden w-full max-w-xs sm:max-w-sm md:max-w-md"
                                     onClick={() => handleMediaClick(m)}
                                   >
                                     <AuthenticatedImage 
                                       src={fileUrl}
                                       alt={fileName}
                                       className="max-w-full h-auto rounded-lg hover:opacity-90 transition-opacity"
-                                      style={{ maxHeight: '200px', minHeight: '80px', minWidth: '80px' }}
+                                      style={{ maxHeight: '300px', minHeight: '80px', minWidth: '80px' }}
                                       serverUrl={serverUrl}
                                       authToken={authToken}
                                     />
@@ -1175,7 +1267,7 @@ export function ChatScreen() {
                                 {/* Video preview */}
                                 {fileUrl && isVideo && (
                                   <div 
-                                    className="mb-2 cursor-pointer rounded-lg overflow-hidden max-w-xs bg-black/20 p-4 flex items-center justify-center"
+                                    className="mb-2 cursor-pointer rounded-lg overflow-hidden w-full max-w-xs sm:max-w-sm md:max-w-md bg-black/20 p-4 flex items-center justify-center"
                                     onClick={() => handleMediaClick(m)}
                                   >
                                     <div className="flex flex-col items-center gap-2">
@@ -1189,7 +1281,7 @@ export function ChatScreen() {
                                 
                                 {/* Audio preview */}
                                 {fileUrl && isAudio && (
-                                  <div className="mb-2 rounded-lg overflow-hidden bg-gradient-to-r from-purple-500/20 to-indigo-500/20 p-3">
+                                  <div className="mb-2 rounded-lg overflow-hidden bg-gradient-to-r from-purple-500/20 to-indigo-500/20 p-3 w-full max-w-xs sm:max-w-sm md:max-w-md">
                                     <audio
                                       controls
                                       className="w-full"
@@ -1211,14 +1303,15 @@ export function ChatScreen() {
                                   </div>
                                 )}
                                 
-                                {/* Non-media file preview - downloadable files */}
+                                {/* Generic file preview - works for all file types */}
                                 {!isImage && !isVideo && !isAudio && (
                                   <div 
-                                    className="mb-2 cursor-pointer rounded-lg overflow-hidden bg-gradient-to-r from-gray-500/20 to-gray-600/20 p-3 flex items-center gap-3 hover:from-gray-500/30 hover:to-gray-600/30 transition-colors"
+                                    className="mb-2 cursor-pointer rounded-lg overflow-hidden bg-gradient-to-r from-gray-500/20 to-gray-600/20 p-3 flex items-center gap-3 hover:from-gray-500/30 hover:to-gray-600/30 transition-colors w-full max-w-xs sm:max-w-sm md:max-w-md"
                                     onClick={() => handleDownload(fileUrl || m.content, fileName)}
+                                    title={`Download ${fileName}`}
                                   >
                                     <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center shrink-0">
-                                      <FileText className="h-5 w-5" />
+                                      {getFileIcon(fileName)}
                                     </div>
                                     <div className="min-w-0 flex-1">
                                       <p className="text-sm font-medium truncate">{fileName}</p>
@@ -1234,11 +1327,11 @@ export function ChatScreen() {
                                 
                                 {/* File info bar for media files */}
                                 {(isImage || isVideo || isAudio) && (
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 text-xs">
                                   {getFileIcon(fileName)}
                                   <div className="min-w-0 flex-1">
                                     <p className="text-sm font-medium truncate">{fileName}</p>
-                                    {m.fileSize && <p className="text-xs opacity-70">{formatFileSize(m.fileSize)}</p>}
+                                    {m.fileSize && <p className="opacity-70">{formatFileSize(m.fileSize)}</p>}
                                   </div>
                                   <button
                                     onClick={(e) => {
@@ -1413,6 +1506,28 @@ export function ChatScreen() {
 
             {/* Input */}
             <div className="border-t border-white/10 bg-gray-900/50 p-4 backdrop-blur">
+              {/* File upload error notification */}
+              {fileUploadError && (
+                <div className="mb-3 flex items-center gap-2 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400 border border-red-500/20">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span className="flex-1">{fileUploadError}</span>
+                  <button 
+                    onClick={() => setFileUploadError(null)}
+                    className="text-red-400 hover:text-red-300 ml-2"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+              
+              {/* File uploading status */}
+              {uploadingFile && (
+                <div className="mb-3 flex items-center gap-2 rounded-lg bg-indigo-500/10 px-3 py-2 text-sm text-indigo-400 border border-indigo-500/20">
+                  <div className="w-3 h-3 rounded-full bg-indigo-400 animate-pulse" />
+                  <span>Uploading file...</span>
+                </div>
+              )}
+              
               {/* Channel restriction message */}
               {chat.isChannel && !chat.isChannelAdmin && currentUser.role !== 'admin' ? (
                 <div className="flex items-center justify-center gap-2 py-3 text-gray-400">
@@ -1444,8 +1559,8 @@ export function ChatScreen() {
                 </div>
               ) : (
               <div className="flex items-end gap-2">
-                <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
-                <button onClick={() => fileInputRef.current?.click()} className="rounded-lg p-2.5 text-gray-400 transition hover:bg-white/10 hover:text-white shrink-0" title="Attach file">
+                <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} disabled={uploadingFile} />
+                <button onClick={() => fileInputRef.current?.click()} disabled={uploadingFile} className="rounded-lg p-2.5 text-gray-400 transition hover:bg-white/10 hover:text-white shrink-0 disabled:opacity-50 disabled:cursor-not-allowed" title="Attach file">
                   <Paperclip className="h-5 w-5" />
                 </button>
                 {/* Poll button - only for groups and channels */}
