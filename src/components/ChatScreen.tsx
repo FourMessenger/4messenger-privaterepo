@@ -14,6 +14,7 @@ import { YouTubePreview, YouTubePlayer, isYouTubeUrl, extractYouTubeId } from '.
 import { StickerPicker, StickerMessage } from './StickerPicker';
 import { encryptFileForUpload, decryptFileBlob, arrayBufferToBase64, base64ToArrayBuffer } from '../utils/fileEncryption';
 import type { Chat, Message } from '../types';
+import { E2EE } from '../e2ee';
 
 // Cache for blob URLs
 const blobUrlCache = new Map<string, string>();
@@ -1019,10 +1020,10 @@ export function ChatScreen() {
                   }
                 </p>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 overflow-x-auto pb-1 max-w-full scrollbar-thin">
                 {serverConfig.encryptionEnabled && (
                   <div
-                    className={`mr-1 flex items-center gap-1 rounded-full px-2 py-1 text-xs border ${
+                    className={`mr-1 flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs border ${
                       isE2EEActive(chat)
                         ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                         : hasBotInChat(chat)
@@ -1042,19 +1043,12 @@ export function ChatScreen() {
                     }
                   >
                     <Lock className="h-3 w-3" />
-                    {isE2EEActive(chat)
-                      ? 'E2EE on'
-                      : hasBotInChat(chat)
-                      ? 'E2EE off (bot)'
-                      : isE2EELocked()
-                      ? 'E2EE locked'
-                      : 'E2EE off'}
                   </div>
                 )}
                 <div className="relative">
                   <button 
                     onClick={() => setShowMuteMenu(!showMuteMenu)} 
-                    className={`rounded-lg p-2 transition ${
+                    className={`rounded-lg p-2 transition shrink-0 ${
                       activeChat && isChatMuted(activeChat)
                         ? 'bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30'
                         : 'text-gray-400 hover:bg-white/10 hover:text-white'
@@ -1124,15 +1118,62 @@ export function ChatScreen() {
                     </div>
                   )}
                 </div>
-                <button onClick={() => startCall(chat.id, 'voice')} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-white" title="Voice call">
+                <button onClick={() => startCall(chat.id, 'voice')} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-white shrink-0" title="Voice call">
                   <Phone className="h-5 w-5" />
                 </button>
-                <button onClick={() => startCall(chat.id, 'video')} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-white" title="Video call">
+                <button onClick={() => startCall(chat.id, 'video')} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-white shrink-0" title="Video call">
                   <Video className="h-5 w-5" />
                 </button>
-                <button onClick={() => setShowChatInfo(!showChatInfo)} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-white" title="Chat info">
+                <button onClick={() => setShowChatInfo(!showChatInfo)} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-white shrink-0" title="Chat info">
                   <Info className="h-5 w-5" />
                 </button>
+		<button 
+  onClick={async () => {
+    try {
+      const hasStore = await E2EE.keyStoreExists();
+      if (!hasStore) {
+        alert('No encrypted keys found. Please logout and login again.');
+        return;
+      }
+      
+      if (E2EE.isUnlocked()) {
+        alert('Already unlocked!');
+        return;
+      }
+      
+      const password = prompt('Enter your password to unlock encrypted messages:');
+      if (!password) return;
+      
+      const keyPair = await E2EE.unlockKeyStore(password);
+      if (!keyPair) {
+        alert('Wrong password!');
+        return;
+      }
+      
+      useStore.setState({ e2eeKeyPair: keyPair });
+      
+      const activeChat = useStore.getState().activeChat;
+      if (activeChat) {
+        const chatKey = await E2EE.loadChatKey(activeChat);
+        if (chatKey) {
+          useStore.setState(s => ({ 
+            chatKeys: { ...s.chatKeys, [activeChat]: chatKey } 
+          }));
+          await useStore.getState().fetchMessages(activeChat);
+          alert('✅ Messages unlocked!');
+        } else {
+          alert('No chat key found');
+        }
+      }
+    } catch (error: any) {
+      alert('Error: ' + error.message);
+    }
+  }}
+  className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-emerald-400 shrink-0"
+  title="Unlock E2EE"
+>
+  <Lock className="h-5 w-5" />
+</button>
               </div>
             </div>
 
