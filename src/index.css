@@ -153,14 +153,14 @@ html {
 }
 
 /* Hide scrollbar on mobile but keep functionality */
-@media (max-width: 768px) {
+/*@media (max-width: 768px) {
   ::-webkit-scrollbar {
     display: none;
   }
   * {
     scrollbar-width: none;
   }
-}
+}*/
 
 /* Prevent text selection on UI elements */
 button, [role="button"] {

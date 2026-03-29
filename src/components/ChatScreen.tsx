@@ -14,6 +14,7 @@ import { YouTubePreview, YouTubePlayer, isYouTubeUrl, extractYouTubeId } from '.
 import { StickerPicker, StickerMessage } from './StickerPicker';
 import { encryptFileForUpload, decryptFileBlob, arrayBufferToBase64, base64ToArrayBuffer } from '../utils/fileEncryption';
 import type { Chat, Message } from '../types';
+import { E2EE } from '../e2ee';
 
 // Cache for blob URLs
 const blobUrlCache = new Map<string, string>();
@@ -1019,20 +1020,35 @@ export function ChatScreen() {
                   }
                 </p>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 overflow-x-auto pb-1 max-w-full scrollbar-thin">
                 {serverConfig.encryptionEnabled && (
                   <div
-                    className="mr-1 flex items-center gap-1 rounded-full px-2 py-1 text-xs border bg-gray-500/10 text-gray-400 border-gray-500/20"
-                    title="Your chats protected with end to end encryption"
+                    className={`mr-1 flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs border ${
+                      isE2EEActive(chat)
+                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                        : hasBotInChat(chat)
+                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                        : isE2EELocked()
+                        ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                        : 'bg-gray-500/10 text-gray-400 border-gray-500/20'
+                    }`}
+                    title={
+                      isE2EEActive(chat)
+                        ? 'Messages are end-to-end encrypted'
+                        : hasBotInChat(chat)
+                        ? 'Bots cannot read E2EE messages; encryption is disabled for this chat'
+                        : isE2EELocked()
+                        ? 'E2EE keys are locked (session restored). Sign out and sign in to unlock.'
+                        : 'E2EE not set up for this chat yet'
+                    }
                   >
                     <Lock className="h-3 w-3" />
-                    Your chats protected with E2EE
                   </div>
                 )}
                 <div className="relative">
                   <button 
                     onClick={() => setShowMuteMenu(!showMuteMenu)} 
-                    className={`rounded-lg p-2 transition ${
+                    className={`rounded-lg p-2 transition shrink-0 ${
                       activeChat && isChatMuted(activeChat)
                         ? 'bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30'
                         : 'text-gray-400 hover:bg-white/10 hover:text-white'
@@ -1102,24 +1118,85 @@ export function ChatScreen() {
                     </div>
                   )}
                 </div>
-                <button onClick={() => startCall(chat.id, 'voice')} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-white" title="Voice call">
+                <button onClick={() => startCall(chat.id, 'voice')} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-white shrink-0" title="Voice call">
                   <Phone className="h-5 w-5" />
                 </button>
-                <button onClick={() => startCall(chat.id, 'video')} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-white" title="Video call">
+                <button onClick={() => startCall(chat.id, 'video')} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-white shrink-0" title="Video call">
                   <Video className="h-5 w-5" />
                 </button>
-                <button onClick={() => setShowChatInfo(!showChatInfo)} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-white" title="Chat info">
+                <button onClick={() => setShowChatInfo(!showChatInfo)} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-white shrink-0" title="Chat info">
                   <Info className="h-5 w-5" />
                 </button>
+		<button 
+  onClick={async () => {
+    try {
+      const hasStore = await E2EE.keyStoreExists();
+      if (!hasStore) {
+        alert('No encrypted keys found. Please logout and login again.');
+        return;
+      }
+      
+      if (E2EE.isUnlocked()) {
+        alert('Already unlocked!');
+        return;
+      }
+      
+      const password = prompt('Enter your password to unlock encrypted messages:');
+      if (!password) return;
+      
+      const keyPair = await E2EE.unlockKeyStore(password);
+      if (!keyPair) {
+        alert('Wrong password!');
+        return;
+      }
+      
+      useStore.setState({ e2eeKeyPair: keyPair });
+      
+      const activeChat = useStore.getState().activeChat;
+      if (activeChat) {
+        const chatKey = await E2EE.loadChatKey(activeChat);
+        if (chatKey) {
+          useStore.setState(s => ({ 
+            chatKeys: { ...s.chatKeys, [activeChat]: chatKey } 
+          }));
+          await useStore.getState().fetchMessages(activeChat);
+          alert('✅ Messages unlocked!');
+        } else {
+          alert('No chat key found');
+        }
+      }
+    } catch (error: any) {
+      alert('Error: ' + error.message);
+    }
+  }}
+  className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-emerald-400 shrink-0"
+  title="Unlock E2EE"
+>
+  <Lock className="h-5 w-5" />
+</button>
               </div>
             </div>
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto px-4 py-4" onClick={() => setContextMenu(null)}>
               {serverConfig.encryptionEnabled && (
-                <div className={`mx-auto mb-4 flex max-w-md items-center justify-center gap-2 rounded-full px-4 py-2 text-xs border bg-gray-500/10 text-gray-400 border-gray-500/20`}>
+                <div className={`mx-auto mb-4 flex max-w-md items-center justify-center gap-2 rounded-full px-4 py-2 text-xs border ${
+                  isE2EEActive(chat)
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                    : hasBotInChat(chat)
+                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                    : isE2EELocked()
+                    ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                    : 'bg-gray-500/10 text-gray-400 border-gray-500/20'
+                }`}>
                   <Lock className="h-3 w-3" />
-                  Your chats protected with end to end encryption
+                  {isE2EEActive(chat)
+                    ? 'Messages are end-to-end encrypted'
+                    : hasBotInChat(chat)
+                    ? 'Encryption disabled for this chat (bot participants)'
+                    : isE2EELocked()
+                    ? 'Encrypted messages are locked (refresh the page or log in again to unlock)'
+                    : 'Encryption not set up for this chat yet'}
                 </div>
               )}
 
