@@ -9,6 +9,7 @@ import { AdminPanel } from './components/AdminPanel';
 import { CallOverlay } from './components/CallOverlay';
 import { Notifications } from './components/Notifications';
 import { TwoFAVerification } from './components/TwoFAVerification';
+import { PolicyPage } from './components/PolicyPage';
 
 export function App() {
   const screen = useStore(s => s.screen);
@@ -315,6 +316,7 @@ export function App() {
       {screen === 'register' && <RegisterScreen />}
       {screen === 'chat' && <ChatScreen />}
       {screen === 'admin' && <AdminPanel />}
+      {screen === 'policy' && <PolicyPage />}
       {callState.active && <CallOverlay />}
       <Notifications />
     </div>
