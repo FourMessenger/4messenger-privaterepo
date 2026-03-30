@@ -272,7 +272,7 @@ export function ConnectScreen() {
               </h2>
               <button
                 onClick={() => setShowAddShortcut(true)}
-                className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 px-3 py-1.5 text-xs font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:shadow-indigo-500/35 active:scale-[0.98]"
+                className="flex items-center gap-1 rounded-lg bg-gray-600 px-3 py-1.5 text-xs font-semibold text-white shadow-lg shadow-gray-600/20 transition hover:shadow-gray-600/35 active:scale-[0.98]"
               >
                 <Plus className="h-3 w-3" />
                 {translate('connect.add')}
@@ -329,7 +329,7 @@ export function ConnectScreen() {
             {serverShortcuts.length === 0 && (
               <button
                 onClick={() => setShowAddShortcut(true)}
-                className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 px-3 py-1.5 text-xs font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:shadow-indigo-500/35 active:scale-[0.98]"
+                className="flex items-center gap-1 rounded-lg bg-gray-600 px-3 py-1.5 text-xs font-semibold text-white shadow-lg shadow-gray-600/20 transition hover:shadow-gray-600/35 active:scale-[0.98]"
               >
                 <Plus className="h-3 w-3" />
                 {translate('connect.saveServer')}
