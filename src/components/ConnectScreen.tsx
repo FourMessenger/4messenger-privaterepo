@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useStore, ServerShortcut } from '../store';
-import { Globe, ArrowRight, Shield, MessageSquare, AlertCircle, Loader2, Server, Plus, X, Star, Languages, FileText, CheckCircle, Moon, Sun } from 'lucide-react';
+import { Globe, ArrowRight, Shield, MessageSquare, AlertCircle, Loader2, Server, Plus, X, Star, Languages, FileText, CheckCircle, Moon, Sun, Github, Rss, Lock } from 'lucide-react';
 import PrivacyPolicy from './PrivacyPolicy';
 
 export function ConnectScreen() {
@@ -27,6 +27,7 @@ export function ConnectScreen() {
     serverConfig,
     appearance,
     setAppearance,
+    setScreen,
   } = useStore();
 
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
@@ -417,6 +418,49 @@ export function ConnectScreen() {
         <p className={`mt-6 text-center text-xs ${isDarkTheme ? 'text-gray-500' : 'text-gray-600'}`}>
           {translate('connect.startChatting')}
         </p>
+
+        {/* Quick Links */}
+        <div className="mt-8 grid grid-cols-3 gap-3">
+          <a
+            href="https://github.com/FourMessenger/4messenger"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`flex flex-col items-center gap-2 rounded-lg border p-3 transition ${
+              isDarkTheme
+                ? 'border-white/10 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white'
+                : 'border-gray-300 bg-white/50 hover:bg-white text-gray-700'
+            }`}
+          >
+            <Github className="h-5 w-5" />
+            <span className="text-xs font-medium text-center">View on GitHub</span>
+          </a>
+
+          <a
+            href="https://4mesforum.dpdns.org/forum"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`flex flex-col items-center gap-2 rounded-lg border p-3 transition ${
+              isDarkTheme
+                ? 'border-white/10 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white'
+                : 'border-gray-300 bg-white/50 hover:bg-white text-gray-700'
+            }`}
+          >
+            <Rss className="h-5 w-5" />
+            <span className="text-xs font-medium text-center">Forum</span>
+          </a>
+
+          <button
+            onClick={() => setScreen('policy')}
+            className={`flex flex-col items-center gap-2 rounded-lg border p-3 transition ${
+              isDarkTheme
+                ? 'border-white/10 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white'
+                : 'border-gray-300 bg-white/50 hover:bg-white text-gray-700'
+            }`}
+          >
+            <Lock className="h-5 w-5" />
+            <span className="text-xs font-medium text-center">Privacy Policy</span>
+          </button>
+        </div>
       </div>
 
       {/* Add Shortcut Modal */}

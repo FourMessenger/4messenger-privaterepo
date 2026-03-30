@@ -1,0 +1,129 @@
+PRIVACY POLICY
+Last Updated: March 30, 2026
+
+1. INTRODUCTION
+
+This Privacy Policy ("Policy") describes how 4 Messenger ("we," "us," "our," or "Company") collects, uses, discloses, and otherwise processes personal information in connection with our messaging platform and related services (collectively, the "Service").
+
+2. INFORMATION WE COLLECT
+
+We collect information in the following ways:
+
+2.1 Information You Provide Directly
+- Account Registration: When you create an account, we collect information such as your username, email address, and password.
+- Communication Data: Messages, files, media, and other content you send through our Service.
+- Profile Information: Any additional information you voluntarily provide, such as profile pictures or status messages.
+- Support Communications: Any information you provide when contacting our support team.
+
+2.2 Information Collected Automatically
+- Technical Data: Information about your device, browser type, operating system, and IP address.
+- Usage Data: Information about how you interact with the Service, including access times and pages viewed.
+- Cookies and Similar Technologies: We may use cookies and similar technologies to enhance your experience.
+
+3. HOW WE USE YOUR INFORMATION
+
+We use collected information for the following purposes:
+
+- Providing and improving the Service
+- Communicating with you about account, security, or support matters
+- Personalizing your experience
+- Analyzing usage patterns to enhance functionality
+- Complying with legal obligations
+- Preventing fraud and ensuring security
+
+4. ENCRYPTION AND SECURITY
+
+4.1 End-to-End Encryption
+All messages and communications within 4 Messenger are protected by end-to-end encryption. This means only you and the intended recipient can read your messages. We do not have access to the content of your encrypted communications.
+
+4.2 Security Measures
+We implement industry-standard security measures to protect your data, including:
+- Encrypted data transmission using TLS/SSL protocols
+- Secure storage of authentication credentials
+- Regular security audits and updates
+
+5. DATA SHARING AND THIRD PARTIES
+
+We do not sell or rent your personal information to third parties. We may share information only in the following circumstances:
+
+- With service providers who assist in operating our Service (subject to data protection agreements)
+- When required by law or legal process
+- To prevent fraud or protect security
+- As necessary to enforce our Terms of Service
+
+6. DATA RETENTION
+
+- Message Data: Encrypted messages are stored for the duration of your service usage. You may delete messages at any time.
+- Account Data: Account information is retained for the duration of your account. Upon account deletion, personal data is removed within 30 days, except where required by law.
+- Backup Data: Encrypted backups may be retained for disaster recovery purposes.
+
+7. YOUR RIGHTS AND CHOICES
+
+Depending on your jurisdiction, you may have the following rights:
+
+- Access: Request access to your personal information
+- Correction: Request correction of inaccurate data
+- Deletion: Request deletion of your data (subject to legal retention requirements)
+- Portability: Request a copy of your data in a portable format
+- Opt-out: Control communication preferences
+
+To exercise these rights, please contact us using the information provided below.
+
+8. DATA PRIVACY BY DESIGN
+
+Our Service is built with privacy-first principles:
+- Minimal Data Collection: We collect only essential data
+- Local Processing: Much of your data remains on your device
+- Transparency: You have visibility into what data is collected
+- User Control: You maintain control over sharing settings
+
+9. CHILDREN'S PRIVACY
+
+Our Service is not intended for users under 13 years old (or the applicable age in your jurisdiction). We do not knowingly collect information from children. If we become aware that a child has provided us with personal information, we will take immediate steps to delete such information and terminate the child's account.
+
+10. INTERNATIONAL DATA TRANSFERS
+
+If you are accessing the Service from outside the country where our servers are located, please note that your information may be transferred to and processed in other countries. These countries may have data protection laws that differ from your home country. By using the Service, you consent to such transfers.
+
+11. THIRD-PARTY LINKS
+
+The Service may contain links to third-party websites or services. This Policy does not apply to such third-party services, and we are not responsible for their privacy practices. We encourage you to review the privacy policies of any third-party services before use.
+
+12. CHANGES TO THIS POLICY
+
+We may update this Policy periodically to reflect changes in our practices, technology, or legal requirements. We will notify you of significant changes by posting the updated Policy on our website or through other appropriate means. Your continued use of the Service after such modifications constitutes your acceptance of the updated Policy.
+
+13. CONTACT US
+
+If you have questions about this Privacy Policy or our privacy practices, please contact us at:
+
+4 Messenger
+Privacy Team
+Email: privacy@4messenger.com
+
+Alternatively, you may contact us through the support form available in our application.
+
+14. LEGAL BASIS FOR PROCESSING
+
+In jurisdictions where applicable, our processing of your information is based on:
+- Your consent
+- Contractual necessity (to provide the Service)
+- Legal compliance
+- Legitimate interests in security and fraud prevention
+
+15. ADDITIONAL PROVISIONS BY JURISDICTION
+
+15.1 European Union / EEA Users (GDPR)
+- Data Controller Information: [Available upon request]
+- Data Protection Officer: [Contact information available upon request]
+- Rights: You have additional rights under GDPR, including the right to lodge complaints with supervisory authorities.
+
+15.2 California Users (CCPA)
+- Your California Privacy Rights: You have rights to know, delete, and opt-out of sale of personal information.
+- Shine the Light: You may request information about our disclosure practices.
+
+---
+
+This Privacy Policy is effective as of the date stated above. Previous versions are available upon request.
+
+For more information about our service, visit https://github.com/FourMessenger/4messenger
