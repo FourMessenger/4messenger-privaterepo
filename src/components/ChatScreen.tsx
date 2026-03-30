@@ -1022,33 +1022,11 @@ export function ChatScreen() {
               <div className="flex items-center gap-1">
                 {serverConfig.encryptionEnabled && (
                   <div
-                    className={`mr-1 flex items-center gap-1 rounded-full px-2 py-1 text-xs border ${
-                      isE2EEActive(chat)
-                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                        : hasBotInChat(chat)
-                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                        : isE2EELocked()
-                        ? 'bg-red-500/10 text-red-400 border-red-500/20'
-                        : 'bg-gray-500/10 text-gray-400 border-gray-500/20'
-                    }`}
-                    title={
-                      isE2EEActive(chat)
-                        ? 'Messages are end-to-end encrypted'
-                        : hasBotInChat(chat)
-                        ? 'Bots cannot read E2EE messages; encryption is disabled for this chat'
-                        : isE2EELocked()
-                        ? 'E2EE keys are locked (session restored). Sign out and sign in to unlock.'
-                        : 'E2EE not set up for this chat yet'
-                    }
+                    className="mr-1 flex items-center gap-1 rounded-full px-2 py-1 text-xs border bg-gray-500/10 text-gray-400 border-gray-500/20"
+                    title="Your chats protected with end to end encryption"
                   >
                     <Lock className="h-3 w-3" />
-                    {isE2EEActive(chat)
-                      ? 'E2EE on'
-                      : hasBotInChat(chat)
-                      ? 'E2EE off (bot)'
-                      : isE2EELocked()
-                      ? 'E2EE locked'
-                      : 'E2EE off'}
+                    Your chats protected with E2EE
                   </div>
                 )}
                 <div className="relative">
@@ -1139,23 +1117,9 @@ export function ChatScreen() {
             {/* Messages */}
             <div className="flex-1 overflow-y-auto px-4 py-4" onClick={() => setContextMenu(null)}>
               {serverConfig.encryptionEnabled && (
-                <div className={`mx-auto mb-4 flex max-w-md items-center justify-center gap-2 rounded-full px-4 py-2 text-xs border ${
-                  isE2EEActive(chat)
-                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                    : hasBotInChat(chat)
-                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                    : isE2EELocked()
-                    ? 'bg-red-500/10 text-red-400 border-red-500/20'
-                    : 'bg-gray-500/10 text-gray-400 border-gray-500/20'
-                }`}>
+                <div className={`mx-auto mb-4 flex max-w-md items-center justify-center gap-2 rounded-full px-4 py-2 text-xs border bg-gray-500/10 text-gray-400 border-gray-500/20`}>
                   <Lock className="h-3 w-3" />
-                  {isE2EEActive(chat)
-                    ? 'Messages are end-to-end encrypted'
-                    : hasBotInChat(chat)
-                    ? 'Encryption disabled for this chat (bot participants)'
-                    : isE2EELocked()
-                    ? 'Encrypted messages are locked (refresh the page or log in again to unlock)'
-                    : 'Encryption not set up for this chat yet'}
+                  Your chats protected with end to end encryption
                 </div>
               )}
 

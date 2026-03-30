@@ -1259,6 +1259,18 @@ app.put('/api/users/me/public-key', authMiddleware, (req, res) => {
   res.json({ success: true });
 });
 
+// Get a user's public key for E2EE (needed before sending encrypted messages)
+app.get('/api/users/:userId/public-key', authMiddleware, (req, res) => {
+  const user = dbGet('SELECT id, public_key FROM users WHERE id = ?', [req.params.userId]);
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  if (!user.public_key) {
+    return res.status(404).json({ error: 'User has not set up E2EE yet' });
+  }
+  res.json({ publicKey: user.public_key });
+});
+
 // Logout
 app.post('/api/logout', authMiddleware, (req, res) => {
   dbRun('UPDATE users SET online = 0, last_seen = ? WHERE id = ?', [Date.now(), req.user.id]);
