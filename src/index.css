@@ -136,6 +136,500 @@ html {
   animation: slideUp 0.3s ease-out;
 }
 
+/* ═════════════════════════════════════════════════════════════════════
+   COOL ANIMATIONS & TRANSITIONS
+   ═════════════════════════════════════════════════════════════════════ */
+
+/* Message entry animations */
+@keyframes messageSlideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes messageSlideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes messageBounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    opacity: 1;
+  }
+  70% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes messageGlide {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Button and interactive animations */
+@keyframes buttonPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(99, 102, 241, 0);
+  }
+}
+
+@keyframes buttonHoverGlow {
+  from {
+    box-shadow: 0 0 5px rgba(99, 102, 241, 0.5);
+  }
+  to {
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.8),
+                0 0 30px rgba(99, 102, 241, 0.4);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+@keyframes shimmerPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Modal and popup animations */
+@keyframes popupZoom {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes popupFade {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(4px);
+  }
+}
+
+@keyframes slideDownModal {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUpModal {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Notification and notification badge animations */
+@keyframes notificationBounce {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+}
+
+@keyframes notificationPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes badgePing {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+/* Typing indicator animations */
+@keyframes typingDot {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  30% {
+    transform: translateY(-10px);
+    opacity: 1;
+  }
+}
+
+@keyframes typingBubble {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Online status animations */
+@keyframes onlinePulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0);
+  }
+}
+
+@keyframes onlineBlink {
+  0%, 19%, 21%, 100% {
+    opacity: 1;
+  }
+  20% {
+    opacity: 0.3;
+  }
+}
+
+/* Input focus animations */
+@keyframes inputFocus {
+  from {
+    border-color: rgba(99, 102, 241, 0.5);
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+  }
+  to {
+    border-color: rgba(99, 102, 241, 1);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+  }
+}
+
+@keyframes inputBlur {
+  from {
+    border-color: rgba(99, 102, 241, 1);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+  }
+  to {
+    border-color: rgba(99, 102, 241, 0.3);
+    box-shadow: 0 0 0 0px transparent;
+  }
+}
+
+/* Success and confirmation animations */
+@keyframes checkmark {
+  0% {
+    transform: scale(0) rotate(-45deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2) rotate(0deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes successPulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* File upload animations */
+@keyframes fileDropZone {
+  0%, 100% {
+    border-color: rgba(99, 102, 241, 0.3);
+    background-color: rgba(99, 102, 241, 0.02);
+  }
+  50% {
+    border-color: rgba(99, 102, 241, 0.8);
+    background-color: rgba(99, 102, 241, 0.08);
+  }
+}
+
+@keyframes uploadProgress {
+  0% {
+    width: 0;
+  }
+}
+
+/* Search and filter animations */
+@keyframes searchHighlight {
+  0% {
+    background-color: rgba(253, 224, 71, 0.3);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+/* Hover scale effects */
+@keyframes hoverScale {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes hoverGrow {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.1);
+  }
+}
+
+/* Rotate and flip animations */
+@keyframes spinSlow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes flip {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(360deg);
+  }
+}
+
+/* Bounce animations */
+@keyframes bounce3D {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(-10px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+  75% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes elasticBounce {
+  0%, 100% {
+    transform: scale(1);
+  }
+  25% {
+    transform: scale(0.95);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  75% {
+    transform: scale(0.98);
+  }
+}
+
+/* Stagger animations for lists */
+@keyframes staggerFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Apply animations to key elements */
+.message-container {
+  animation: messageSlideInLeft 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* For sent messages, use right animation */
+.message-container.sent {
+  animation: messageSlideInRight 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Button transitions */
+button, 
+[role="button"],
+.btn-like-element {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+button:hover,
+[role="button"]:hover,
+.btn-like-element:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+}
+
+button:active,
+[role="button"]:active,
+.btn-like-element:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Input focus effect */
+input,
+textarea {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+input:focus,
+textarea:focus {
+  animation: inputFocus 0.3s forwards;
+}
+
+/* Chat item hover effects */
+.chat-item, 
+.user-item {
+  transition: all 0.25s ease-out;
+}
+
+.chat-item:hover,
+.user-item:hover {
+  transform: translateX(4px);
+  background-color: rgba(99, 102, 241, 0.1);
+}
+
+/* Icon animations */
+.icon-spin {
+  animation: spinSlow 2s linear infinite;
+}
+
+.icon-pulse {
+  animation: badgePing 2s infinite;
+}
+
+.icon-bounce {
+  animation: notificationBounce 0.6s ease-in-out infinite;
+}
+
+.icon-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Loading skeleton animations */
+.skeleton {
+  animation: shimmerPulse 1.5s ease-in-out infinite;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.1) 25%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0.1) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Smooth page transitions */
+.page-transition {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.page-enter {
+  animation: slideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.page-exit {
+  animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) reverse;
+}
+
+/* Notification animations */
+.notification-enter {
+  animation: slideDownModal 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.notification-exit {
+  animation: slideDownModal 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) reverse;
+}
+
+/* Smooth color transitions */
+.color-transition {
+  transition: color 0.3s ease, background-color 0.3s ease;
+}
+
+/* Glow effects for active states */
+.glow-active {
+  animation: buttonHoverGlow 0.6s ease-in-out;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
 /* Custom scrollbar - Dark mode */
 ::-webkit-scrollbar {
   width: 6px;
