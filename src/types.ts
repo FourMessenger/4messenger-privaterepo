@@ -60,6 +60,11 @@ export interface Message {
   timestamp: number;
   edited: boolean;
   readBy: string[];
+  // E2EE per-message key encryption (new WhatsApp-like approach)
+  encryptedMessage?: string;      // base64 - message encrypted with ephemeral AES key
+  encryptedEphemeralKey?: string; // base64 - ephemeral key encrypted with recipient's RSA key
+  ephemeralKeyIv?: string;        // base64 - IV used
+  messageIv?: string;             // base64 - IV used for message
 }
 
 export interface Chat {
