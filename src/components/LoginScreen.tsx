@@ -3,7 +3,7 @@ import { useStore } from '../store';
 import { User, Lock, ArrowRight, UserPlus, Loader2, ArrowLeft, Mail, KeyRound, Eye, EyeOff, CheckCircle, X } from 'lucide-react';
 
 export function LoginScreen() {
-  const { login, setScreen, serverConfig, serverUrl } = useStore();
+  const { login, setScreen, serverConfig, serverUrl, appearance } = useStore();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,6 +19,9 @@ export function LoginScreen() {
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotError, setForgotError] = useState('');
   const [resetToken, setResetToken] = useState('');
+
+  const isDarkTheme = appearance.theme === 'dark' || 
+    (appearance.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
   const handleLogin = async () => {
     if (username.trim() && password.trim()) {
@@ -198,7 +201,11 @@ export function LoginScreen() {
           <div className="mb-6">
             <button
               onClick={() => setShowForgotPassword(true)}
-              className="w-full flex items-center justify-center gap-2 rounded-xl bg-gray-600 py-2.5 font-semibold text-white shadow-lg shadow-gray-600/25 transition hover:shadow-gray-600/40 active:scale-[0.98]"
+              className={`w-full flex items-center justify-center gap-2 rounded-xl py-2.5 font-semibold transition active:scale-[0.98] ${
+                isDarkTheme
+                  ? 'bg-gray-600 text-white shadow-lg shadow-gray-600/25 hover:shadow-gray-600/40'
+                  : 'bg-gray-400 text-white shadow-lg shadow-gray-400/25 hover:shadow-gray-400/40'
+              }`}
             >
               Forgot password?
             </button>
