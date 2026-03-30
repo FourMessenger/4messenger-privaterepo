@@ -198,7 +198,7 @@ export function LoginScreen() {
           <div className="mb-6">
             <button
               onClick={() => setShowForgotPassword(true)}
-              className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 py-2.5 font-semibold text-white shadow-lg shadow-indigo-500/25 transition hover:shadow-indigo-500/40 active:scale-[0.98]"
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-gray-600 py-2.5 font-semibold text-white shadow-lg shadow-gray-600/25 transition hover:shadow-gray-600/40 active:scale-[0.98]"
             >
               Forgot password?
             </button>
