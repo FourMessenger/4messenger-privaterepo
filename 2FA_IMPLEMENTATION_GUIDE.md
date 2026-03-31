@@ -3,7 +3,7 @@
 ## Overview
 
 Complete Two-Factor Authentication (2FA) system has been implemented for 4 Messenger with three authentication methods:
-
+123
 1. **Authenticator App** (TOTP) - Google Authenticator, Authy, Microsoft Authenticator, etc.
 2. **Email Verification** - 6-digit codes sent to user's email (if email verification is enabled on server)
 3. **Trusted Devices** - Skip 2FA on previously verified devices (only available if one of the above is enabled)
