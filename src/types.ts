@@ -133,4 +133,10 @@ export interface CallState {
   startTime: number | null;
 }
 
-export type AppScreen = 'connect' | 'auth' | 'login' | 'register' | 'chat' | 'admin' | '2fa' | 'policy';
+export type AppScreen = 'connect' | 'auth' | 'login' | 'register' | 'chat' | 'admin' | '2fa' | 'policy' | 'error';
+
+export interface ErrorPageState {
+  code: number;
+  message: string;
+  description?: string;
+}

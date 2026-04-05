@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { User, Message, Chat, ServerConfig, CallState, AppScreen, UserRole, ChatNotificationPreference, NotificationPreferences } from './types';
+import type { User, Message, Chat, ServerConfig, CallState, AppScreen, UserRole, ChatNotificationPreference, NotificationPreferences, ErrorPageState } from './types';
 import { type Language, getTranslation } from './translations';
 import { e2ee } from './simpleE2EE';
 
@@ -463,6 +463,11 @@ interface AppState {
   checkPrivacyPolicy: () => boolean;
   acceptPrivacyPolicy: () => void;
   setShowPrivacyPolicy: (show: boolean) => void;
+
+  // Error Page
+  errorState: ErrorPageState | null;
+  setError: (code: number, message: string, description?: string) => void;
+  clearError: () => void;
 
   // 2FA
   twoFaSessionToken: string | null;
@@ -3169,6 +3174,9 @@ export const useStore = create<AppState>((set, get) => ({
   privacyPolicyAccepted: false,
   showPrivacyPolicy: false,
   
+  // Error Page
+  errorState: null,
+  
   // 2FA implementations
   setupAuthenticatorTwoFa: async () => {
     const { serverUrl, authToken } = get();
@@ -3506,6 +3514,14 @@ export const useStore = create<AppState>((set, get) => ({
   },
   
   setShowPrivacyPolicy: (show) => set({ showPrivacyPolicy: show }),
+  
+  setError: (code, message, description) => {
+    set({
+      errorState: { code, message, description },
+      screen: 'error',
+    });
+  },
+  clearError: () => set({ errorState: null }),
 
   // Initialize official server shortcuts
   initOfficialShortcut: async () => {

@@ -4380,6 +4380,67 @@ app.get('/api/admin/users/:id/activity', authMiddleware, adminMiddleware, (req, 
   }
 });
 
+// ─── Error Handling Middleware ─────────────────────────────
+// Serve custom error pages
+const errorPageMap = {
+  400: '/errors/400.html',
+  401: '/errors/401.html',
+  402: '/errors/402.html',
+  403: '/errors/403.html',
+  404: '/errors/404.html',
+  405: '/errors/405.html',
+  407: '/errors/407.html',
+  408: '/errors/408.html',
+  429: '/errors/429.html',
+  500: '/errors/500.html',
+  502: '/errors/502.html',
+  503: '/errors/503.html',
+  504: '/errors/504.html',
+};
+
+// Catch 404 errors for unknown routes
+app.use((req, res) => {
+  const errorPagePath = path.join(__dirname, '..', 'public', 'errors', '404.html');
+  if (fs.existsSync(errorPagePath)) {
+    res.status(404).sendFile(errorPagePath);
+  } else {
+    res.status(404).json({ error: 'Not Found', code: 404 });
+  }
+});
+
+// Catch and handle errors from middleware and routes
+app.use((err, req, res, next) => {
+  const statusCode = err.statusCode || err.status || 500;
+  console.error(`[ERROR] ${statusCode}: ${err.message} (${req.method} ${req.path})`);
+  
+  // Check if it's an API request (Accept: application/json)
+  const isApiRequest = req.accepts('application/json') && !req.accepts('html');
+  
+  if (isApiRequest) {
+    // Return JSON for API requests
+    res.status(statusCode).json({ 
+      error: err.message || 'Internal Server Error',
+      code: statusCode
+    });
+  } else {
+    // Return custom HTML error page for browser requests
+    const errorPagePath = errorPageMap[statusCode];
+    if (errorPagePath) {
+      const fullPath = path.join(__dirname, '..', 'public', errorPagePath);
+      if (fs.existsSync(fullPath)) {
+        res.status(statusCode).sendFile(fullPath);
+        return;
+      }
+    }
+    
+    // Fallback to JSON if HTML page not found
+    res.status(statusCode).json({ 
+      error: err.message || 'Internal Server Error',
+      code: statusCode
+    });
+  }
+});
+
 // ─── WebSocket Server ──────────────────────────────────────
 const wss = new WebSocket.Server({ server, path: '/ws' });
 const wsClients = new Map(); // userId -> Set<ws>
