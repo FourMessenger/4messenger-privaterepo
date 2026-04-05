@@ -2559,11 +2559,67 @@ app.put('/api/chats/:id/keys', authMiddleware, (req, res) => {
   if (!member) return res.status(403).json({ error: 'Not a member' });
 
   if (encryptedKeys) {
+    // Get all participants in this chat
+    const participants = dbAll('SELECT user_id FROM chat_members WHERE chat_id = ?', [chatId]);
+    const participantIds = participants.map(p => p.user_id);
+    const requiredReceivers = JSON.stringify(participantIds);
+
     for (const [uid, key] of Object.entries(encryptedKeys)) {
-      dbRun('INSERT OR REPLACE INTO chat_keys (chat_id, user_id, encrypted_key) VALUES (?, ?, ?)', [chatId, uid, key]);
+      // Store encrypted key with tracking of who has received it
+      // received_by is a JSON array that tracks which users have unwrapped and confirmed
+      dbRun(
+        'INSERT OR REPLACE INTO chat_keys (chat_id, user_id, encrypted_key, required_receivers, received_by) VALUES (?, ?, ?, ?, ?)',
+        [chatId, uid, key, requiredReceivers, JSON.stringify([])]
+      );
     }
     saveDatabase();
   }
+  res.json({ success: true });
+});
+
+// Mark wrapped key as received/unwrapped by current user, or delete if all have received
+app.delete('/api/chats/:id/keys', authMiddleware, (req, res) => {
+  const chatId = req.params.id;
+  const userId = req.user.id;
+
+  const member = dbGet('SELECT * FROM chat_members WHERE chat_id = ? AND user_id = ?', [chatId, userId]);
+  if (!member) return res.status(403).json({ error: 'Not a member' });
+
+  // Get the encrypted key record
+  const keyRecord = dbGet('SELECT * FROM chat_keys WHERE chat_id = ? AND user_id = ?', [chatId, userId]);
+  
+  if (!keyRecord) {
+    // No key found, nothing to delete/mark
+    return res.json({ success: true });
+  }
+
+  try {
+    const requiredReceivers = JSON.parse(keyRecord.required_receivers || '[]');
+    let receivedBy = JSON.parse(keyRecord.received_by || '[]');
+
+    // Add current user to received_by if not already there
+    if (!receivedBy.includes(userId)) {
+      receivedBy.push(userId);
+    }
+
+    // Check if all required receivers have received the key
+    if (receivedBy.length === requiredReceivers.length) {
+      // All users have received the key, delete it from the database
+      console.log(`[E2EE] All users (${receivedBy.length}/${requiredReceivers.length}) have received key for chat ${chatId}, deleting from database`);
+      dbRun('DELETE FROM chat_keys WHERE chat_id = ? AND user_id = ?', [chatId, userId]);
+    } else {
+      // Some users haven't received yet, just update the received_by tracking
+      console.log(`[E2EE] User ${userId} marked key as received (${receivedBy.length}/${requiredReceivers.length}) for chat ${chatId}`);
+      dbRun(
+        'UPDATE chat_keys SET received_by = ? WHERE chat_id = ? AND user_id = ?',
+        [JSON.stringify(receivedBy), chatId, userId]
+      );
+    }
+    saveDatabase();
+  } catch (err) {
+    console.error(`[E2EE] Error processing key deletion for chat ${chatId}:`, err);
+  }
+
   res.json({ success: true });
 });
 
@@ -4730,11 +4786,17 @@ async function startServer() {
         chat_id TEXT NOT NULL,
         user_id TEXT NOT NULL,
         encrypted_key TEXT NOT NULL,
+        required_receivers TEXT DEFAULT '[]',
+        received_by TEXT DEFAULT '[]',
         PRIMARY KEY (chat_id, user_id),
         FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
+
+    // Migrate chat_keys table to add new columns if they don't exist
+    try { dbRun('ALTER TABLE chat_keys ADD COLUMN required_receivers TEXT DEFAULT "[]"'); } catch(e) { /* Column might already exist */ }
+    try { dbRun('ALTER TABLE chat_keys ADD COLUMN received_by TEXT DEFAULT "[]"'); } catch(e) { /* Column might already exist */ }
 
     db.run(`
       CREATE TABLE IF NOT EXISTS messages (
