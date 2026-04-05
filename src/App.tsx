@@ -10,6 +10,7 @@ import { CallOverlay } from './components/CallOverlay';
 import { Notifications } from './components/Notifications';
 import { TwoFAVerification } from './components/TwoFAVerification';
 import { PolicyPage } from './components/PolicyPage';
+import { ErrorPage } from './components/ErrorPage';
 
 export function App() {
   const screen = useStore(s => s.screen);
@@ -309,6 +310,7 @@ export function App() {
 
   return (
     <div className="min-h-full w-full bg-gray-900 text-white">
+      {screen === 'error' && <ErrorPage />}
       {screen === 'connect' && <ConnectScreen />}
       {screen === 'auth' && <AuthScreen />}
       {screen === 'login' && <LoginScreen />}
