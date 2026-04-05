@@ -178,6 +178,7 @@ export function ChatScreen() {
   const [fileUploadError, setFileUploadError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showLogoutMenu, setShowLogoutMenu] = useState(false);
+  const [decryptedPreviews, setDecryptedPreviews] = useState<Record<string, string>>({});
   const [youtubePlayer, setYoutubePlayer] = useState<string | null>(null);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [savedStickers, setSavedStickers] = useState<string[]>([]);
@@ -222,6 +223,32 @@ export function ChatScreen() {
     window.addEventListener('click', handleClick);
     return () => window.removeEventListener('click', handleClick);
   }, []);
+
+  // Decrypt message previews for chat list
+  useEffect(() => {
+    const decryptPreviews = async () => {
+      const previews: Record<string, string> = {};
+      const { getMessagePreview } = useStore.getState();
+      
+      for (const chat of chats) {
+        if (chat.lastMessage) {
+          try {
+            const preview = await getMessagePreview(chat.lastMessage);
+            previews[chat.id] = preview;
+          } catch (e) {
+            console.error('Failed to decrypt preview for chat:', chat.id, e);
+            previews[chat.id] = chat.lastMessage.content || '(message)';
+          }
+        }
+      }
+      
+      setDecryptedPreviews(previews);
+    };
+    
+    if (chats.length > 0) {
+      decryptPreviews();
+    }
+  }, [chats]);
 
   if (!currentUser) return null;
 
@@ -945,7 +972,7 @@ export function ChatScreen() {
                   <span className="text-sm text-gray-400 truncate">
                     {c.lastMessage ? (
                       c.lastMessage.type === 'system' ? c.lastMessage.content :
-                      `${c.lastMessage.senderId === currentUser.id ? 'You: ' : ''}${c.lastMessage.content}`
+                      `${c.lastMessage.senderId === currentUser.id ? 'You: ' : ''}${decryptedPreviews[c.id] || c.lastMessage.content}`
                     ) : 'No messages yet'}
                   </span>
                   {c.unreadCount > 0 && (

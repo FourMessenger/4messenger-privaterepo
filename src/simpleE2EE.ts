@@ -26,6 +26,7 @@ export interface EncryptedMessagePacket {
 class SimpleE2EE {
   private keyPair: E2EEKeyPair | null = null;
   private recipientPublicKeys: Map<string, string> = new Map(); // userId -> public key (base64)
+  private chatKeys: Map<string, CryptoKey> = new Map(); // chatId -> AES-256 key
 
   /**
    * Generate a new RSA key pair for this user
@@ -177,8 +178,8 @@ class SimpleE2EE {
       const packet = {
         encryptedMessage: this.arrayBufferToBase64(encryptedMessageBuffer),
         encryptedEphemeralKey: this.arrayBufferToBase64(encryptedEphemeralKeyBuffer),
-        ephemeralKeyIv: this.arrayBufferToBase64(messageIv.buffer as ArrayBuffer),
-        messageIv: this.arrayBufferToBase64(messageIv.buffer as ArrayBuffer),
+        ephemeralKeyIv: this.arrayBufferToBase64(messageIv),  // Pass Uint8Array directly
+        messageIv: this.arrayBufferToBase64(messageIv),  // Pass Uint8Array directly
       };
       
       console.log('[SimpleE2EE] Encryption complete, packet ready for transmission');
@@ -308,6 +309,255 @@ class SimpleE2EE {
   }
 
   /**
+   * Generate a new AES-256-GCM key for chat encryption
+   */
+  async generateChatKey(): Promise<CryptoKey> {
+    return crypto.subtle.generateKey(
+      { name: 'AES-GCM', length: 256 },
+      true,
+      ['encrypt', 'decrypt']
+    );
+  }
+
+  /**
+   * Get or create a chat key for a specific chat (SYNC version for immediate access)
+   */
+  async ensureChatKey(chatId: string): Promise<CryptoKey> {
+    // Check if we have it in memory
+    if (this.chatKeys.has(chatId)) {
+      return this.chatKeys.get(chatId)!;
+    }
+
+    // Try to load from localStorage asynchronously
+    const saved = await this.loadChatKeyAsync(chatId);
+    if (saved) {
+      this.chatKeys.set(chatId, saved);
+      return saved;
+    }
+
+    // Generate new key
+    const key = await this.generateChatKey();
+    this.chatKeys.set(chatId, key);
+    await this.saveChatKey(chatId, key);
+    console.log('[SimpleE2EE] Generated new chat key for:', chatId);
+    return key;
+  }
+
+  /**
+   * Store a chat key in localStorage
+   */
+  private async saveChatKey(chatId: string, key: CryptoKey): Promise<void> {
+    try {
+      const exported = await crypto.subtle.exportKey('raw', key);
+      const base64 = this.arrayBufferToBase64(exported);
+      localStorage.setItem(`4messenger-chat-key-${chatId}`, base64);
+      console.log('[SimpleE2EE] Saved chat key for:', chatId);
+    } catch (e) {
+      console.error('[SimpleE2EE] Failed to save chat key:', e);
+    }
+  }
+
+  /**
+   * Load a chat key from localStorage
+   */
+  private loadChatKey(chatId: string): CryptoKey | null {
+    try {
+      const base64 = localStorage.getItem(`4messenger-chat-key-${chatId}`);
+      if (!base64) return null;
+
+      // We can't directly import a key that's not in JWK format in an async context
+      // So we'll return a promise and handle it differently
+      const raw = this.base64ToArrayBuffer(base64);
+      // Note: We need to import this async, so we'll handle that in a different method
+      return null; // Placeholder - will be handled properly
+    } catch (e) {
+      console.error('[SimpleE2EE] Failed to load chat key:', e);
+      return null;
+    }
+  }
+
+  /**
+   * Load a chat key from localStorage (async version)
+   */
+  async loadChatKeyAsync(chatId: string): Promise<CryptoKey | null> {
+    try {
+      const base64 = localStorage.getItem(`4messenger-chat-key-${chatId}`);
+      if (!base64) return null;
+
+      const raw = this.base64ToArrayBuffer(base64);
+      const key = await crypto.subtle.importKey(
+        'raw',
+        raw,
+        { name: 'AES-GCM' },
+        true,
+        ['encrypt', 'decrypt']
+      );
+      return key;
+    } catch (e) {
+      console.error('[SimpleE2EE] Failed to load chat key async:', e);
+      return null;
+    }
+  }
+
+  /**
+   * Encrypt a message with a chat key
+   */
+  async encryptMessageWithChatKey(message: string, chatKey: CryptoKey): Promise<{ iv: string; ciphertext: string }> {
+    try {
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const messageBuffer = new TextEncoder().encode(message);
+      const ciphertext = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv },
+        chatKey,
+        messageBuffer
+      );
+
+      return {
+        iv: this.arrayBufferToBase64(iv),  // Pass the Uint8Array directly, not iv.buffer!
+        ciphertext: this.arrayBufferToBase64(ciphertext),
+      };
+    } catch (e) {
+      console.error('[SimpleE2EE] Failed to encrypt with chat key:', e);
+      throw e;
+    }
+  }
+
+  /**
+   * Decrypt a message with a chat key
+   */
+  async decryptMessageWithChatKey(
+    ciphertext: string,
+    iv: string,
+    chatKey: CryptoKey
+  ): Promise<string> {
+    try {
+      console.log('[SimpleE2EE] Decrypting message with chat key, key type:', chatKey.type, 'IV base64 length:', iv.length, 'ciphertext base64 length:', ciphertext.length);
+      
+      const ciphertextBuffer = this.base64ToArrayBuffer(ciphertext);
+      const ivBuffer = this.base64ToArrayBuffer(iv);
+      const ivArray = new Uint8Array(ivBuffer); // Convert to Uint8Array for crypto.subtle
+      
+      console.log('[SimpleE2EE] Decoded buffers - IV byte length:', ivArray.byteLength, 'ciphertext byte length:', ciphertextBuffer.byteLength);
+
+      const plaintext = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: ivArray }, // Use Uint8Array instead of ArrayBuffer
+        chatKey,
+        ciphertextBuffer
+      );
+
+      const result = new TextDecoder().decode(plaintext);
+      console.log('[SimpleE2EE] ✓ Message decrypted successfully, plaintext length:', result.length);
+      return result;
+    } catch (e) {
+      console.error('[SimpleE2EE] Failed to decrypt with chat key:', e, 'IV base64 length:', iv.length, 'IV base64:', iv.substring(0, 20));
+      throw e;
+    }
+  }
+
+  /**
+   * Encrypt a chat key with a user's public key
+   */
+  async encryptChatKeyForUser(chatKey: CryptoKey, userPublicKeyBase64: string): Promise<string> {
+    try {
+      // Export the chat key to raw bytes
+      const chatKeyRaw = await crypto.subtle.exportKey('raw', chatKey);
+
+      // Import the user's public key
+      let publicKeyJwk;
+      try {
+        publicKeyJwk = JSON.parse(atob(userPublicKeyBase64));
+      } catch (e) {
+        throw new Error('Failed to parse user public key: ' + String(e));
+      }
+
+      const publicKey = await crypto.subtle.importKey(
+        'jwk',
+        publicKeyJwk,
+        {
+          name: 'RSA-OAEP',
+          hash: 'SHA-256',
+        },
+        false,
+        ['encrypt']
+      );
+
+      // Encrypt the chat key with the user's public key
+      const encryptedKey = await crypto.subtle.encrypt(
+        { name: 'RSA-OAEP' },
+        publicKey,
+        chatKeyRaw
+      );
+
+      return this.arrayBufferToBase64(encryptedKey);
+    } catch (e) {
+      console.error('[SimpleE2EE] Failed to encrypt chat key for user:', e);
+      throw e;
+    }
+  }
+
+  /**
+   * Decrypt a chat key with our private key
+   */
+  async decryptChatKey(encryptedKeyBase64: string): Promise<CryptoKey> {
+    try {
+      if (!this.keyPair) {
+        throw new Error('No key pair available');
+      }
+
+      // Import our private key
+      let privateKeyJwk;
+      try {
+        privateKeyJwk = JSON.parse(atob(this.keyPair.privateKey));
+      } catch (e) {
+        throw new Error('Failed to parse private key: ' + String(e));
+      }
+
+      console.log('[SimpleE2EE] Decrypting chat key with private key, encrypted length:', encryptedKeyBase64.length);
+
+      const privateKey = await crypto.subtle.importKey(
+        'jwk',
+        privateKeyJwk,
+        {
+          name: 'RSA-OAEP',
+          hash: 'SHA-256',
+        },
+        false,
+        ['decrypt']
+      );
+
+      // Decrypt the chat key
+      const encryptedKeyBuffer = this.base64ToArrayBuffer(encryptedKeyBase64);
+      console.log('[SimpleE2EE] Encrypted key buffer size:', encryptedKeyBuffer.byteLength, 'bytes');
+      
+      const chatKeyRaw = await crypto.subtle.decrypt(
+        { name: 'RSA-OAEP' },
+        privateKey,
+        encryptedKeyBuffer
+      );
+
+      console.log('[SimpleE2EE] Chat key decrypted successfully, size:', chatKeyRaw.byteLength, 'bytes');
+
+      // Import the decrypted key as an AES key
+      const chatKey = await crypto.subtle.importKey(
+        'raw',
+        chatKeyRaw,
+        { name: 'AES-GCM' },
+        true,
+        ['encrypt', 'decrypt']
+      );
+
+      return chatKey;
+    } catch (e) {
+      console.error('[SimpleE2EE] Failed to decrypt chat key:', e);
+      console.error('[SimpleE2EE] Private key available:', !!this.keyPair?.privateKey);
+      if (this.keyPair?.privateKey) {
+        console.error('[SimpleE2EE] Private key length:', this.keyPair.privateKey.length);
+      }
+      throw e;
+    }
+  }
+
+  /**
    * Get public key to send to server
    */
   async getPublicKey(): Promise<string> {
@@ -321,8 +571,16 @@ class SimpleE2EE {
   clearKeys(): void {
     this.keyPair = null;
     this.recipientPublicKeys.clear();
+    this.chatKeys.clear();
     try {
       localStorage.removeItem(STORAGE_KEY);
+      // Clear all chat keys from localStorage
+      const keys = Object.keys(localStorage);
+      keys.forEach(key => {
+        if (key.startsWith('4messenger-chat-key-')) {
+          localStorage.removeItem(key);
+        }
+      });
     } catch (e) {
       console.error('Failed to clear E2EE keys:', e);
     }
@@ -331,25 +589,38 @@ class SimpleE2EE {
   /**
    * Convert ArrayBuffer to Base64
    */
-  private arrayBufferToBase64(buffer: ArrayBuffer): string {
-    const bytes = new Uint8Array(buffer);
+  /**
+   * Convert ArrayBuffer or Uint8Array to Base64
+   */
+  private arrayBufferToBase64(buffer: ArrayBuffer | Uint8Array): string {
+    let bytes: Uint8Array;
+    
+    // Handle both ArrayBuffer and Uint8Array inputs
+    if (buffer instanceof Uint8Array) {
+      bytes = buffer;
+    } else {
+      bytes = new Uint8Array(buffer);
+    }
+    
     let binary = '';
-    for (let i = 0; i < bytes.byteLength; i++) {
+    for (let i = 0; i < bytes.length; i++) {
       binary += String.fromCharCode(bytes[i]);
     }
     return btoa(binary);
   }
 
   /**
-   * Convert Base64 to ArrayBuffer
+   * Convert Base64 to ArrayBuffer (exact size, no padding)
    */
   private base64ToArrayBuffer(base64: string): ArrayBuffer {
     const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
+    // Create an ArrayBuffer of EXACTLY the right size
+    const buffer = new ArrayBuffer(binary.length);
+    const bytes = new Uint8Array(buffer);
     for (let i = 0; i < binary.length; i++) {
       bytes[i] = binary.charCodeAt(i);
     }
-    return bytes.buffer;
+    return buffer; // This is exactly binary.length bytes
   }
 }
 

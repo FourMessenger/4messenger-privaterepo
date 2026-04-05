@@ -837,67 +837,133 @@ export const useStore = create<AppState>((set, get) => ({
 
                 let content = msgData.content;
                 if (content && typeof content === 'string') {
-                  // Try to parse as JSON encrypted packet (new E2EE)
-                  try {
-                    const packet = JSON.parse(content);
-                    if (packet.encryptedMessage && packet.encryptedEphemeralKey) {
-                      // This is an encrypted packet
-                      // Only decrypt if NOT sent by current user
-                      if (senderId === currentUser?.id) {
-                        // This is a message I sent
-                        // Try to find local plaintext version
-                        const userMessages = get().messages.filter(
-                          m => m.chatId === chatId && m.senderId === currentUser?.id
-                        );
-                        const localPlaintext = userMessages.find(m => 
-                          m.content && !m.content.includes('{"encryptedMessage"')
-                        );
+                  // Check if it's the new E2EE format (e2ee: prefix with JSON data)
+                  if (content.startsWith('e2ee:')) {
+                    try {
+                      const jsonStr = content.substring(5); // Remove 'e2ee:' prefix
+                      const packet = JSON.parse(jsonStr);
+                      
+                      if (packet.iv && packet.ciphertext) {
+                        // This is the NEW chat-key format
+                        let chatKey = get().chatKeys?.[chatId] as CryptoKey | undefined;
                         
-                        if (localPlaintext && localPlaintext.content) {
-                          content = localPlaintext.content;
-                          console.log('[SimpleE2EE] Using local plaintext for own message from WebSocket');
-                        } else {
-                          // No plaintext found
-                          console.log('[SimpleE2EE] No cached plaintext for own message via WebSocket');
-                          // Try to retrieve from localStorage one more time
+                        // If key is still encrypted (string), try to unwrap it on-demand
+                        if (!chatKey && typeof get().chatKeys?.[chatId] === 'string' && get().chatKeys?.[chatId].length > 0) {
+                          const encryptedKey = get().chatKeys?.[chatId] as unknown as string;
                           try {
-                            const cached = localStorage.getItem(`4messenger-sent-message-${msgData.id}`);
-                            if (cached) {
-                              content = cached;
-                              console.log('[SimpleE2EE] Retrieved plaintext from localStorage for own message');
-                            } else {
+                            console.log('[E2EE] WebSocket: Key still encrypted, unwrapping on-demand for chat:', chatId);
+                            chatKey = await e2ee.decryptChatKey(encryptedKey);
+                            
+                            // Save to localStorage and update state
+                            try {
+                              const exported = await crypto.subtle.exportKey('raw', chatKey);
+                              const keyStr = Array.from(new Uint8Array(exported)).map(b => String.fromCharCode(b)).join('');
+                              localStorage.setItem(`4messenger-chat-key-${chatId}`, btoa(keyStr));
+                            } catch (e) {
+                              console.warn('[E2EE] Failed to save unwrapped key to localStorage:', e);
+                            }
+                            
+                            set(state => ({
+                              chatKeys: { ...state.chatKeys, [chatId]: chatKey }
+                            }));
+                            console.log('[E2EE] ✓ WebSocket: Successfully unwrapped key on demand for chat:', chatId);
+                          } catch (err) {
+                            console.error('[E2EE] WebSocket: Failed to unwrap key on demand:', err);
+                          }
+                        }
+                        
+                        if (senderId === currentUser?.id) {
+                          // This is a message I sent - retrieve plaintext from cache
+                          const cached = localStorage.getItem(`4messenger-sent-message-${msgData.id}`);
+                          if (cached) {
+                            content = cached;
+                            console.log('[E2EE] Retrieved plaintext for own sent message from WebSocket');
+                          } else if (chatKey) {
+                            // Try to decrypt if we have the key
+                            try {
+                              content = await e2ee.decryptMessageWithChatKey(packet.ciphertext, packet.iv, chatKey);
+                              console.log('[E2EE] Successfully decrypted own message with chat key from WebSocket');
+                            } catch (err) {
+                              console.error('[E2EE] Failed to decrypt own message from WebSocket:', err);
+                              content = '[Unable to decrypt message]';
+                            }
+                          } else {
+                            console.warn('[E2EE] No chat key available, storing encrypted message');
+                            content = msgData.content; // Keep encrypted for now
+                          }
+                        } else {
+                          // This is from someone else
+                          if (chatKey) {
+                            try {
+                              content = await e2ee.decryptMessageWithChatKey(packet.ciphertext, packet.iv, chatKey);
+                              console.log('[E2EE] Message decrypted successfully with chat key from WebSocket');
+                            } catch (err) {
+                              console.error('[E2EE] Decryption failed from WebSocket:', err);
+                              content = '[Unable to decrypt message]';
+                            }
+                          } else {
+                            console.warn('[E2EE] No chat key available for decryption from WebSocket');
+                            content = '[Message encrypted - waiting for key]';
+                          }
+                        }
+                      } else if (packet.encryptedMessage && packet.encryptedEphemeralKey) {
+                        // OLD per-message format - try to decrypt with old method
+                        if (senderId === currentUser?.id) {
+                          // This is a message I sent
+                          // Try to find local plaintext version
+                          const userMessages = get().messages.filter(
+                            m => m.chatId === chatId && m.senderId === currentUser?.id
+                          );
+                          const localPlaintext = userMessages.find(m => 
+                            m.content && !m.content.includes('{"encryptedMessage"')
+                          );
+                          
+                          if (localPlaintext && localPlaintext.content) {
+                            content = localPlaintext.content;
+                            console.log('[SimpleE2EE] Using local plaintext for own message from WebSocket');
+                          } else {
+                            // No plaintext found
+                            console.log('[SimpleE2EE] No cached plaintext for own message via WebSocket');
+                            // Try to retrieve from localStorage one more time
+                            try {
+                              const cached = localStorage.getItem(`4messenger-sent-message-${msgData.id}`);
+                              if (cached) {
+                                content = cached;
+                                console.log('[SimpleE2EE] Retrieved plaintext from localStorage for own message');
+                              } else {
+                                content = msgData.content;
+                              }
+                            } catch (e) {
+                              console.warn('[SimpleE2EE] Failed to retrieve from WebSocket:', e);
                               content = msgData.content;
                             }
-                          } catch (e) {
-                            console.warn('[SimpleE2EE] Failed to retrieve from WebSocket:', e);
-                            content = msgData.content;
+                          }
+                        } else {
+                          // This is a message from someone else - decrypt it
+                          try {
+                            content = await e2ee.decryptMessage(packet);
+                            console.log('[SimpleE2EE] Message decrypted successfully');
+                          } catch (err) {
+                            const errorMsg = err instanceof Error ? err.message : String(err);
+                            console.error('[SimpleE2EE] Decryption failed:', errorMsg);
+                            console.error('[SimpleE2EE] Decryption details - messageId:', msgData.id, 'senderId:', senderId, 'error:', err);
+                            console.error('[SimpleE2EE] Packet structure:', {
+                              encryptedMessage: packet.encryptedMessage?.substring(0, 50),
+                              encryptedEphemeralKey: packet.encryptedEphemeralKey?.substring(0, 50),
+                              messageIv: packet.messageIv?.substring(0, 50),
+                            });
+                            content = '[Unable to decrypt message]';
                           }
                         }
                       } else {
-                        // This is a message from someone else - decrypt it
-                        try {
-                          content = await e2ee.decryptMessage(packet);
-                          console.log('[SimpleE2EE] Message decrypted successfully');
-                        } catch (err) {
-                          const errorMsg = err instanceof Error ? err.message : String(err);
-                          console.error('[SimpleE2EE] Decryption failed:', errorMsg);
-                          console.error('[SimpleE2EE] Decryption details - messageId:', msgData.id, 'senderId:', senderId, 'error:', err);
-                          console.error('[SimpleE2EE] Packet structure:', {
-                            encryptedMessage: packet.encryptedMessage?.substring(0, 50),
-                            encryptedEphemeralKey: packet.encryptedEphemeralKey?.substring(0, 50),
-                            messageIv: packet.messageIv?.substring(0, 50),
-                          });
-                          content = '[Unable to decrypt message]';
-                        }
+                        // Unknown format
+                        console.warn('[E2EE] Unknown encrypted message format');
+                        content = '[Encrypted message - unknown format]';
                       }
-                    } else if (content.startsWith('e2ee:')) {
-                      // Old Signal Protocol format
-                      content = '[Encrypted message - old format]';
-                    }
-                  } catch (parseErr) {
-                    // Not JSON, check if it's old e2ee: format
-                    if (content.startsWith('e2ee:')) {
-                      content = '[Encrypted message - old format]';
+                    } catch (parseErr) {
+                      // Failed to parse JSON
+                      console.error('[E2EE] Failed to parse encrypted message JSON:', parseErr);
+                      content = '[Unable to decrypt message]';
                     }
                   }
                 }
@@ -964,24 +1030,46 @@ export const useStore = create<AppState>((set, get) => ({
 
                     // Show in-app notification immediately
                     if (shouldNotify) {
-                      const senderUser = state.users.find(u => u.id === senderId);
-                      const senderName = senderUser?.displayName || senderUser?.username || 'Someone';
-                      const preview = mappedMsg.type === 'text' ? mappedMsg.content.substring(0, 100) : `Sent a ${mappedMsg.type}`;
-                      get().addNotification(`${senderName}: ${preview}`, 'info');
+                      (async () => {
+                        const senderUser = state.users.find(u => u.id === senderId);
+                        const senderName = senderUser?.displayName || senderUser?.username || 'Someone';
+                        try {
+                          const preview = await get().getMessagePreview(mappedMsg);
+                          get().addNotification(`${senderName}: ${preview}`, 'info');
+                        } catch {
+                          // Fallback if decryption fails
+                          const fallbackPreview = mappedMsg.type === 'text' ? mappedMsg.content.substring(0, 100) : `Sent a ${mappedMsg.type}`;
+                          get().addNotification(`${senderName}: ${fallbackPreview}`, 'info');
+                        }
+                      })();
                     }
 
                     // Show browser notification (works whenever tab is open or hidden)
                     if (shouldNotify) {
                       try {
                         if (Notification.permission === 'granted') {
-                          const senderUser = state.users.find(u => u.id === senderId);
-                          const senderName = senderUser?.displayName || senderUser?.username || 'Someone';
-                          new Notification(`${senderName}`, {
-                            body: mappedMsg.type === 'text' ? mappedMsg.content : `Sent a ${mappedMsg.type}`,
-                            icon: senderUser?.avatar || undefined,
-                            tag: chatId,
-                            badge: senderUser?.avatar || undefined,
-                          });
+                          (async () => {
+                            const senderUser = state.users.find(u => u.id === senderId);
+                            const senderName = senderUser?.displayName || senderUser?.username || 'Someone';
+                            try {
+                              const preview = await get().getMessagePreview(mappedMsg);
+                              new Notification(`${senderName}`, {
+                                body: preview,
+                                icon: senderUser?.avatar || undefined,
+                                tag: chatId,
+                                badge: senderUser?.avatar || undefined,
+                              });
+                            } catch {
+                              // Fallback if decryption fails
+                              const fallbackBody = mappedMsg.type === 'text' ? mappedMsg.content : `Sent a ${mappedMsg.type}`;
+                              new Notification(`${senderName}`, {
+                                body: fallbackBody,
+                                icon: senderUser?.avatar || undefined,
+                                tag: chatId,
+                                badge: senderUser?.avatar || undefined,
+                              });
+                            }
+                          })();
                         }
                       } catch {}
                     }
@@ -1359,8 +1447,83 @@ export const useStore = create<AppState>((set, get) => ({
 
   // Re-wrap chat keys for users who just came online with their public key
   wrapKeysForNewlyAvailableUsers: async () => {
-    // No-op: With per-message E2EE, no need to wrap and send keys
-    // Each message encrypts its own ephemeral key with the recipient's public key
+    const { currentUser, serverUrl, authToken, chats, users, chatKeys } = get();
+    if (!currentUser || !authToken) return;
+
+    try {
+      console.log('[E2EE] Wrapping keys for newly available users');
+      
+      // Get all chats that have E2EE enabled (direct 1-on-1 chats)
+      const directChats = chats.filter(
+        chat => chat.type === 'direct' || (chat.participants && chat.participants.length === 2)
+      );
+
+      for (const chat of directChats) {
+        try {
+          // Get or create chat key
+          const chatKey = await get().ensureChatKey(chat.id);
+          if (!chatKey) {
+            console.warn('[E2EE] No chat key for:', chat.id);
+            continue;
+          }
+
+          // Get all participants
+          const participants = chat.participants || [];
+          const wrappedKeysToSend: Record<string, string> = {};
+
+          // Try to wrap the key for each participant
+          for (const userId of participants) {
+            // Skip ourselves
+            if (userId === currentUser.id) continue;
+
+            // Get the user's public key
+            const user = users.find(u => u.id === userId);
+            if (!user?.publicKey) {
+              console.warn('[E2EE] No public key for user:', userId);
+              continue;
+            }
+
+            try {
+              // Wrap the chat key with the user's public key
+              const wrappedKey = await e2ee.encryptChatKeyForUser(chatKey, user.publicKey);
+              wrappedKeysToSend[userId] = wrappedKey;
+              console.log('[E2EE] Wrapped key for participant:', userId);
+            } catch (err) {
+              console.error('[E2EE] Failed to wrap key for user:', userId, err);
+            }
+          }
+
+          // Send wrapped keys to server
+          if (Object.keys(wrappedKeysToSend).length > 0) {
+            try {
+              const response = await fetch(
+                `${serverUrl.replace(/\/$/, '')}/api/chats/${chat.id}/keys`,
+                {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`,
+                  },
+                  body: JSON.stringify({ encryptedKeys: wrappedKeysToSend }),
+                }
+              );
+
+              if (response.ok) {
+                console.log('[E2EE] Sent wrapped keys to server for chat:', chat.id);
+              } else {
+                console.error('[E2EE] Failed to send wrapped keys:', response.status);
+              }
+            } catch (err) {
+              console.error('[E2EE] Error sending wrapped keys to server:', err);
+            }
+          }
+        } catch (err) {
+          console.error('[E2EE] Error processing chat:', chat.id, err);
+        }
+      }
+    } catch (err) {
+      console.error('[E2EE] Error in wrapKeysForNewlyAvailableUsers:', err);
+    }
   },
 
   attemptChatKeyUnwrap: async (chatId, encryptedKey) => {
@@ -1387,7 +1550,14 @@ export const useStore = create<AppState>((set, get) => ({
         const newChatKeys = { ...chatKeys };
         
         const mappedChats = chatsData.map((c: any) => {
-          // With per-message E2EE, no need to unwrap chat keys
+          // Try to unwrap encrypted chat keys if available
+          if (c.encryptedKey && c.encryptedKey.trim() != '') {
+            console.log('[E2EE] Found wrapped key for chat:', c.id, 'Currently have unwrapped key:', !!chatKeys[c.id] && typeof chatKeys[c.id] === 'object');
+            // Always store the wrapped key so we can unwrap it, even if we already have one
+            // This ensures we get fresh keys from the server
+            newChatKeys[c.id] = c.encryptedKey;
+          }
+          
           // Preserve local unread count if higher (from WebSocket messages)
           const existingChat = existingChats.find(ec => ec.id === c.id);
           const serverUnread = (c.unreadCount as number) || 0;
@@ -1436,7 +1606,53 @@ export const useStore = create<AppState>((set, get) => ({
         const serverChatIds = new Set(mappedChats.map((c: Chat) => c.id));
         const localOnlyChats = existingChats.filter(c => !serverChatIds.has(c.id));
         
-        set({ chats: [...mappedChats, ...localOnlyChats] });
+        set({ chats: [...mappedChats, ...localOnlyChats], chatKeys: newChatKeys });
+        
+        // Now unwrap the encrypted keys asynchronously
+        for (const chatId of Object.keys(newChatKeys)) {
+          const encryptedKey = newChatKeys[chatId];
+          if (typeof encryptedKey === 'string' && encryptedKey.length > 0) {
+            try {
+              console.log('[E2EE] Unwrapping key for chat:', chatId, 'encrypted key length:', encryptedKey.length);
+              const unwrappedKey = await e2ee.decryptChatKey(encryptedKey);
+              // Save to localStorage
+              const exported = await crypto.subtle.exportKey('raw', unwrappedKey);
+                const keyStr = Array.from(new Uint8Array(exported)).map(b => String.fromCharCode(b)).join('');
+                localStorage.setItem(`4messenger-chat-key-${chatId}`, btoa(keyStr));
+                
+                set(state => ({
+                  chatKeys: { ...state.chatKeys, [chatId]: unwrappedKey }
+                }));
+                console.log('[E2EE] ✓ Successfully unwrapped key for chat:', chatId);
+                
+                // Mark the wrapped key as received on the server
+                // Server will delete it only when ALL users have received it
+                try {
+                  const markResponse = await fetch(
+                    `${serverUrl.replace(/\/$/, '')}/api/chats/${chatId}/keys`,
+                    {
+                      method: 'DELETE',
+                      headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                      },
+                    }
+                  );
+                  if (markResponse.ok) {
+                    console.log('[E2EE] ✓ Marked wrapped key as received on server for chat:', chatId);
+                  } else {
+                    console.warn('[E2EE] Failed to mark wrapped key as received on server:', markResponse.status);
+                  }
+                } catch (delErr) {
+                  console.error('[E2EE] Error marking wrapped key as received on server:', delErr);
+                }
+              } catch (err) {
+                console.error('[E2EE] ❌ Failed to unwrap key for chat:', chatId);
+                console.error('[E2EE] Encrypted key length:', encryptedKey.length);
+                console.error('[E2EE] Error details:', err);
+                // Keep the encrypted key in chatKeys so we can retry later
+              }
+            }
+          }
       }
     } catch (error) {
       console.error('Failed to fetch chats:', error);
@@ -1449,6 +1665,52 @@ export const useStore = create<AppState>((set, get) => ({
     
     try {
       const currentUser = get().currentUser;
+      let chatKey = chatKeys[chatId] as CryptoKey | undefined;
+      
+      // If we have an encrypted key (string) but not a decrypted key, try to unwrap it
+      if (!chatKey && typeof chatKeys[chatId] === 'string' && chatKeys[chatId].length > 0) {
+        const encryptedKey = chatKeys[chatId] as unknown as string;
+        try {
+          console.log('[E2EE] Key is still encrypted, unwrapping on-demand for chat:', chatId);
+          chatKey = await e2ee.decryptChatKey(encryptedKey);
+          
+          // Save the unwrapped key
+          try {
+            const exported = await crypto.subtle.exportKey('raw', chatKey);
+            const keyStr = Array.from(new Uint8Array(exported)).map(b => String.fromCharCode(b)).join('');
+            localStorage.setItem(`4messenger-chat-key-${chatId}`, btoa(keyStr));
+          } catch (e) {
+            console.warn('[E2EE] Failed to save unwrapped key to localStorage:', e);
+          }
+          
+          set(state => ({
+            chatKeys: { ...state.chatKeys, [chatId]: chatKey }
+          }));
+          console.log('[E2EE] ✓ Successfully unwrapped key on demand for chat:', chatId);
+          
+          // Mark the wrapped key as received on the server
+          // Server will delete it only when ALL users have received it
+          try {
+            const markResponse = await fetch(
+              `${serverUrl.replace(/\/$/, '')}/api/chats/${chatId}/keys`,
+              {
+                method: 'DELETE',
+                headers: {
+                  'Authorization': `Bearer ${authToken}`,
+                },
+              }
+            );
+            if (markResponse.ok) {
+              console.log('[E2EE] ✓ Marked wrapped key as received on server after on-demand unwrap for chat:', chatId);
+            }
+          } catch (delErr) {
+            console.error('[E2EE] Error marking wrapped key as received on server:', delErr);
+          }
+        } catch (err) {
+          console.error('[E2EE] Failed to unwrap key on demand:', err);
+        }
+      }
+      
       const response = await fetch(`${serverUrl.replace(/\/$/, '')}/api/chats/${chatId}/messages`, {
         headers: { 
           'Content-Type': 'application/json',
@@ -1464,61 +1726,67 @@ export const useStore = create<AppState>((set, get) => ({
         for (const m of chatMessages) {
           let content = m.content;
           const senderId = m.sender_id || m.senderId;
+          
           if (content && typeof content === 'string') {
-            // Try to parse as JSON encrypted packet (new E2EE)
-            try {
-              const packet = JSON.parse(content);
-              if (packet.encryptedMessage && packet.encryptedEphemeralKey) {
-                // This is an encrypted packet
-                // Only decrypt if NOT sent by current user
-                if (senderId === currentUser?.id) {
-                  // This is a message I sent - try to retrieve plaintext from cache
-                  try {
+            // Check if it's the new E2EE format (e2ee: prefix with JSON data)
+            if (content.startsWith('e2ee:')) {
+              try {
+                const jsonStr = content.substring(5); // Remove 'e2ee:' prefix
+                const packet = JSON.parse(jsonStr);
+                
+                if (packet.iv && packet.ciphertext) {
+                  // This is encrypted with chat key
+                  if (senderId === currentUser?.id) {
+                    // This is a message I sent - try to retrieve plaintext from cache
                     const cached = localStorage.getItem(`4messenger-sent-message-${m.id}`);
                     if (cached) {
                       content = cached;
-                      console.log('[SimpleE2EE] Retrieved plaintext for own sent message from cache (messageId:', m.id, ')');
+                      console.log('[E2EE] Retrieved plaintext for own sent message from cache');
                     } else {
-                      console.log('[SimpleE2EE] No cached plaintext for own message (messageId:', m.id, ') - localStorage key not found');
-                      console.log('[SimpleE2EE] Showing encrypted packet (will try to decrypt if we have the key)');
-                      // Try to decrypt with our own private key as fallback
-                      try {
-                        content = await e2ee.decryptMessage(packet);
-                        console.log('[SimpleE2EE] Successfully decrypted own message with private key');
-                      } catch (err) {
-                        console.warn('[SimpleE2EE] Could not decrypt own message either, showing encrypted packet');
-                        content = JSON.stringify(packet); // Show encrypted packet as fallback
+                      // Try to decrypt if we have the key
+                      if (chatKey) {
+                        try {
+                          content = await e2ee.decryptMessageWithChatKey(packet.ciphertext, packet.iv, chatKey);
+                          console.log('[E2EE] Successfully decrypted own message with chat key');
+                        } catch (err) {
+                          console.error('[E2EE] Failed to decrypt own message:', err);
+                          content = '[Unable to decrypt message]';
+                        }
+                      } else {
+                        console.warn('[E2EE] No chat key available for decryption');
+                        content = '[Message encrypted - waiting for key]';
                       }
                     }
-                  } catch (e) {
-                    console.warn('[SimpleE2EE] Failed to retrieve cached plaintext:', e);
-                    content = JSON.stringify(packet);
+                  } else {
+                    // This is from someone else - decrypt it with chat key
+                    if (chatKey) {
+                      try {
+                        content = await e2ee.decryptMessageWithChatKey(packet.ciphertext, packet.iv, chatKey);
+                        console.log('[E2EE] Message decrypted successfully with chat key');
+                      } catch (err) {
+                        console.error('[E2EE] Decryption failed:', err);
+                        content = '[Unable to decrypt message]';
+                      }
+                    } else {
+                      console.warn('[E2EE] No chat key available for decryption');
+                      content = '[Message encrypted - waiting for key]';
+                    }
                   }
                 } else {
-                  // This is from someone else - decrypt it
-                  try {
-                    content = await e2ee.decryptMessage(packet);
-                    console.log('[SimpleE2EE] Message decrypted successfully in fetchMessages');
-                  } catch (err) {
-                    const errorMsg = err instanceof Error ? err.message : String(err);
-                    console.error('[SimpleE2EE] Decryption failed in fetchMessages:', errorMsg);
-                    console.error('[SimpleE2EE] Decryption details - messageId:', m.id, 'error:', err);
-                    console.error('[SimpleE2EE] Packet structure:', {
-                      encryptedMessage: packet.encryptedMessage?.substring(0, 50),
-                      encryptedEphemeralKey: packet.encryptedEphemeralKey?.substring(0, 50),
-                      messageIv: packet.messageIv?.substring(0, 50),
-                    });
-                    content = '[Unable to decrypt message]';
+                  // Old per-message format, try to decrypt with old method
+                  if (packet.encryptedMessage && packet.encryptedEphemeralKey) {
+                    try {
+                      content = await e2ee.decryptMessage(packet);
+                      console.log('[E2EE] Decrypted with old per-message method');
+                    } catch (err) {
+                      console.error('[E2EE] Failed to decrypt old format:', err);
+                      content = '[Unable to decrypt message]';
+                    }
                   }
                 }
-              } else if (content.startsWith('e2ee:')) {
-                // Old Signal Protocol format
-                content = '[Encrypted message - old format]';
-              }
-            } catch {
-              // Not JSON, check if it's old e2ee: format
-              if (content.startsWith('e2ee:')) {
-                content = '[Encrypted message - old format]';
+              } catch (err) {
+                console.error('[E2EE] Error parsing encrypted message:', err);
+                content = '[Unable to decrypt message]';
               }
             }
           }
@@ -1608,7 +1876,25 @@ export const useStore = create<AppState>((set, get) => ({
   // No longer needed with per-message E2EE
   // Each message contains its own encrypted ephemeral key, so no need to manage chat keys
   ensureChatKey: async (chatId: string): Promise<CryptoKey | null> => {
-    return null;
+    const { chatKeys } = get();
+    
+    // Check if we already have a loaded key in state
+    const stateKey = chatKeys[chatId];
+    if (stateKey && typeof stateKey === 'object' && 'type' in stateKey) {
+      // Already have a CryptoKey loaded
+      return stateKey as CryptoKey;
+    }
+
+    // Delegate to e2ee to get/create the key
+    // This checks memory, loads from localStorage, or generates new
+    const key = await e2ee.ensureChatKey(chatId);
+    
+    // Update state with the key from e2ee
+    set(state => ({
+      chatKeys: { ...state.chatKeys, [chatId]: key }
+    }));
+    
+    return key;
   },
 
   sendMessage: async (chatId, content, type = 'text', fileName, fileSize, fileUrl?: string) => {
@@ -1654,7 +1940,6 @@ export const useStore = create<AppState>((set, get) => ({
     }
 
     let payloadContent = content;
-    let encryptedPacket = null;
     
     // Determine if we should E2EE this message (for direct chats with non-bots)
     const chat = chats.find(c => c.id === chatId);
@@ -1664,54 +1949,108 @@ export const useStore = create<AppState>((set, get) => ({
         return u?.isBot;
       });
       
-      // For E2EE: encrypt message for direct chats
+      // For E2EE: encrypt message for direct chats with chat key
       if (!hasBot && chat.participants.length === 2) {
-        // This is a 1-on-1 chat - encrypt with per-message key
         try {
-          // Find the recipient
-          const recipientId = chat.participants.find(id => id !== currentUser.id);
-          if (recipientId) {
-            // Fetch recipient's public key
-            let recipientUser = users.find(u => u.id === recipientId);
+          console.log('[E2EE] Encrypting message for chat:', chatId);
+          
+          // Ensure we have a chat key
+          const chatKey = await get().ensureChatKey(chatId);
+          if (chatKey) {
+            // Encrypt the message with the chat key
+            const encrypted = await e2ee.encryptMessageWithChatKey(content, chatKey);
+            payloadContent = `e2ee:${JSON.stringify(encrypted)}`;
+            console.log('[E2EE] Message encrypted successfully with chat key');
             
-            // If recipient not in user list, try to fetch their public key from server
-            if (!recipientUser?.publicKey) {
-              try {
-                console.log('[SimpleE2EE] Fetching public key for recipient:', recipientId);
-                const pubKeyResponse = await fetch(
-                  `${serverUrl.replace(/\/$/, '')}/api/users/${recipientId}/public-key`,
-                  {
-                    headers: { 'Authorization': `Bearer ${authToken}` },
+            // CRITICAL: Send wrapped keys to server immediately so recipient can decrypt
+            try {
+              const wrappedKeysToSend: Record<string, string> = {};
+              
+              console.log('[E2EE] Chat participants:', chat.participants, 'Current user:', currentUser.id);
+              
+              // Wrap key for each participant except self
+              for (const participantId of chat.participants) {
+                if (participantId === currentUser.id) continue;
+                
+                let participant = users.find(u => u.id === participantId);
+                
+                // If participant not found or no public key, try to fetch from server
+                if (!participant?.publicKey) {
+                  console.log('[E2EE] Participant:', participantId, 'not fully loaded, fetching from server...');
+                  try {
+                    const userResponse = await fetch(`${serverUrl.replace(/\/$/, '')}/api/users/${participantId}`, {
+                      headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                      },
+                    });
+                    if (userResponse.ok) {
+                      const userData = await userResponse.json();
+                      participant = {
+                        id: userData.id || participantId,
+                        publicKey: userData.public_key || userData.publicKey,
+                        ...userData
+                      };
+                      console.log('[E2EE] ✓ Fetched participant from server, has public key:', !!participant?.publicKey);
+                    }
+                  } catch (err) {
+                    console.error('[E2EE] Failed to fetch participant from server:', err);
                   }
-                );
-                if (pubKeyResponse.ok) {
-                  const pubKeyData = await pubKeyResponse.json();
-                  if (pubKeyData.publicKey) {
-                    console.log('[SimpleE2EE] Got public key for recipient:', recipientId);
-                    e2ee.setRecipientPublicKey(recipientId, pubKeyData.publicKey);
-                    encryptedPacket = await e2ee.encryptMessage(content, recipientId);
-                    payloadContent = JSON.stringify(encryptedPacket);
-                    console.log('[SimpleE2EE] Message encrypted successfully');
-                  } else {
-                    console.warn('[SimpleE2EE] Recipient has no public key set up yet');
-                  }
-                } else {
-                  console.warn('[SimpleE2EE] Failed to fetch recipient public key, status:', pubKeyResponse.status);
                 }
-              } catch (err) {
-                console.error('[SimpleE2EE] Failed to fetch recipient public key:', err);
+                
+                console.log('[E2EE] Participant:', participantId, 'User found:', !!participant, 'Has public key:', !!participant?.publicKey);
+                
+                if (!participant?.publicKey) {
+                  console.warn('[E2EE] No public key for participant:', participantId);
+                  continue;
+                }
+                
+                try {
+                  console.log('[E2EE] Wrapping chat key for participant:', participantId, 'Key type:', chatKey.type, 'Public key length:', participant.publicKey.length);
+                  const wrappedKey = await e2ee.encryptChatKeyForUser(chatKey, participant.publicKey);
+                  wrappedKeysToSend[participantId] = wrappedKey;
+                  console.log('[E2EE] ✓ Wrapped chat key successfully for participant:', participantId, 'Wrapped key length:', wrappedKey.length);
+                } catch (err) {
+                  console.error('[E2EE] Failed to wrap key for participant:', participantId, 'Error:', err);
+                }
               }
-            } else if (recipientUser?.publicKey) {
-              console.log('[SimpleE2EE] Using cached public key for recipient:', recipientId);
-              e2ee.setRecipientPublicKey(recipientId, recipientUser.publicKey);
-              encryptedPacket = await e2ee.encryptMessage(content, recipientId);
-              payloadContent = JSON.stringify(encryptedPacket);
-              console.log('[SimpleE2EE] Message encrypted successfully');
+              
+              // Send wrapped keys to server
+              if (Object.keys(wrappedKeysToSend).length > 0) {
+                try {
+                  console.log('[E2EE] Sending wrapped keys to server:', Object.keys(wrappedKeysToSend));
+                  const keyResponse = await fetch(
+                    `${serverUrl.replace(/\/$/, '')}/api/chats/${chatId}/keys`,
+                    {
+                      method: 'PUT',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`,
+                      },
+                      body: JSON.stringify({ encryptedKeys: wrappedKeysToSend }),
+                    }
+                  );
+                  
+                  if (keyResponse.ok) {
+                    console.log('[E2EE] ✓ Sent wrapped keys to server for chat:', chatId);
+                  } else {
+                    const errData = await keyResponse.text();
+                    console.error('[E2EE] Failed to send wrapped keys to server:', keyResponse.status, errData);
+                  }
+                } catch (err) {
+                  console.error('[E2EE] Error sending wrapped keys to server:', err);
+                }
+              } else {
+                console.warn('[E2EE] No wrapped keys to send - no participants with public keys');
+              }
+            } catch (err) {
+              console.error('[E2EE] Error in key wrapping process:', err);
             }
+          } else {
+            console.warn('[E2EE] No chat key available, sending unencrypted');
           }
         } catch (err) {
-          console.error('[SimpleE2EE] E2EE encryption failed:', err);
-          // Fall back to unencrypted
+          console.error('[E2EE] E2EE encryption failed:', err);
+          // Fall back to unencrypted - but still send with e2ee: prefix if we generated a key
         }
       }
     }
@@ -1853,11 +2192,36 @@ export const useStore = create<AppState>((set, get) => ({
     }
 
     try {
-      const targetUser = users.find(u => u.id === userId);
+      // Ensure we have the target user's info (including public key)
+      let targetUser = users.find(u => u.id === userId);
+      if (!targetUser || !targetUser.publicKey) {
+        console.log('[E2EE] Target user not fully loaded, fetching...');
+        try {
+          const userResponse = await fetch(`${serverUrl.replace(/\/$/, '')}/api/users/${userId}`, {
+            headers: {
+              'Authorization': `Bearer ${authToken}`,
+            },
+          });
+          if (userResponse.ok) {
+            const userData = await userResponse.json();
+            targetUser = userData;
+            // Update users array
+            set(state => ({
+              users: state.users.some(u => u.id === userId)
+                ? state.users.map(u => u.id === userId ? { ...u, publicKey: userData.public_key || userData.publicKey, ...userData } : u)
+                : [...state.users, { id: userId, publicKey: userData.public_key || userData.publicKey, ...userData }]
+            }));
+            console.log('[E2EE] ✓ Fetched target user, has public key:', !!targetUser.publicKey);
+          }
+        } catch (err) {
+          console.error('[E2EE] Failed to fetch target user:', err);
+        }
+      }
+      
       const isBot = targetUser?.isBot;
       
-      // With per-message E2EE, we don't pre-generate chat keys
-      // Each message will use its own ephemeral key
+      // With chat-based E2EE, we don't pre-generate chat keys
+      // First message will trigger key generation
 
       // Create chat on server
       const response = await fetch(`${serverUrl.replace(/\/$/, '')}/api/chats/direct`, {
@@ -2361,6 +2725,59 @@ export const useStore = create<AppState>((set, get) => ({
 
   encryptMessage: (text) => text, // Server handles encryption
   decryptMessage: (text) => text, // Server handles decryption
+
+  /**
+   * Get decrypted message preview for display in chat list and notifications
+   * Returns decrypted text if possible, otherwise shows encrypted indicator
+   */
+  getMessagePreview: async (message: Message): Promise<string> => {
+    try {
+      const { chatKeys } = get();
+      const { content, type } = message;
+      
+      // Non-text messages show type indicator
+      if (type !== 'text') {
+        return `Sent a ${type}`;
+      }
+
+      // Check if content is encrypted
+      if (!content || !content.startsWith('e2ee:')) {
+        return content || '(empty message)';
+      }
+
+      // Try to decrypt if we have the chat key
+      // Extract iv and ciphertext from encrypted format
+      try {
+        const encryptedStr = content.substring(5); // Remove 'e2ee:' prefix
+        const encrypted = JSON.parse(encryptedStr);
+        
+        if (encrypted.iv && encrypted.ciphertext && message.chatId) {
+          const chatKey = chatKeys[message.chatId] as CryptoKey | undefined;
+          
+          if (chatKey && typeof chatKey === 'object' && chatKey.type === 'secret') {
+            // We have the chat key, decrypt it
+            const decrypted = await e2ee.decryptMessageWithChatKey(
+              encrypted.ciphertext,
+              encrypted.iv,
+              chatKey
+            );
+            return decrypted.substring(0, 100);
+          } else {
+            // Chat key not available yet, show encrypted message
+            return '[Encrypted message]';
+          }
+        }
+      } catch (e) {
+        console.warn('[E2EE] Failed to decrypt preview:', e);
+        return '[Encrypted message]';
+      }
+
+      return content.substring(0, 100);
+    } catch (e) {
+      console.error('[E2EE] Error in getMessagePreview:', e);
+      return '(message preview unavailable)';
+    }
+  },
 
   setAppearance: (settings) => {
     set(state => {
@@ -3135,13 +3552,19 @@ export const useStore = create<AppState>((set, get) => ({
     
     const { serverUrl, authToken, user } = session;
 
-    // We cannot unlock password-protected E2EE keys without the user's password.
-    // Keep the in-memory keyPair null here; chats can still load and show placeholder for encrypted messages.
-    set({ e2eeKeyPair: null });
-    
+    // Load E2EE key pair from localStorage if available
+    let keyPair: { publicKey: string; privateKey: string } | null = null;
+    try {
+      keyPair = await e2ee.ensureKeyPair();
+      if (keyPair) {
+        console.log('[SimpleE2EE] E2EE key pair restored from session');
+      }
+    } catch (e) {
+      console.error('[SimpleE2EE] Failed to restore E2EE key pair:', e);
+    }
     
     // Set loading state
-    set({ connecting: true, serverUrl });
+    set({ connecting: true, serverUrl, e2eeKeyPair: keyPair });
     
     try {
       // Verify token is still valid by fetching user info
@@ -3233,31 +3656,83 @@ export const useStore = create<AppState>((set, get) => ({
                 }
 
                 let content = msgData.content;
-                if (content && typeof content === 'string') {
-                  // Try to parse as JSON encrypted packet (new E2EE)
+                const { chatKeys } = get();
+                const currentUser = get().currentUser;
+                
+                // Handle encrypted messages
+                if (content && typeof content === 'string' && content.startsWith('e2ee:')) {
                   try {
-                    const packet = JSON.parse(content);
-                    if (packet.encryptedMessage && packet.encryptedEphemeralKey) {
-                      // This is an encrypted packet - decrypt it
-                      try {
-                        content = await e2ee.decryptMessage(packet);
-                      } catch (err) {
-                        console.error('E2EE decryption failed:', err);
-                        content = '[Unable to decrypt message]';
+                    // Extract and parse the encrypted packet
+                    const encryptedStr = content.substring(5); // Remove 'e2ee:' prefix
+                    const packet = JSON.parse(encryptedStr);
+                    
+                    if (packet.iv && packet.ciphertext) {
+                      // This is chat-key encrypted format
+                      let chatKey = chatKeys[chatId] as CryptoKey | undefined;
+                      
+                      // If key is still encrypted (string), try to unwrap it on-demand
+                      if (!chatKey && typeof chatKeys?.[chatId] === 'string' && chatKeys?.[chatId].length > 0) {
+                        const encryptedKey = chatKeys?.[chatId] as unknown as string;
+                        try {
+                          console.log('[E2EE] SessionRestore: Key still encrypted, unwrapping on-demand for chat:', chatId);
+                          chatKey = await e2ee.decryptChatKey(encryptedKey);
+                          
+                          // Save to localStorage and update state
+                          try {
+                            const exported = await crypto.subtle.exportKey('raw', chatKey);
+                            const keyStr = Array.from(new Uint8Array(exported)).map(b => String.fromCharCode(b)).join('');
+                            localStorage.setItem(`4messenger-chat-key-${chatId}`, btoa(keyStr));
+                          } catch (e) {
+                            console.warn('[E2EE] Failed to save unwrapped key to localStorage:', e);
+                          }
+                          
+                          set(state => ({
+                            chatKeys: { ...state.chatKeys, [chatId]: chatKey }
+                          }));
+                          console.log('[E2EE] ✓ SessionRestore: Successfully unwrapped key on demand for chat:', chatId);
+                        } catch (err) {
+                          console.error('[E2EE] SessionRestore: Failed to unwrap key on demand:', err);
+                        }
                       }
-                    } else if (content.startsWith('e2ee:')) {
-                      // Old Signal Protocol format - try to decrypt with old method
-                      const state = get();
-                      if (state.chatKeys && state.chatKeys[chatId]) {
-                        // Skip - we don't have the old decrypt method anymore
-                        content = '[Encrypted message - old format]';
+                      
+                      if (senderId === currentUser?.id) {
+                        // This is a message I sent - retrieve plaintext from cache
+                        const cached = localStorage.getItem(`4messenger-sent-message-${msgData.id}`);
+                        if (cached) {
+                          content = cached;
+                          console.log('[E2EE] Retrieved plaintext for own sent message from SessionRestore');
+                        } else if (chatKey) {
+                          // Try to decrypt if we have the key
+                          try {
+                            content = await e2ee.decryptMessageWithChatKey(packet.ciphertext, packet.iv, chatKey);
+                            console.log('[E2EE] Successfully decrypted own message with chat key from SessionRestore');
+                          } catch (err) {
+                            console.error('[E2EE] Failed to decrypt own message from SessionRestore:', err);
+                            content = '[Unable to decrypt message]';
+                          }
+                        } else {
+                          console.warn('[E2EE] No chat key available, storing encrypted message');
+                          content = msgData.content; // Keep encrypted for now
+                        }
+                      } else {
+                        // This is from someone else
+                        if (chatKey) {
+                          try {
+                            content = await e2ee.decryptMessageWithChatKey(packet.ciphertext, packet.iv, chatKey);
+                            console.log('[E2EE] Message decrypted successfully with chat key from SessionRestore');
+                          } catch (err) {
+                            console.error('[E2EE] Decryption failed from SessionRestore:', err);
+                            content = '[Unable to decrypt message]';
+                          }
+                        } else {
+                          console.warn('[E2EE] No chat key available for decryption from SessionRestore');
+                          content = '[Message encrypted - waiting for key]';
+                        }
                       }
                     }
-                  } catch {
-                    // Not JSON, check if it's old e2ee: format
-                    if (content.startsWith('e2ee:')) {
-                      content = '[Encrypted message - old format]';
-                    }
+                  } catch (parseErr) {
+                    console.error('[E2EE] Failed to parse encrypted message from SessionRestore:', parseErr);
+                    content = '[Unable to decrypt message]';
                   }
                 }
                 
@@ -3306,6 +3781,65 @@ export const useStore = create<AppState>((set, get) => ({
                       ),
                     };
                   });
+
+                    // Play notification sound if enabled
+                    const isMuted = get().isChatMuted(chatId);
+                    const isInDND = get().isInDND();
+                    const shouldNotify = !isActiveChat && !isMuted && !isInDND && state.appearance.notificationsEnabled;
+
+                    if (shouldNotify && state.appearance.soundsEnabled) {
+                      try {
+                        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbsGczHDdlj8XX3a1YMB04ZI3E1d2sWjIfOGWPxNXdrFoyHw==');
+                        audio.volume = 0.3;
+                        audio.play().catch(() => {});
+                      } catch {}
+                    }
+
+                    // Show in-app notification immediately
+                    if (shouldNotify) {
+                      (async () => {
+                        const senderUser = state.users.find(u => u.id === senderId);
+                        const senderName = senderUser?.displayName || senderUser?.username || 'Someone';
+                        try {
+                          const preview = await get().getMessagePreview(mappedMsg);
+                          get().addNotification(`${senderName}: ${preview}`, 'info');
+                        } catch {
+                          // Fallback if decryption fails
+                          const fallbackPreview = mappedMsg.type === 'text' ? mappedMsg.content.substring(0, 100) : `Sent a ${mappedMsg.type}`;
+                          get().addNotification(`${senderName}: ${fallbackPreview}`, 'info');
+                        }
+                      })();
+                    }
+
+                    // Show browser notification (works whenever tab is open or hidden)
+                    if (shouldNotify) {
+                      try {
+                        if (Notification.permission === 'granted') {
+                          (async () => {
+                            const senderUser = state.users.find(u => u.id === senderId);
+                            const senderName = senderUser?.displayName || senderUser?.username || 'Someone';
+                            try {
+                              const preview = await get().getMessagePreview(mappedMsg);
+                              new Notification(`${senderName}`, {
+                                body: preview,
+                                icon: senderUser?.avatar || undefined,
+                                tag: chatId,
+                                badge: senderUser?.avatar || undefined,
+                              });
+                            } catch {
+                              // Fallback if decryption fails
+                              const fallbackBody = mappedMsg.type === 'text' ? mappedMsg.content : `Sent a ${mappedMsg.type}`;
+                              new Notification(`${senderName}`, {
+                                body: fallbackBody,
+                                icon: senderUser?.avatar || undefined,
+                                tag: chatId,
+                                badge: senderUser?.avatar || undefined,
+                              });
+                            }
+                          })();
+                        }
+                      } catch {}
+                    }
                 }
               };
               handleIncomingMessage();
