@@ -1,0 +1,12 @@
+{
+  "name": "Minimalist Light Theme",
+  "version": "1.0.0",
+  "author": "4 Messenger Team",
+  "description": "A clean, minimal light theme with soft colors and perfect readability",
+  "placeholders": {
+    "minimalist-styles": {
+      "path": "minimalist-styles.css",
+      "type": "css"
+    }
+  }
+}

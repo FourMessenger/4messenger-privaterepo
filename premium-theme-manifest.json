@@ -1,0 +1,112 @@
+{
+  "name": "Premium Modern Theme",
+  "version": "2.0.0",
+  "author": "4Messenger Design Team",
+  "description": "A complete premium theme with custom icons, main screen styling, and all component customizations",
+  "placeholders": {
+    "mainscreen-styles": {
+      "path": "styles/mainscreen.css",
+      "type": "mainscreen"
+    },
+    "primary-styles": {
+      "path": "styles/primary.css",
+      "type": "css"
+    },
+    "button-styles": {
+      "path": "styles/buttons.css",
+      "type": "css"
+    },
+    "input-styles": {
+      "path": "styles/inputs.css",
+      "type": "css"
+    },
+    "text-styles": {
+      "path": "styles/text.css",
+      "type": "css"
+    },
+    "card-styles": {
+      "path": "styles/cards.css",
+      "type": "css"
+    },
+    "notification-styles": {
+      "path": "styles/notifications.css",
+      "type": "css"
+    },
+    "avatar-styles": {
+      "path": "styles/avatars.css",
+      "type": "css"
+    },
+    "message-styles": {
+      "path": "styles/messages.css",
+      "type": "css"
+    },
+    "send-icon": {
+      "path": "icons/send.svg",
+      "type": "svg"
+    },
+    "edit-icon": {
+      "path": "icons/edit.svg",
+      "type": "svg"
+    },
+    "delete-icon": {
+      "path": "icons/delete.svg",
+      "type": "svg"
+    },
+    "reply-icon": {
+      "path": "icons/reply.svg",
+      "type": "svg"
+    },
+    "more-icon": {
+      "path": "icons/more.svg",
+      "type": "svg"
+    },
+    "call-icon": {
+      "path": "icons/call.svg",
+      "type": "svg"
+    },
+    "video-icon": {
+      "path": "icons/video.svg",
+      "type": "svg"
+    },
+    "attach-icon": {
+      "path": "icons/attach.svg",
+      "type": "svg"
+    },
+    "emoji-icon": {
+      "path": "icons/emoji.svg",
+      "type": "svg"
+    },
+    "settings-icon": {
+      "path": "icons/settings.svg",
+      "type": "svg"
+    },
+    "search-icon": {
+      "path": "icons/search.svg",
+      "type": "svg"
+    },
+    "add-icon": {
+      "path": "icons/add.svg",
+      "type": "svg"
+    },
+    "mute-icon": {
+      "path": "icons/mute.svg",
+      "type": "svg"
+    },
+    "password-show-icon": {
+      "path": "icons/password-show.svg",
+      "type": "svg"
+    },
+    "password-hide-icon": {
+      "path": "icons/password-hide.svg",
+      "type": "svg"
+    },
+    "background-image": {
+      "path": "images/background.png",
+      "type": "image"
+    },
+    "logo-icon": {
+      "path": "images/logo.png",
+      "type": "image"
+    }
+  }
+}

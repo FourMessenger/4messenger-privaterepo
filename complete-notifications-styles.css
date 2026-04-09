@@ -1,0 +1,403 @@
+/* Notification & Toast Styles - Comprehensive Component Theme */
+
+/* Notification Container */
+.notification-container, .toast-container {
+  position: fixed;
+  top: var(--spacing-lg);
+  right: var(--spacing-lg);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  max-width: 400px;
+}
+
+.notification-container.bottom-right {
+  top: auto;
+  bottom: var(--spacing-lg);
+}
+
+.notification-container.top-left {
+  left: var(--spacing-lg);
+  right: auto;
+}
+
+.notification-container.bottom-left {
+  left: var(--spacing-lg);
+  right: auto;
+  top: auto;
+  bottom: var(--spacing-lg);
+}
+
+.notification-container.center {
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+}
+
+/* Notification/Toast Base */
+.notification, .toast, .alert-notification {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-radius: var(--border-radius);
+  background-color: var(--bg-primary);
+  border: var(--border-width) var(--border-style);
+  box-shadow: var(--shadow-lg);
+  animation: slideIn 300ms ease;
+  min-width: 300px;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(400px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.notification.leaving, .toast.leaving {
+  animation: slideOut 300ms ease forwards;
+}
+
+@keyframes slideOut {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateX(400px);
+  }
+}
+
+/* Notification Icon */
+.notification-icon, .toast-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+}
+
+/* Notification Content */
+.notification-content, .toast-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.notification-title, .toast-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.notification-message, .toast-message {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* Notification Close */
+.notification-close, .toast-close {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: color var(--transition-fast);
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: auto;
+}
+
+.notification-close:hover, .toast-close:hover {
+  color: var(--text-primary);
+}
+
+/* Notification Progress Bar */
+.notification-progress, .toast-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background-color: currentColor;
+  animation: progressBar 5s linear forwards;
+}
+
+@keyframes progressBar {
+  from {
+    width: 100%;
+  }
+
+  to {
+    width: 0;
+  }
+}
+
+/* Success Notification */
+.notification-success, .toast-success {
+  border-color: var(--color-success);
+  background-color: rgba(16, 185, 129, 0.05);
+}
+
+.notification-success .notification-icon, .toast-success .toast-icon {
+  color: var(--color-success);
+}
+
+.notification-success .notification-title, .toast-success .toast-title {
+  color: var(--color-success);
+}
+
+.notification-success .notification-progress, .toast-success .toast-progress {
+  background-color: var(--color-success);
+}
+
+/* Error/Danger Notification */
+.notification-error, .notification-danger, .toast-error, .toast-danger {
+  border-color: var(--color-error);
+  background-color: rgba(239, 68, 68, 0.05);
+}
+
+.notification-error .notification-icon, .notification-danger .notification-icon, .toast-error .toast-icon, .toast-danger .toast-icon {
+  color: var(--color-error);
+}
+
+.notification-error .notification-title, .notification-danger .notification-title, .toast-error .toast-title, .toast-danger .toast-title {
+  color: var(--color-error);
+}
+
+.notification-error .notification-progress, .notification-danger .notification-progress, .toast-error .toast-progress, .toast-danger .toast-progress {
+  background-color: var(--color-error);
+}
+
+/* Warning Notification */
+.notification-warning, .toast-warning {
+  border-color: var(--color-warning);
+  background-color: rgba(245, 158, 11, 0.05);
+}
+
+.notification-warning .notification-icon, .toast-warning .toast-icon {
+  color: var(--color-warning);
+}
+
+.notification-warning .notification-title, .toast-warning .toast-title {
+  color: var(--color-warning);
+}
+
+.notification-warning .notification-progress, .toast-warning .toast-progress {
+  background-color: var(--color-warning);
+}
+
+/* Info Notification */
+.notification-info, .toast-info {
+  border-color: var(--color-info);
+  background-color: rgba(59, 130, 246, 0.05);
+}
+
+.notification-info .notification-icon, .toast-info .toast-icon {
+  color: var(--color-info);
+}
+
+.notification-info .notification-title, .toast-info .toast-title {
+  color: var(--color-info);
+}
+
+.notification-info .notification-progress, .toast-info .toast-progress {
+  background-color: var(--color-info);
+}
+
+/* Primary Notification */
+.notification-primary, .toast-primary {
+  border-color: var(--color-primary);
+  background-color: rgba(99, 102, 241, 0.05);
+}
+
+.notification-primary .notification-icon, .toast-primary .toast-icon {
+  color: var(--color-primary);
+}
+
+.notification-primary .notification-title, .toast-primary .toast-title {
+  color: var(--color-primary);
+}
+
+.notification-primary .notification-progress, .toast-primary .toast-progress {
+  background-color: var(--color-primary);
+}
+
+/* Modal Background Overlay */
+.modal-overlay, .modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 200ms ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* Modal Dialog */
+.modal, .modal-dialog {
+  background-color: var(--bg-primary);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+  animation: popIn 250ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-lg);
+  border-bottom: var(--border-width) var(--border-style);
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 24px;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition-fast);
+}
+
+.modal-close:hover {
+  color: var(--text-primary);
+}
+
+.modal-body {
+  flex: 1;
+  padding: var(--spacing-lg);
+  overflow-y: auto;
+}
+
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg);
+  border-top: var(--border-width) var(--border-style);
+  background-color: var(--bg-secondary);
+}
+
+/* Tooltip */
+.tooltip {
+  position: absolute;
+  background-color: var(--text-primary);
+  color: var(--bg-primary);
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--transition-fast), visibility var(--transition-fast);
+  pointer-events: none;
+}
+
+.tooltip.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.tooltip::before {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background-color: var(--text-primary);
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+.tooltip.top {
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 8px;
+}
+
+.tooltip.right {
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: 8px;
+}
+
+.tooltip.bottom {
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 8px;
+}
+
+.tooltip.left {
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-right: 8px;
+}

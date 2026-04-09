@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useStore, ServerShortcut } from '../store';
-import { Globe, ArrowRight, Shield, MessageSquare, AlertCircle, Loader2, Server, Plus, X, Star, Languages, FileText, CheckCircle, Moon, Sun, Github, Rss, Lock } from 'lucide-react';
+import { Globe, ArrowRight, Shield, MessageSquare, AlertCircle, Loader2, Server, Plus, X, Star, Languages, FileText, CheckCircle, Moon, Sun, Github, Rss, Lock, Palette, Layers, Trash } from 'lucide-react';
 import PrivacyPolicy from './PrivacyPolicy';
 
 export function ConnectScreen() {
@@ -8,6 +8,8 @@ export function ConnectScreen() {
   const [showAddShortcut, setShowAddShortcut] = useState(false);
   const [shortcutName, setShortcutName] = useState('');
   const [shortcutUrl, setShortcutUrl] = useState('');
+  const [showThemeSelector, setShowThemeSelector] = useState(false);
+  const themeFileInputRef = useRef<HTMLInputElement>(null);
   
   const { 
     setServerUrl, 
@@ -28,6 +30,11 @@ export function ConnectScreen() {
     appearance,
     setAppearance,
     setScreen,
+    customTheme,
+    loadTheme,
+    unloadTheme,
+    themeLoading,
+    themeError,
   } = useStore();
 
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
@@ -151,10 +158,22 @@ export function ConnectScreen() {
           <p className={isDarkTheme ? 'text-gray-400' : 'text-gray-600'}>{translate('connect.tagline')}</p>
         </div>
 
-        {/* Selectors - Language and Theme */}
+        {/* Selectors - Language, Theme, and Custom Themes */}
         <div className="absolute top-4 right-4 flex items-center gap-2">
-          {/* Theme Selector */}
-          <div className="relative">
+          {/* Custom Theme Selector */}
+          <button
+            onClick={() => setShowThemeSelector(!showThemeSelector)}
+            className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${
+              isDarkTheme
+                ? 'border-white/10 bg-white/5 text-gray-300 hover:bg-white/10'
+                : 'border-gray-300 bg-white/60 text-gray-700 hover:bg-white/80'
+            }`}
+            title="Manage themes"
+          >
+            <Palette className="h-4 w-4" />
+          </button>
+          
+          {/* Theme Selector Dropdown */}
             <button
               onClick={() => setShowThemeMenu(!showThemeMenu)}
               className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${
@@ -209,7 +228,6 @@ export function ConnectScreen() {
                 </div>
               </>
             )}
-          </div>
 
           {/* Language Selector */}
           <div className="relative">
@@ -262,6 +280,118 @@ export function ConnectScreen() {
             )}
           </div>
         </div>
+
+        {/* Theme Selector Modal */}
+        {showThemeSelector && (
+          <>
+            <div 
+              className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+              onClick={() => setShowThemeSelector(false)}
+            />
+            <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-sm rounded-2xl border shadow-2xl p-6 max-h-[80vh] overflow-y-auto ${
+              isDarkTheme
+                ? 'border-white/10 bg-gray-900'
+                : 'border-gray-300 bg-white'
+            }`}>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className={`text-lg font-semibold flex items-center gap-2 ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>
+                  <Layers className="w-5 h-5 text-indigo-500" />
+                  <span>Themes</span>
+                </h3>
+                <button
+                  onClick={() => setShowThemeSelector(false)}
+                  className={`p-1 rounded-lg ${isDarkTheme ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Current Theme Info */}
+              {customTheme && (
+                <div className={`mb-6 p-4 rounded-xl border ${
+                  isDarkTheme
+                    ? 'bg-indigo-900/30 border-indigo-500/30'
+                    : 'bg-indigo-50 border-indigo-200'
+                }`}>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className={`font-medium ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>{customTheme.name}</h4>
+                      {customTheme.description && (
+                        <p className={`text-sm mt-1 ${isDarkTheme ? 'text-gray-400' : 'text-gray-600'}`}>{customTheme.description}</p>
+                      )}
+                      {customTheme.author && (
+                        <p className={`text-xs mt-2 ${isDarkTheme ? 'text-gray-500' : 'text-gray-600'}`}>by {customTheme.author}</p>
+                      )}
+                      {customTheme.version && (
+                        <p className={`text-xs ${isDarkTheme ? 'text-gray-500' : 'text-gray-600'}`}>v{customTheme.version}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => unloadTheme()}
+                      className={`p-2 rounded-lg transition-colors ${
+                        isDarkTheme
+                          ? 'text-red-400 hover:text-red-300 bg-red-500/10'
+                          : 'text-red-600 hover:text-red-700 bg-red-100'
+                      }`}
+                      title="Remove theme"
+                    >
+                      <Trash className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Import Theme */}
+              <div className={`mb-6 p-4 rounded-xl ${
+                isDarkTheme ? 'bg-gray-800/50' : 'bg-gray-100/50'
+              }`}>
+                <h4 className={`font-medium mb-3 ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>Import Theme</h4>
+                <p className={`text-sm mb-4 ${isDarkTheme ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Select a .4mth theme file
+                </p>
+                
+                <div className="flex items-center gap-3">
+                  <input
+                    ref={themeFileInputRef}
+                    type="file"
+                    accept=".4mth,.zip"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        await loadTheme(file);
+                        if (themeFileInputRef.current) {
+                          themeFileInputRef.current.value = '';
+                        }
+                      }
+                    }}
+                    disabled={themeLoading}
+                    className="hidden"
+                  />
+                  <button
+                    onClick={() => themeFileInputRef.current?.click()}
+                    disabled={themeLoading}
+                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition ${
+                      isDarkTheme
+                        ? 'bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50'
+                        : 'bg-indigo-500 hover:bg-indigo-600 text-white disabled:opacity-50'
+                    }`}
+                  >
+                    {themeLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
+                    ) : null}
+                    {themeLoading ? 'Loading...' : 'Import'}
+                  </button>
+                </div>
+
+                {themeError && (
+                  <p className={`text-sm mt-3 ${isDarkTheme ? 'text-red-400' : 'text-red-600'}`}>
+                    Error: {themeError}
+                  </p>
+                )}
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Server Shortcuts */}
         {serverShortcuts.length > 0 && (

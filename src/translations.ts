@@ -414,7 +414,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'connect.startChatting': 'Подключитесь к серверу, чтобы начать общение',
     'connect.encrypted': 'Сквозное шифрование',
     'connect.groups': 'Группы и каналы',
-    'connect.selfHosted': 'Свой сервер',
+    'connect.selfHosted': 'Self-Hosted сервера',
     'connect.savedServers': 'Сохранённые серверы',
     'connect.add': 'Добавить',
     'connect.noShortcuts': 'Нет сохранённых серверов',
@@ -429,8 +429,8 @@ export const translations: Record<Language, Record<string, string>> = {
     'connect.cancel': 'Отмена',
     'connect.save': 'Сохранить',
     'connect.official': 'Официальный',
-    'server.officialGlobal': 'Официальный сервер 4 Мессенджер',
-    'server.officialRussia': 'Официальный сервер 4 Мессенджер (для пользователей из России)',
+    'server.officialGlobal': 'Официальный сервер 4 Messenger',
+    'server.officialRussia': 'Официальный сервер 4 Messenger (для пользователей из России)',
     
     // Экран авторизации
     'auth.serverPassword': 'Пароль сервера',
@@ -446,7 +446,7 @@ export const translations: Record<Language, Record<string, string>> = {
     
     // Экран входа
     'login.title': 'Вход',
-    'login.subtitle': 'С возвращением в 4 Мессенджер',
+    'login.subtitle': 'С возвращением в 4 Messenger',
     'login.username': 'Имя пользователя',
     'login.password': 'Пароль',
     'login.signIn': 'Войти',
@@ -469,7 +469,7 @@ export const translations: Record<Language, Record<string, string>> = {
     
     // Экран регистрации
     'register.title': 'Регистрация',
-    'register.subtitle': 'Создайте аккаунт в 4 Мессенджер',
+    'register.subtitle': 'Создайте аккаунт в 4 Messenger',
     'register.username': 'Имя пользователя',
     'register.email': 'Электронная почта',
     'register.password': 'Пароль',

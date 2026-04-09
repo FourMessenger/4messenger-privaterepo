@@ -1,0 +1,167 @@
+/* Button Styles - Comprehensive Component Theme */
+
+/* Base Button Styles */
+button, .button, .btn, [role="button"] {
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 500;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: var(--border-width) var(--border-style);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  white-space: nowrap;
+  user-select: none;
+  outline: none;
+}
+
+button:disabled, .button:disabled, .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Primary Button */
+button.btn-primary, .button.primary, .btn-primary {
+  background-color: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+button.btn-primary:hover:not(:disabled), .button.primary:hover:not(:disabled), .btn-primary:hover:not(:disabled) {
+  background-color: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+button.btn-primary:active:not(:disabled), .btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+button.btn-primary:focus-visible, .btn-primary:focus-visible {
+  outline: 2px solid var(--color-primary-light);
+  outline-offset: 2px;
+}
+
+/* Secondary Button */
+button.btn-secondary, .button.secondary, .btn-secondary {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+button.btn-secondary:hover:not(:disabled), .button.secondary:hover:not(:disabled), .btn-secondary:hover:not(:disabled) {
+  background-color: var(--border-color);
+  box-shadow: var(--shadow-md);
+}
+
+/* Danger Button */
+button.btn-danger, .button.danger, .btn-danger {
+  background-color: var(--color-error);
+  color: white;
+  border-color: var(--color-error);
+}
+
+button.btn-danger:hover:not(:disabled), .button.danger:hover:not(:disabled), .btn-danger:hover:not(:disabled) {
+  background-color: #dc2626;
+  border-color: #dc2626;
+  box-shadow: var(--shadow-md);
+}
+
+/* Success Button */
+button.btn-success, .button.success, .btn-success {
+  background-color: var(--color-success);
+  color: white;
+  border-color: var(--color-success);
+}
+
+button.btn-success:hover:not(:disabled), .button.success:hover:not(:disabled), .btn-success:hover:not(:disabled) {
+  background-color: #059669;
+  border-color: #059669;
+  box-shadow: var(--shadow-md);
+}
+
+/* Ghost/Text Button */
+button.btn-ghost, .button.ghost, .btn-ghost {
+  background-color: transparent;
+  color: var(--color-primary);
+  border-color: transparent;
+}
+
+button.btn-ghost:hover:not(:disabled), .button.ghost:hover:not(:disabled), .btn-ghost:hover:not(:disabled) {
+  background-color: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+/* Small Button */
+button.btn-sm, .button.sm, .btn-sm {
+  font-size: 12px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+}
+
+/* Large Button */
+button.btn-lg, .button.lg, .btn-lg {
+  font-size: 16px;
+  padding: var(--spacing-md) var(--spacing-lg);
+}
+
+/* Full Width Button */
+button.btn-block, .button.block, .btn-block {
+  width: 100%;
+}
+
+/* Icon Button */
+button.btn-icon, .button.icon, .btn-icon {
+  padding: var(--spacing-sm);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+/* Button Group */
+.button-group {
+  display: flex;
+  gap: 0;
+}
+
+.button-group button, .button-group .button, .button-group .btn {
+  border-radius: 0;
+  border-right: none;
+}
+
+.button-group button:first-child, .button-group .button:first-child, .button-group .btn:first-child {
+  border-radius: var(--border-radius) 0 0 var(--border-radius);
+}
+
+.button-group button:last-child, .button-group .button:last-child, .button-group .btn:last-child {
+  border-radius: 0 var(--border-radius) var(--border-radius) 0;
+  border-right: var(--border-width) var(--border-style);
+}
+
+/* Loading Button State */
+button.loading, .button.loading, .btn.loading {
+  position: relative;
+  color: transparent;
+}
+
+button.loading::after, .button.loading::after, .btn.loading::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-primary);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

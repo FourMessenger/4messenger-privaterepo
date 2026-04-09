@@ -3,908 +3,917 @@
     "firstSeen": "2026-03-21T14:16:14.119Z",
     "visits": [
       {
-        "timestamp": "2026-04-05T10:02:56.659Z",
+        "timestamp": "2026-04-06T20:09:19.969Z",
         "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
         "acceptLanguage": "en-US",
-        "referer": null,
-        "method": "POST",
-        "path": "/api/chats/16dc7cd3-eb6d-450f-987c-cd29d5a6f683/read",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/users/me",
         "query": {}
       },
       {
-        "timestamp": "2026-04-05T10:02:56.663Z",
+        "timestamp": "2026-04-06T20:09:20.039Z",
         "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
         "acceptLanguage": "en-US",
-        "referer": null,
+        "referer": "http://127.0.0.1:5173/",
         "method": "GET",
-        "path": "/api/chats/16dc7cd3-eb6d-450f-987c-cd29d5a6f683/messages",
+        "path": "/api/users/me",
         "query": {}
       },
       {
-        "timestamp": "2026-04-05T10:02:56.665Z",
+        "timestamp": "2026-04-06T20:09:20.044Z",
         "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
         "acceptLanguage": "en-US",
-        "referer": null,
-        "method": "POST",
-        "path": "/api/chats/16dc7cd3-eb6d-450f-987c-cd29d5a6f683/read",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/server-info",
         "query": {}
       },
       {
-        "timestamp": "2026-04-05T10:03:01.353Z",
+        "timestamp": "2026-04-06T20:09:20.045Z",
         "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
         "acceptLanguage": "en-US",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/19887853-49d1-4aea-814a-cf3a45659ce6/messages",
-        "query": {}
+        "referer": "http://127.0.0.1:5173/",
+        "action": "server_info"
       },
       {
-        "timestamp": "2026-04-05T10:03:01.357Z",
+        "timestamp": "2026-04-06T20:09:20.124Z",
         "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
         "acceptLanguage": "en-US",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/19887853-49d1-4aea-814a-cf3a45659ce6/read",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/server-info",
         "query": {}
       },
       {
-        "timestamp": "2026-04-05T10:03:01.360Z",
+        "timestamp": "2026-04-06T20:09:20.125Z",
         "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
         "acceptLanguage": "en-US",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/19887853-49d1-4aea-814a-cf3a45659ce6/read",
-        "query": {}
+        "referer": "http://127.0.0.1:5173/",
+        "action": "server_info"
       },
       {
-        "timestamp": "2026-04-05T10:03:01.457Z",
+        "timestamp": "2026-04-06T20:09:20.127Z",
         "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
         "acceptLanguage": "en-US",
-        "referer": null,
-        "method": "GET",
-        "path": "/api/chats/19887853-49d1-4aea-814a-cf3a45659ce6/messages",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/users",
         "query": {}
       },
       {
-        "timestamp": "2026-04-05T10:03:01.461Z",
+        "timestamp": "2026-04-06T20:09:20.168Z",
         "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
         "acceptLanguage": "en-US",
-        "referer": null,
-        "method": "POST",
-        "path": "/api/chats/19887853-49d1-4aea-814a-cf3a45659ce6/read",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/chats",
         "query": {}
       },
       {
-        "timestamp": "2026-04-05T10:03:01.467Z",
+        "timestamp": "2026-04-06T20:09:20.176Z",
         "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
         "acceptLanguage": "en-US",
-        "referer": null,
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/users/me/bots",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:09:20.184Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/push/subscriptions",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:09:20.226Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/muted-users",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:09:20.228Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/push/vapid-key",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:09:20.239Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/users",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:09:20.292Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:09:20.296Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/users/me/bots",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:09:20.298Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/users",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:09:20.344Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:09:20.350Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/users/me/bots",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:09:20.357Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/push/subscriptions",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:09:20.421Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/muted-users",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:09:20.424Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/users",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:09:20.428Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:09:20.497Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/users/me/bots",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:09:24.284Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/users/me/bots",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:09:24.338Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/users/me/bots",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:09:35.431Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:09:35.484Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:09:35.586Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:09:50.431Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:09:50.480Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:09:50.587Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:10:06.352Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:10:06.356Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:10:06.404Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:10:06.456Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:10:20.446Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:10:20.502Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:10:20.587Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:10:29.257Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/muted-users",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:10:29.261Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/blocked-users",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:10:29.309Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/muted-users",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:10:29.311Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/blocked-users",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:10:30.784Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/users/me/2fa/status",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:10:30.788Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/users/me/trusted-devices",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:10:30.837Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/users/me/2fa/status",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:10:30.840Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/users/me/trusted-devices",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:10:32.665Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/users/me/2fa/status",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:10:32.669Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/users/me/trusted-devices",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:10:35.433Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:10:35.482Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:10:35.590Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:10:44.086Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/admin/stats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:10:44.140Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/admin/stats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:10:44.196Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/admin/stats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:10:44.250Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/admin/stats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:10:50.435Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:10:50.489Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:10:50.586Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:11:05.426Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:11:05.479Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:11:05.587Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:11:20.795Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:11:20.845Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:11:20.902Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:11:20.963Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:11:35.438Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:11:35.489Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:11:35.625Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:11:50.441Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:11:50.565Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:11:50.670Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:12:05.437Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:12:05.498Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:12:05.641Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:12:20.906Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:12:20.979Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:12:21.020Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:12:21.097Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:12:30.123Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/users",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:12:30.173Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/users",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:12:35.430Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:12:35.483Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:12:35.586Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/chats",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:12:57.555Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/collect",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:12:57.562Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/server-info",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:12:57.091Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "screenWidth": 1280,
+        "screenHeight": 720,
+        "colorDepth": 24,
+        "pixelRatio": 1.5,
+        "timezone": "Europe/Moscow",
+        "language": "en-US",
+        "languages": "en-US, ru",
+        "platform": "Win32",
+        "cookiesEnabled": true,
+        "doNotTrack": null,
+        "online": true,
+        "connectionType": "4g",
+        "touchPoints": 0,
+        "hardwareConcurrency": 16,
+        "deviceMemory": 8,
+        "vendor": "Google Inc.",
+        "referrer": null,
+        "url": "http://127.0.0.1:5173/"
+      },
+      {
+        "timestamp": "2026-04-06T20:12:57.606Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
         "method": "POST",
-        "path": "/api/chats/19887853-49d1-4aea-814a-cf3a45659ce6/read",
+        "path": "/api/collect",
         "query": {}
       },
       {
-        "timestamp": "2026-04-05T10:03:03.157Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
+        "timestamp": "2026-04-06T20:12:57.618Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/server-info",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:12:57.619Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "action": "server_info"
+      },
+      {
+        "timestamp": "2026-04-06T20:12:57.674Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/users",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:12:57.674Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
         "method": "OPTIONS",
         "path": "/api/chats",
         "query": {}
       },
       {
-        "timestamp": "2026-04-05T10:03:03.162Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
+        "timestamp": "2026-04-06T20:12:57.722Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
         "method": "OPTIONS",
-        "path": "/api/chats",
+        "path": "/api/users/me/bots",
         "query": {}
       },
       {
-        "timestamp": "2026-04-05T10:03:03.906Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
+        "timestamp": "2026-04-06T20:12:57.725Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/push/subscriptions",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:12:57.824Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "OPTIONS",
+        "path": "/api/muted-users",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:12:57.827Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/push/vapid-key",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:12:57.830Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
+        "method": "GET",
+        "path": "/api/users",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-06T20:12:57.872Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
         "method": "GET",
         "path": "/api/chats",
         "query": {}
       },
       {
-        "timestamp": "2026-04-05T10:03:04.002Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
+        "timestamp": "2026-04-06T20:12:57.877Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
         "method": "GET",
-        "path": "/api/chats",
+        "path": "/api/users/me/bots",
         "query": {}
       },
       {
-        "timestamp": "2026-04-05T10:03:04.724Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/6406a1f4-4f30-4948-a50c-76cb09289a3f/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:04.825Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/6406a1f4-4f30-4948-a50c-76cb09289a3f/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:05.504Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "DELETE",
-        "path": "/api/chats/6406a1f4-4f30-4948-a50c-76cb09289a3f/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:05.510Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "DELETE",
-        "path": "/api/chats/6406a1f4-4f30-4948-a50c-76cb09289a3f/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:06.240Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/44340221-e8f0-470f-b6ac-5d54ed970394/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:06.292Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/44340221-e8f0-470f-b6ac-5d54ed970394/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:07.012Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "DELETE",
-        "path": "/api/chats/44340221-e8f0-470f-b6ac-5d54ed970394/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:07.059Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "DELETE",
-        "path": "/api/chats/44340221-e8f0-470f-b6ac-5d54ed970394/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:07.658Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/6406a1f4-4f30-4948-a50c-76cb09289a3f/messages",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:07.675Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/6406a1f4-4f30-4948-a50c-76cb09289a3f/read",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:07.684Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/6406a1f4-4f30-4948-a50c-76cb09289a3f/read",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:07.751Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/9347e19c-75ba-47c6-8894-3d584752c836/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:07.807Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/9347e19c-75ba-47c6-8894-3d584752c836/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:08.243Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
+        "timestamp": "2026-04-06T20:12:57.885Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
         "method": "GET",
-        "path": "/api/chats/6406a1f4-4f30-4948-a50c-76cb09289a3f/messages",
+        "path": "/api/push/subscriptions",
         "query": {}
       },
       {
-        "timestamp": "2026-04-05T10:03:08.266Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "POST",
-        "path": "/api/chats/6406a1f4-4f30-4948-a50c-76cb09289a3f/read",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:08.275Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "POST",
-        "path": "/api/chats/6406a1f4-4f30-4948-a50c-76cb09289a3f/read",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:08.296Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/44340221-e8f0-470f-b6ac-5d54ed970394/messages",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:08.300Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/44340221-e8f0-470f-b6ac-5d54ed970394/read",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:08.324Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/44340221-e8f0-470f-b6ac-5d54ed970394/read",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:08.354Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "DELETE",
-        "path": "/api/chats/9347e19c-75ba-47c6-8894-3d584752c836/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:08.386Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "DELETE",
-        "path": "/api/chats/9347e19c-75ba-47c6-8894-3d584752c836/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:09.034Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
+        "timestamp": "2026-04-06T20:12:57.957Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
+        "acceptLanguage": "en-US",
+        "referer": "http://127.0.0.1:5173/",
         "method": "GET",
-        "path": "/api/chats/44340221-e8f0-470f-b6ac-5d54ed970394/messages",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:09.050Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/9347e19c-75ba-47c6-8894-3d584752c836/read",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:09.057Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/9347e19c-75ba-47c6-8894-3d584752c836/messages",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:09.064Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "POST",
-        "path": "/api/chats/44340221-e8f0-470f-b6ac-5d54ed970394/read",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:09.083Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/9347e19c-75ba-47c6-8894-3d584752c836/read",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:09.085Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "POST",
-        "path": "/api/chats/44340221-e8f0-470f-b6ac-5d54ed970394/read",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:09.679Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "POST",
-        "path": "/api/chats/9347e19c-75ba-47c6-8894-3d584752c836/read",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:09.695Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "GET",
-        "path": "/api/chats/9347e19c-75ba-47c6-8894-3d584752c836/messages",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:09.838Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "POST",
-        "path": "/api/chats/9347e19c-75ba-47c6-8894-3d584752c836/read",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:10.069Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "POST",
-        "path": "/api/chats/6406a1f4-4f30-4948-a50c-76cb09289a3f/read",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:10.089Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "GET",
-        "path": "/api/chats/6406a1f4-4f30-4948-a50c-76cb09289a3f/messages",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:10.093Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "POST",
-        "path": "/api/chats/6406a1f4-4f30-4948-a50c-76cb09289a3f/read",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:10.775Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "GET",
-        "path": "/api/chats/44340221-e8f0-470f-b6ac-5d54ed970394/messages",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:10.782Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "POST",
-        "path": "/api/chats/44340221-e8f0-470f-b6ac-5d54ed970394/read",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:10.790Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "POST",
-        "path": "/api/chats/44340221-e8f0-470f-b6ac-5d54ed970394/read",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:11.449Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "GET",
-        "path": "/api/chats/6406a1f4-4f30-4948-a50c-76cb09289a3f/messages",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:11.456Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "POST",
-        "path": "/api/chats/6406a1f4-4f30-4948-a50c-76cb09289a3f/read",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:11.466Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "POST",
-        "path": "/api/chats/6406a1f4-4f30-4948-a50c-76cb09289a3f/read",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:18.131Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:18.213Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:18.830Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "GET",
-        "path": "/api/chats",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:18.942Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "GET",
-        "path": "/api/chats",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:19.832Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/6406a1f4-4f30-4948-a50c-76cb09289a3f/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:19.842Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/6406a1f4-4f30-4948-a50c-76cb09289a3f/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:20.546Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "DELETE",
-        "path": "/api/chats/6406a1f4-4f30-4948-a50c-76cb09289a3f/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:20.638Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "DELETE",
-        "path": "/api/chats/6406a1f4-4f30-4948-a50c-76cb09289a3f/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:21.294Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/44340221-e8f0-470f-b6ac-5d54ed970394/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:21.378Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/44340221-e8f0-470f-b6ac-5d54ed970394/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:22.035Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "DELETE",
-        "path": "/api/chats/44340221-e8f0-470f-b6ac-5d54ed970394/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:22.127Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "DELETE",
-        "path": "/api/chats/44340221-e8f0-470f-b6ac-5d54ed970394/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:22.794Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/9347e19c-75ba-47c6-8894-3d584752c836/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:22.968Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/9347e19c-75ba-47c6-8894-3d584752c836/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:23.514Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "DELETE",
-        "path": "/api/chats/9347e19c-75ba-47c6-8894-3d584752c836/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:23.632Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "DELETE",
-        "path": "/api/chats/9347e19c-75ba-47c6-8894-3d584752c836/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:33.253Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:33.409Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:33.927Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "GET",
-        "path": "/api/chats",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:34.051Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "GET",
-        "path": "/api/chats",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:34.807Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/6406a1f4-4f30-4948-a50c-76cb09289a3f/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:34.823Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/6406a1f4-4f30-4948-a50c-76cb09289a3f/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:35.482Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "DELETE",
-        "path": "/api/chats/6406a1f4-4f30-4948-a50c-76cb09289a3f/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:35.797Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "DELETE",
-        "path": "/api/chats/6406a1f4-4f30-4948-a50c-76cb09289a3f/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:36.324Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/44340221-e8f0-470f-b6ac-5d54ed970394/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:36.550Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/44340221-e8f0-470f-b6ac-5d54ed970394/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:37.038Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "DELETE",
-        "path": "/api/chats/44340221-e8f0-470f-b6ac-5d54ed970394/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:37.231Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "DELETE",
-        "path": "/api/chats/44340221-e8f0-470f-b6ac-5d54ed970394/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:37.666Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/9347e19c-75ba-47c6-8894-3d584752c836/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:37.872Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/9347e19c-75ba-47c6-8894-3d584752c836/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:38.308Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "DELETE",
-        "path": "/api/chats/9347e19c-75ba-47c6-8894-3d584752c836/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:38.700Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "DELETE",
-        "path": "/api/chats/9347e19c-75ba-47c6-8894-3d584752c836/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:48.177Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:48.181Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:48.789Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "GET",
-        "path": "/api/chats",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:48.799Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "GET",
-        "path": "/api/chats",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:49.788Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/6406a1f4-4f30-4948-a50c-76cb09289a3f/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:49.830Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/6406a1f4-4f30-4948-a50c-76cb09289a3f/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:50.500Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "DELETE",
-        "path": "/api/chats/6406a1f4-4f30-4948-a50c-76cb09289a3f/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:50.534Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "DELETE",
-        "path": "/api/chats/6406a1f4-4f30-4948-a50c-76cb09289a3f/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:51.188Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/44340221-e8f0-470f-b6ac-5d54ed970394/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:51.259Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/44340221-e8f0-470f-b6ac-5d54ed970394/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:51.900Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "DELETE",
-        "path": "/api/chats/44340221-e8f0-470f-b6ac-5d54ed970394/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:51.941Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "DELETE",
-        "path": "/api/chats/44340221-e8f0-470f-b6ac-5d54ed970394/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:52.717Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/9347e19c-75ba-47c6-8894-3d584752c836/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:52.743Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "OPTIONS",
-        "path": "/api/chats/9347e19c-75ba-47c6-8894-3d584752c836/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:53.360Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "DELETE",
-        "path": "/api/chats/9347e19c-75ba-47c6-8894-3d584752c836/keys",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-05T10:03:53.395Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-        "acceptLanguage": "en-US, en; q=0.9",
-        "referer": null,
-        "method": "DELETE",
-        "path": "/api/chats/9347e19c-75ba-47c6-8894-3d584752c836/keys",
+        "path": "/api/muted-users",
         "query": {}
       }
     ],
-    "userId": "498ae5dc-65f7-4372-9832-59cad2c5f97f",
-    "username": "abc",
-    "lastSeen": "2026-04-05T10:03:53.398Z"
+    "userId": "636a6188-4702-45e4-a044-cc850886511c",
+    "username": "owner",
+    "lastSeen": "2026-04-06T20:12:57.957Z"
   }
 }

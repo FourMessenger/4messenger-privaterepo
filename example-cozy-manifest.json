@@ -1,0 +1,12 @@
+{
+  "name": "Cozy Warm Theme",
+  "version": "1.0.0",
+  "author": "4 Messenger Team",
+  "description": "A warm, inviting theme with earthy tones and cozy vibes",
+  "placeholders": {
+    "cozy-styles": {
+      "path": "cozy-styles.css",
+      "type": "css"
+    }
+  }
+}

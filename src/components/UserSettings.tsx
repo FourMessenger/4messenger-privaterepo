@@ -6,7 +6,8 @@ import {
   Sun, Moon, Monitor, Check, Loader2, Type, MessageSquare,
   Layout, Bell, Volume2, VolumeX, RotateCcw, Clock,
   CircleDot, Square, Maximize2, Minimize2, Globe, Bot, Code, Trash2,
-  Moon as MoonIcon, AlertCircle, Smartphone, Mail, QrCode, Copy, Shield
+  Moon as MoonIcon, AlertCircle, Smartphone, Mail, QrCode, Copy, Shield,
+  Layers, Download, Trash
 } from 'lucide-react';
 
 interface UserSettingsProps {
@@ -31,9 +32,10 @@ export function UserSettings({ onClose }: UserSettingsProps) {
     mutedUsers, fetchMutedUsers, muteUser, unmuteUser, isMuted,
     blockedUsers, fetchBlockedUsers, blockUser, unblockUser, isBlocked,
     setupAuthenticatorTwoFa, verifyAuthenticatorSetup, setupEmailTwoFa, verifyEmailTwoFaCode,
-    disableTwoFa, getTwoFaStatus, twoFaStatus, setupTrustedDevice, getTrustedDevices, removeTrustedDevice
+    disableTwoFa, getTwoFaStatus, twoFaStatus, setupTrustedDevice, getTrustedDevices, removeTrustedDevice,
+    customTheme, loadTheme, unloadTheme, themeLoading, themeError
   } = useStore();
-  const [tab, setTab] = useState<'profile' | 'appearance' | 'security' | '2fa' | 'language' | 'notifications' | 'bots'>('profile');
+  const [tab, setTab] = useState<'profile' | 'appearance' | 'security' | '2fa' | 'language' | 'notifications' | 'bots' | 'themes'>('profile');
   const [loading, setLoading] = useState(false);
   const [unmutingUserId, setUnmutingUserId] = useState<string | null>(null);
   
@@ -447,6 +449,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
           {[
             { id: 'profile' as const, icon: User, label: translate('profile') },
             { id: 'appearance' as const, icon: Palette, label: translate('appearance') },
+            { id: 'themes' as const, icon: Layers, label: 'Themes' },
             { id: 'security' as const, icon: Lock, label: translate('security') },
             { id: '2fa' as const, icon: Shield, label: '2FA' },
             { id: 'language' as const, icon: Globe, label: translate('language') },
@@ -1686,8 +1689,108 @@ export function UserSettings({ onClose }: UserSettingsProps) {
               </div>
             </div>
           )}
+
+          {tab === 'themes' && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-medium text-white flex items-center space-x-2">
+                <Layers className="w-5 h-5 text-indigo-500" />
+                <span>Theme Manager</span>
+              </h3>
+
+              {/* Current Theme Info */}
+              {customTheme && (
+                <div className="bg-gradient-to-r from-indigo-900/30 to-purple-900/30 border border-indigo-500/30 rounded-xl p-4">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className="font-medium text-white">{customTheme.name}</h4>
+                      {customTheme.description && (
+                        <p className="text-sm text-gray-400 mt-1">{customTheme.description}</p>
+                      )}
+                      {customTheme.author && (
+                        <p className="text-xs text-gray-500 mt-2">by {customTheme.author}</p>
+                      )}
+                      {customTheme.version && (
+                        <p className="text-xs text-gray-500">v{customTheme.version}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => unloadTheme()}
+                      className="p-2 text-red-400 hover:text-red-300 bg-red-500/10 rounded-lg transition-colors"
+                      title="Remove Theme"
+                    >
+                      <Trash className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Import Theme */}
+              <div className="bg-gray-800/50 rounded-xl p-4">
+                <h4 className="font-medium text-white mb-3">Import Theme</h4>
+                <p className="text-sm text-gray-400 mb-4">
+                  Select a .4mth theme file (which is a ZIP file containing a manifest.json and theme files)
+                </p>
+                
+                {themeError && (
+                  <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+                    <p className="text-sm text-red-300 flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                      <span>{themeError}</span>
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3">
+                  <input
+                    type="file"
+                    accept=".4mth,.zip"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        await loadTheme(file);
+                        e.target.value = ''; // Reset input
+                      }
+                    }}
+                    disabled={themeLoading}
+                    className="flex-1"
+                  />
+                  {themeLoading && (
+                    <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
+                  )}
+                </div>
+              </div>
+
+              {/* Theme Info */}
+              <div className="bg-gray-800/30 rounded-xl p-4 border border-gray-700/50">
+                <h4 className="font-medium text-white mb-3">Theme File Format</h4>
+                <div className="text-sm text-gray-400 space-y-2">
+                  <p>A .4mth theme file is a ZIP archive containing:</p>
+                  <ul className="list-disc list-inside ml-2 space-y-1">
+                    <li><code className="bg-gray-900 px-2 py-1 rounded text-gray-300">manifest.json</code> - Required theme metadata</li>
+                    <li>CSS files - For styling (optional)</li>
+                    <li>Image files - For backgrounds, logos, etc. (optional)</li>
+                  </ul>
+                  
+                  <div className="mt-4 pt-4 border-t border-gray-700">
+                    <p className="font-medium text-white mb-2">manifest.json example:</p>
+                    <pre className="bg-gray-900 p-3 rounded text-xs overflow-x-auto text-gray-300">{JSON.stringify({
+                      name: "My Theme",
+                      version: "1.0.0",
+                      author: "Your Name",
+                      description: "A beautiful custom theme",
+                      placeholders: {
+                        "background": { path: "bg.png", type: "image" },
+                        "custom-styles": { path: "styles.css", type: "css" }
+                      }
+                    }, null, 2)}</pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
+

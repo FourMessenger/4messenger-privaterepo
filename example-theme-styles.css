@@ -1,0 +1,143 @@
+/* Example Theme Styles - Deep Ocean Theme */
+
+:root {
+  /* Color Palette */
+  --ocean-dark: #0a1628;
+  --ocean-light: #1a2f4a;
+  --ocean-accent: #06b6d4;
+  --ocean-secondary: #0ea5e9;
+  --text-primary: #f0f9ff;
+  --text-secondary: #cbd5e1;
+  
+  /* Override app variables */
+  --accent-color: var(--ocean-accent);
+  --chat-bg: linear-gradient(135deg, var(--ocean-dark) 0%, var(--ocean-light) 100%);
+}
+
+/* Message Containers */
+.message-container {
+  background: rgba(26, 47, 74, 0.5);
+  border-left: 3px solid var(--ocean-accent);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 8px 0;
+  transition: all 0.3s ease;
+}
+
+.message-container:hover {
+  background: rgba(26, 47, 74, 0.8);
+  border-left-color: var(--ocean-secondary);
+}
+
+/* Text Styles */
+.message-text {
+  color: var(--text-primary);
+  letter-spacing: 0.3px;
+}
+
+.message-time {
+  color: var(--text-secondary);
+  font-size: 0.85em;
+}
+
+/* Chat Background */
+.chat-bg-default {
+  background: linear-gradient(135deg, #0a1628 0%, #164e63 100%);
+}
+
+/* Accent Elements */
+.accent-bg {
+  background-color: var(--ocean-accent) !important;
+}
+
+.accent-text {
+  color: var(--ocean-accent) !important;
+}
+
+/* Buttons */
+button {
+  transition: all 0.3s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.2);
+}
+
+/* Input Fields */
+input, textarea {
+  background: rgba(26, 47, 74, 0.3) !important;
+  border-color: rgba(6, 182, 212, 0.3) !important;
+  color: var(--text-primary) !important;
+  transition: border-color 0.3s ease;
+}
+
+input:focus, textarea:focus {
+  border-color: var(--ocean-accent) !important;
+  background: rgba(26, 47, 74, 0.6) !important;
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.2);
+}
+
+/* Sidebar */
+.sidebar {
+  background: var(--ocean-dark);
+  border-right: 1px solid rgba(6, 182, 212, 0.1);
+}
+
+/* Active Chat Indicator */
+.active-chat {
+  background: rgba(6, 182, 212, 0.2);
+  border-left: 3px solid var(--ocean-accent);
+}
+
+/* Custom Animations */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.message-container {
+  animation: slideIn 0.3s ease;
+}
+
+/* User Avatar */
+.user-avatar {
+  border: 2px solid var(--ocean-accent);
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.3);
+}
+
+/* Notification Badge */
+.notification-badge {
+  background: linear-gradient(135deg, var(--ocean-secondary), var(--ocean-accent));
+  box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+}
+
+/* Scrollbar Styling (Chrome, Edge, Safari) */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--ocean-dark);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--ocean-accent);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ocean-secondary);
+}
+
+/* Selection Color */
+::selection {
+  background: var(--ocean-accent);
+  color: var(--ocean-dark);
+}

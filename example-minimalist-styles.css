@@ -1,0 +1,411 @@
+/* Minimalist Light Theme for 4 Messenger */
+/* A clean, modern light theme with excellent readability */
+
+:root {
+  /* Color Palette */
+  --primary: #f5f7fa;           /* Main background */
+  --secondary: #ffffff;          /* Card/container background */
+  --accent-light: #3b82f6;       /* Accent color (blue) */
+  --accent-dark: #1e40af;        /* Darker accent for hover */
+  --text-primary: #1f2937;       /* Main text */
+  --text-secondary: #6b7280;     /* Secondary text */
+  --border-color: #e5e7eb;       /* Borders */
+  --success: #10b981;            /* Success color */
+  --warning: #f59e0b;            /* Warning color */
+  --error: #ef4444;              /* Error color */
+  
+  /* Override app variables */
+  --accent-color: var(--accent-light);
+  --chat-bg: var(--primary);
+}
+
+/* Main background */
+body, html {
+  background: var(--primary);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Messages */
+.message-container {
+  background: var(--secondary);
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--accent-light);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 8px 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.message-container:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-left-color: var(--accent-dark);
+}
+
+/* Message text */
+.message-text {
+  color: var(--text-primary);
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+/* Message timestamp */
+.message-time {
+  color: var(--text-secondary);
+  font-size: 0.85em;
+  margin-top: 6px;
+}
+
+/* Accent elements */
+.accent-bg {
+  background-color: var(--accent-light) !important;
+}
+
+.accent-text {
+  color: var(--accent-light) !important;
+}
+
+.accent-border {
+  border-color: var(--accent-light) !important;
+}
+
+/* Chat background */
+.chat-bg-default {
+  background: var(--primary);
+}
+
+/* Sidebar */
+.sidebar {
+  background: var(--secondary);
+  border-right: 1px solid var(--border-color);
+}
+
+/* Active chat */
+.active-chat {
+  background: rgba(59, 130, 246, 0.08);
+  border-left: 3px solid var(--accent-light);
+}
+
+/* Buttons */
+button {
+  background: var(--accent-light);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-weight: 500;
+  font-size: 0.95em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+}
+
+button:hover {
+  background: var(--accent-dark);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+/* Secondary buttons */
+button.secondary {
+  background: var(--secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  box-shadow: none;
+}
+
+button.secondary:hover {
+  background: var(--primary);
+  border-color: var(--accent-light);
+}
+
+/* Input fields */
+input, textarea {
+  background: var(--secondary) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-primary) !important;
+  border-radius: 6px !important;
+  padding: 10px 12px !important;
+  font-size: 0.95em !important;
+  transition: all 0.2s ease !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--text-secondary) !important;
+}
+
+input:focus, textarea:focus {
+  outline: none !important;
+  border-color: var(--accent-light) !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+  background: var(--secondary) !important;
+}
+
+/* User avatar */
+.user-avatar {
+  border: 2px solid var(--accent-light);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Notification badge */
+.notification-badge {
+  background: var(--error);
+  color: white;
+  font-size: 0.75em;
+  font-weight: 600;
+  border-radius: 50%;
+  min-width: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Scrollbar styling (Chrome, Edge, Safari) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-light);
+}
+
+/* Selection color */
+::selection {
+  background: var(--accent-light);
+  color: white;
+}
+
+/* Links */
+a {
+  color: var(--accent-light);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+a:hover {
+  border-bottom-color: var(--accent-light);
+}
+
+/* Code blocks (if used) */
+code, pre {
+  background: var(--primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--accent-dark);
+  font-family: 'Monaco', 'Courier New', monospace;
+}
+
+pre {
+  padding: 12px;
+  overflow-x: auto;
+}
+
+code {
+  padding: 2px 6px;
+  font-size: 0.9em;
+}
+
+/* Status indicators */
+.status-online {
+  background: var(--success);
+}
+
+.status-away {
+  background: var(--warning);
+}
+
+.status-offline {
+  background: var(--text-secondary);
+}
+
+/* Cards and containers */
+.card {
+  background: var(--secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Tabs */
+.tab-button {
+  background: transparent !important;
+  color: var(--text-secondary);
+  border-bottom: 2px solid transparent;
+  border-radius: 0!important;
+  box-shadow: none !important;
+  padding: 12px 16px !important;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.tab-button:hover {
+  color: var(--text-primary);
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.tab-button.active {
+  color: var(--accent-light);
+  border-bottom-color: var(--accent-light);
+}
+
+/* Animations */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Apply animations to messages */
+.message-container {
+  animation: slideIn 0.25s ease;
+}
+
+/* Smooth transitions for theme elements */
+* {
+  transition-property: background-color, border-color, color, box-shadow;
+  transition-duration: 0.2s;
+  transition-timing-function: ease;
+}
+
+/* Disable transitions for certain properties during animations */
+*:has(> .message-container) {
+  transition-duration: 0s;
+}
+
+/* Accessibility - Focus visible */
+:focus-visible {
+  outline: 2px solid var(--accent-light);
+  outline-offset: 2px;
+}
+
+/* Dark mode support (respects system preference) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --primary: #1f2937;
+    --secondary: #111827;
+    --text-primary: #f3f4f6;
+    --text-secondary: #9ca3af;
+    --border-color: #374151;
+    --accent-light: #60a5fa;
+    --accent-dark: #3b82f6;
+  }
+  
+  .message-container {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+  
+  .message-container:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  }
+  
+  button {
+    box-shadow: 0 2px 4px rgba(96, 165, 250, 0.3);
+  }
+  
+  button:hover {
+    box-shadow: 0 4px 8px rgba(96, 165, 250, 0.4);
+  }
+}
+
+/* Print styles */
+@media print {
+  .sidebar,
+  .message-input,
+  button {
+    display: none;
+  }
+  
+  .message-container {
+    page-break-inside: avoid;
+    box-shadow: none;
+    border: 1px solid var(--border-color);
+  }
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  .message-container {
+    padding: 10px 12px;
+    margin: 6px 0;
+  }
+  
+  .sidebar {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+  
+  button {
+    padding: 10px 12px;
+    font-size: 0.9em;
+  }
+  
+  input, textarea {
+    font-size: 16px !important; /* Prevents zoom on iOS */
+  }
+}
+
+/* Additional utility classes */
+.text-muted {
+  color: var(--text-secondary) !important;
+}
+
+.text-success {
+  color: var(--success) !important;
+}
+
+.text-warning {
+  color: var(--warning) !important;
+}
+
+.text-error {
+  color: var(--error) !important;
+}
+
+.bg-success {
+  background: rgba(16, 185, 129, 0.1) !important;
+}
+
+.bg-warning {
+  background: rgba(245, 158, 11, 0.1) !important;
+}
+
+.bg-error {
+  background: rgba(239, 68, 68, 0.1) !important;
+}

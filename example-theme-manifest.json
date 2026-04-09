@@ -1,0 +1,12 @@
+{
+  "name": "Deep Ocean Theme",
+  "version": "1.0.0",
+  "author": "4 Messenger",
+  "description": "A calm, deep ocean-inspired theme with cool blue tones and smooth animations",
+  "placeholders": {
+    "main-styles": {
+      "path": "styles.css",
+      "type": "css"
+    }
+  }
+}

@@ -1,0 +1,399 @@
+/* Cozy Warm Theme for 4 Messenger */
+/* Warm, inviting colors with comfortable vibes */
+
+:root {
+  /* Warm color palette */
+  --warm-bg: #faf5f0;            /* Warm cream background */
+  --warm-card: #fefbf7;          /* Warm white for cards */
+  --warm-accent: #d97706;        /* Warm amber/orange */
+  --warm-accent-light: #f59e0b;  /* Light amber for hover */
+  --warm-text: #5a4032;          /* Warm dark brown */
+  --warm-text-light: #8b6f47;    /* Light brown for secondary text */
+  --warm-border: #e8dcc8;        /* Warm beige border */
+  --warm-success: #d4653b;       /* Warm terracotta */
+  --warm-secondary: #c2a878;     /* Warm tan */
+  
+  /* Override app variables */
+  --accent-color: var(--warm-accent);
+  --chat-bg: var(--warm-bg);
+}
+
+/* Main background */
+body, html {
+  background: var(--warm-bg);
+  color: var(--warm-text);
+  font-family: 'Georgia', 'Garamond', serif;
+}
+
+/* Messages with warm styling */
+.message-container {
+  background: var(--warm-card);
+  border: 1px solid var(--warm-border);
+  border-left: 5px solid var(--warm-accent);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin: 10px 0;
+  box-shadow: 0 2px 8px rgba(212, 101, 59, 0.08);
+  transition: all 0.3s ease;
+}
+
+.message-container:hover {
+  box-shadow: 0 6px 16px rgba(212, 101, 59, 0.12);
+  border-left-color: var(--warm-secondary);
+  transform: translateY(-2px);
+}
+
+/* Message text styling */
+.message-text {
+  color: var(--warm-text);
+  line-height: 1.6;
+  font-size: 1em;
+  font-weight: 400;
+}
+
+/* Timestamp with warm styling */
+.message-time {
+  color: var(--warm-text-light);
+  font-size: 0.9em;
+  margin-top: 8px;
+  font-style: italic;
+}
+
+/* Accent colors */
+.accent-bg {
+  background: linear-gradient(135deg, var(--warm-accent), var(--warm-accent-light)) !important;
+}
+
+.accent-text {
+  color: var(--warm-accent) !important;
+}
+
+.accent-border {
+  border-color: var(--warm-accent) !important;
+}
+
+/* Chat background */
+.chat-bg-default {
+  background: linear-gradient(135deg, var(--warm-bg), #f5ede5);
+}
+
+/* Sidebar styling */
+.sidebar {
+  background: var(--warm-card);
+  border-right: 2px solid var(--warm-border);
+}
+
+/* Active chat highlight */
+.active-chat {
+  background: linear-gradient(90deg, rgba(212, 101, 59, 0.1), transparent);
+  border-left: 4px solid var(--warm-accent);
+  border-radius: 8px;
+}
+
+/* Button styling with warm colors */
+button {
+  background: linear-gradient(135deg, var(--warm-accent), var(--warm-accent-light));
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-weight: 600;
+  font-size: 0.95em;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(212, 101, 59, 0.25);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+button:hover {
+  box-shadow: 0 6px 20px rgba(212, 101, 59, 0.35);
+  transform: translateY(-2px);
+}
+
+button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(212, 101, 59, 0.25);
+}
+
+/* Input fields with warm styling */
+input, textarea {
+  background: var(--warm-card) !important;
+  border: 2px solid var(--warm-border) !important;
+  color: var(--warm-text) !important;
+  border-radius: 8px !important;
+  padding: 12px 14px !important;
+  font-size: 0.95em !important;
+  font-family: 'Georgia', serif !important;
+  transition: all 0.3s ease !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--warm-text-light) !important;
+  opacity: 0.7;
+}
+
+input:focus, textarea:focus {
+  outline: none !important;
+  border-color: var(--warm-accent) !important;
+  box-shadow: 0 0 0 4px rgba(212, 101, 59, 0.15) !important;
+  background: var(--warm-card) !important;
+}
+
+/* User avatars */
+.user-avatar {
+  border: 3px solid var(--warm-accent);
+  box-shadow: 0 4px 12px rgba(212, 101, 59, 0.2);
+}
+
+/* Notification badges */
+.notification-badge {
+  background: linear-gradient(135deg, #d97706, #f59e0b);
+  color: white;
+  font-weight: 700;
+  border-radius: 50%;
+  min-width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8em;
+}
+
+/* Scrollbar with warm color */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--warm-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--warm-secondary);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--warm-accent);
+}
+
+/* Selection highlighting */
+::selection {
+  background: var(--warm-accent);
+  color: var(--warm-bg);
+}
+
+/* Links */
+a {
+  color: var(--warm-accent);
+  text-decoration: underline;
+  transition: all 0.2s ease;
+}
+
+a:hover {
+  color: var(--warm-secondary);
+}
+
+/* Code styling */
+code {
+  background: rgba(212, 101, 59, 0.08);
+  border: 1px solid var(--warm-border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  color: var(--warm-accent);
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-weight: 500;
+}
+
+pre {
+  background: var(--warm-card);
+  border: 1px solid var(--warm-border);
+  border-left: 4px solid var(--warm-accent);
+  border-radius: 8px;
+  padding: 14px;
+  overflow-x: auto;
+  font-family: 'Monaco', 'Courier New', monospace;
+  color: var(--warm-text);
+}
+
+/* Cards and containers */
+.card {
+  background: var(--warm-card);
+  border: 1px solid var(--warm-border);
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: 0 2px 8px rgba(212, 101, 59, 0.08);
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  box-shadow: 0 6px 16px rgba(212, 101, 59, 0.12);
+  transform: translateY(-2px);
+}
+
+/* Tab styling */
+.tab-button {
+  background: transparent !important;
+  color: var(--warm-text-light);
+  border-bottom: 3px solid transparent;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 12px 16px !important;
+  font-weight: 600;
+  font-size: 0.95em;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.tab-button:hover {
+  color: var(--warm-text);
+  border-bottom-color: rgba(212, 101, 59, 0.3);
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.tab-button.active {
+  color: var(--warm-accent);
+  border-bottom-color: var(--warm-accent);
+  background: rgba(212, 101, 59, 0.05) !important;
+}
+
+/* Animations - warm and smooth */
+@keyframes slideInWarm {
+  from {
+    opacity: 0;
+    transform: translateX(-12px) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) translateY(0);
+  }
+}
+
+@keyframes fadeInWarm {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Apply animations */
+.message-container {
+  animation: slideInWarm 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Smooth transitions throughout */
+* {
+  transition-property: background-color, border-color, color, box-shadow, transform;
+  transition-duration: 0.3s;
+  transition-timing-function: ease;
+}
+
+/* Focus state */
+:focus-visible {
+  outline: 3px solid var(--warm-accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Print styles */
+@media print {
+  .sidebar, .message-input, button {
+    display: none;
+  }
+  
+  .message-container {
+    page-break-inside: avoid;
+    box-shadow: none;
+    border: 1px solid var(--warm-border);
+  }
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .message-container {
+    padding: 12px 14px;
+    margin: 8px 0;
+    border-radius: 8px;
+  }
+  
+  button {
+    padding: 11px 15px;
+    font-size: 0.9em;
+  }
+  
+  input, textarea {
+    font-size: 16px !important; /* Prevents iOS zoom */
+  }
+}
+
+/* Utility classes with warm theme */
+.text-primary {
+  color: var(--warm-text) !important;
+}
+
+.text-secondary {
+  color: var(--warm-text-light) !important;
+}
+
+.text-accent {
+  color: var(--warm-accent) !important;
+}
+
+.bg-accent-light {
+  background: rgba(212, 101, 59, 0.1) !important;
+}
+
+.border-warm {
+  border-color: var(--warm-border) !important;
+}
+
+/* Success, warning, error states */
+.status-online {
+  background: #8b6f47;
+}
+
+.status-away {
+  background: #f59e0b;
+}
+
+.status-offline {
+  background: #cbb5a1;
+}
+
+/* Optional: Dark mode variant (if system preference detected) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --warm-bg: #3a2f26;
+    --warm-card: #4a3f36;
+    --warm-text: #f5e6d3;
+    --warm-text-light: #d4c4b0;
+    --warm-border: #5a5045;
+    --warm-accent: #ff9844;
+    --warm-accent-light: #ffb366;
+  }
+  
+  .message-container {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+  
+  .message-container:hover {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+  }
+  
+  button {
+    box-shadow: 0 4px 12px rgba(212, 101, 59, 0.4);
+  }
+}

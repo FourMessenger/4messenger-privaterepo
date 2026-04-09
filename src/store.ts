@@ -2,6 +2,9 @@ import { create } from 'zustand';
 import type { User, Message, Chat, ServerConfig, CallState, AppScreen, UserRole, ChatNotificationPreference, NotificationPreferences, ErrorPageState } from './types';
 import { type Language, getTranslation } from './translations';
 import { e2ee } from './simpleE2EE';
+import type { LoadedTheme } from './utils/themeManager';
+import { loadSavedTheme, saveTheme, removeSavedTheme, loadThemeFile, applyTheme, clearTheme } from './utils/themeManager';
+import { registerThemeIcons, clearThemeIcons } from './utils/iconRegistry';
 
 const generateId = () => Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
 
@@ -357,6 +360,9 @@ interface AppState {
   notifications: Array<{ id: string; text: string; type: 'success' | 'error' | 'info' }>;
   appearance: AppearanceSettings;
   notificationPreferences: NotificationPreferences;
+  customTheme: LoadedTheme | null;
+  themeLoading: boolean;
+  themeError: string | null;
 
   // Actions
   setServerUrl: (url: string) => void;
@@ -415,6 +421,12 @@ interface AppState {
   // Appearance
   setAppearance: (settings: Partial<AppearanceSettings>) => void;
   resetAppearance: () => void;
+  
+  // Themes
+  loadTheme: (file: File) => Promise<void>;
+  applyLoadedTheme: (theme: LoadedTheme) => void;
+  unloadTheme: () => void;
+  restoreThemeOnStartup: () => void;
   
   // Notification Preferences
   muteChat: (chatId: string, minutesToMute: number) => void;  // 0 = forever, >0 = minutes
@@ -544,6 +556,9 @@ export const useStore = create<AppState>((set, get) => ({
   notifications: [],
   appearance: loadAppearance(),
   notificationPreferences: loadNotificationPreferences(),
+  customTheme: loadSavedTheme(),
+  themeLoading: false,
+  themeError: null,
   
   // 2FA
   twoFaSessionToken: null,
@@ -2795,6 +2810,92 @@ export const useStore = create<AppState>((set, get) => ({
   resetAppearance: () => {
     saveAppearance(defaultAppearance);
     set({ appearance: defaultAppearance });
+  },
+
+  loadTheme: async (file: File) => {
+    set({ themeLoading: true, themeError: null });
+    try {
+      const theme = await loadThemeFile(file);
+      applyTheme(theme);
+      
+      // Extract and register theme icons
+      const themeIcons: { [key: string]: string } = {};
+      for (const [key, value] of Object.entries(theme.assets)) {
+        if (typeof value === 'string' && value.startsWith('data:image/svg')) {
+          themeIcons[key] = value;
+        }
+      }
+      if (Object.keys(themeIcons).length > 0) {
+        registerThemeIcons(themeIcons);
+      }
+      
+      saveTheme(theme);
+      set({ customTheme: theme, themeLoading: false });
+      get().addNotification(`Theme "${theme.name}" loaded successfully`, 'success');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load theme';
+      set({ themeLoading: false, themeError: errorMessage });
+      get().addNotification(`Failed to load theme: ${errorMessage}`, 'error');
+    }
+  },
+
+  applyLoadedTheme: (theme: LoadedTheme) => {
+    try {
+      applyTheme(theme);
+      
+      // Extract and register theme icons
+      const themeIcons: { [key: string]: string } = {};
+      for (const [key, value] of Object.entries(theme.assets)) {
+        if (typeof value === 'string' && value.startsWith('data:image/svg')) {
+          themeIcons[key] = value;
+        }
+      }
+      if (Object.keys(themeIcons).length > 0) {
+        registerThemeIcons(themeIcons);
+      }
+      
+      saveTheme(theme);
+      set({ customTheme: theme });
+      get().addNotification(`Theme "${theme.name}" applied`, 'success');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to apply theme';
+      set({ themeError: errorMessage });
+      get().addNotification(`Failed to apply theme: ${errorMessage}`, 'error');
+    }
+  },
+
+  unloadTheme: () => {
+    clearTheme();
+    clearThemeIcons();
+    removeSavedTheme();
+    set({ customTheme: null, themeError: null });
+    get().addNotification('Theme removed', 'info');
+  },
+
+  restoreThemeOnStartup: () => {
+    const savedTheme = loadSavedTheme();
+    if (savedTheme) {
+      try {
+        applyTheme(savedTheme);
+        
+        // Extract and register theme icons
+        const themeIcons: { [key: string]: string } = {};
+        for (const [key, value] of Object.entries(savedTheme.assets)) {
+          if (typeof value === 'string' && value.startsWith('data:image/svg')) {
+            themeIcons[key] = value;
+          }
+        }
+        if (Object.keys(themeIcons).length > 0) {
+          registerThemeIcons(themeIcons);
+        }
+        
+        set({ customTheme: savedTheme });
+      } catch (error) {
+        console.error('Failed to restore theme on startup:', error);
+        removeSavedTheme();
+        set({ customTheme: null });
+      }
+    }
   },
 
   // Notification preferences

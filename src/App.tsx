@@ -17,19 +17,21 @@ export function App() {
   const callState = useStore(s => s.callState);
   const appearance = useStore(s => s.appearance);
   const restoreSession = useStore(s => s.restoreSession);
+  const restoreThemeOnStartup = useStore(s => s.restoreThemeOnStartup);
   const setActiveChat = useStore(s => s.setActiveChat);
   const authToken = useStore(s => s.authToken);
   const serverUrl = useStore(s => s.serverUrl);
   const [isRestoring, setIsRestoring] = useState(true);
 
-  // Try to restore session on mount
+  // Try to restore session and theme on mount
   useEffect(() => {
     const tryRestore = async () => {
+      restoreThemeOnStartup();
       await restoreSession();
       setIsRestoring(false);
     };
     tryRestore();
-  }, [restoreSession]);
+  }, [restoreSession, restoreThemeOnStartup]);
 
   // Apply appearance settings on mount and when they change
   useEffect(() => {
