@@ -3,40 +3,6 @@
     "firstSeen": "2026-03-21T14:16:14.119Z",
     "visits": [
       {
-        "timestamp": "2026-04-06T20:09:19.969Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
-        "acceptLanguage": "en-US",
-        "referer": "http://127.0.0.1:5173/",
-        "method": "GET",
-        "path": "/api/users/me",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-06T20:09:20.039Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
-        "acceptLanguage": "en-US",
-        "referer": "http://127.0.0.1:5173/",
-        "method": "GET",
-        "path": "/api/users/me",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-06T20:09:20.044Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
-        "acceptLanguage": "en-US",
-        "referer": "http://127.0.0.1:5173/",
-        "method": "GET",
-        "path": "/api/server-info",
-        "query": {}
-      },
-      {
-        "timestamp": "2026-04-06T20:09:20.045Z",
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
-        "acceptLanguage": "en-US",
-        "referer": "http://127.0.0.1:5173/",
-        "action": "server_info"
-      },
-      {
         "timestamp": "2026-04-06T20:09:20.124Z",
         "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.110.1 Chrome/142.0.7444.265 Electron/39.6.0 Safari/537.36",
         "acceptLanguage": "en-US",
@@ -910,10 +876,46 @@
         "method": "GET",
         "path": "/api/muted-users",
         "query": {}
+      },
+      {
+        "timestamp": "2026-04-09T12:54:41.734Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+        "acceptLanguage": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+        "referer": "https://cuddly-rotary-phone-v6x7x4wjv65qh6xp4.github.dev/",
+        "method": "GET",
+        "path": "/",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-09T12:54:42.552Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+        "acceptLanguage": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+        "referer": "https://cuddly-rotary-phone-v6x7x4wjv65qh6xp4-3000.app.github.dev/",
+        "method": "GET",
+        "path": "/sw.js",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-09T12:54:42.584Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+        "acceptLanguage": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+        "referer": "https://cuddly-rotary-phone-v6x7x4wjv65qh6xp4-3000.app.github.dev/",
+        "method": "GET",
+        "path": "/official.txt",
+        "query": {}
+      },
+      {
+        "timestamp": "2026-04-09T12:54:42.787Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+        "acceptLanguage": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+        "referer": "https://cuddly-rotary-phone-v6x7x4wjv65qh6xp4-3000.app.github.dev/",
+        "method": "GET",
+        "path": "/official2.txt",
+        "query": {}
       }
     ],
     "userId": "636a6188-4702-45e4-a044-cc850886511c",
     "username": "owner",
-    "lastSeen": "2026-04-06T20:12:57.957Z"
+    "lastSeen": "2026-04-09T12:54:42.787Z"
   }
 }
