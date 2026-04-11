@@ -17,4 +17,20 @@ export default defineConfig({
       "@": path.resolve(__dirname, "src"),
     },
   },
+  build: {
+    rollupOptions: {
+      external: ['node-fetch', 'fs', 'path', 'crypto'],
+      output: {
+        globals: {
+          'node-fetch': 'nodeFetch',
+          'fs': 'fs',
+          'path': 'path',
+          'crypto': 'crypto',
+        },
+      },
+    },
+  },
+  optimizeDeps: {
+    exclude: ['pyodide'],
+  },
 });

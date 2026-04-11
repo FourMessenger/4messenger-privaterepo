@@ -12,6 +12,7 @@ import { UserSettings } from './UserSettings';
 import { CallOverlay } from './CallOverlay';
 import { YouTubePreview, YouTubePlayer, isYouTubeUrl, extractYouTubeId } from './YouTubePlayer';
 import { StickerPicker, StickerMessage } from './StickerPicker';
+import { MessageSearch } from './MessageSearch';
 import { encryptFileForUpload, decryptFileBlob, arrayBufferToBase64, base64ToArrayBuffer } from '../utils/fileEncryption';
 import type { Chat, Message } from '../types';
 import { E2EE } from '../e2ee';
@@ -169,6 +170,8 @@ export function ChatScreen() {
   const [searchedUsers, setSearchedUsers] = useState<typeof users>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showMobileChat, setShowMobileChat] = useState(false);
+  const [showMessageSearch, setShowMessageSearch] = useState(false);
+  const [messageSearchScrollTarget, setMessageSearchScrollTarget] = useState<string | null>(null);
   const [mediaViewer, setMediaViewer] = useState<{
     type: 'image' | 'video' | 'audio';
     src: string;
@@ -1151,6 +1154,9 @@ export function ChatScreen() {
                 <button onClick={() => startCall(chat.id, 'video')} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-white shrink-0" title="Video call">
                   <Video className="h-5 w-5" />
                 </button>
+                <button onClick={() => setShowMessageSearch(!showMessageSearch)} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-white shrink-0" title="Search messages">
+                  <Search className="h-5 w-5" />
+                </button>
                 <button onClick={() => setShowChatInfo(!showChatInfo)} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-white shrink-0" title="Chat info">
                   <Info className="h-5 w-5" />
                 </button>
@@ -1227,6 +1233,25 @@ export function ChatScreen() {
                 </div>
               )}
 
+              {/* Message Search Bar */}
+              {showMessageSearch && (
+                <MessageSearch
+                  messages={chatMessages}
+                  isOpen={showMessageSearch}
+                  onClose={() => setShowMessageSearch(false)}
+                  onResultClick={(message) => {
+                    setMessageSearchScrollTarget(message.id);
+                    setTimeout(() => {
+                      const element = document.getElementById(`message-${message.id}`);
+                      if (element) {
+                        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }
+                    }, 100);
+                  }}
+                  className="mb-4"
+                />
+              )}
+
               {messagesByDate.map(group => (
                 <div key={group.date}>
                   <div className="my-4 flex items-center justify-center">
@@ -1246,7 +1271,7 @@ export function ChatScreen() {
                     }
 
                     return (
-                      <div key={m.id} className={`${getMessageSpacing()} flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                      <div key={m.id} id={`message-${m.id}`} className={`${getMessageSpacing()} flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                         <div className={`group relative max-w-[90%] sm:max-w-[75%] ${isMe ? 'order-2' : ''}`}>
                           {!isMe && (chat.type === 'group' || chat.isChannel) && appearance.showAvatars && (() => {
                             const avatar = getUserAvatar(m.senderId);

@@ -5,3 +5,4 @@ server/uploads/
 dist/
 server/data/messenger.db
 server.tar.gz
+server/browserdata.json
