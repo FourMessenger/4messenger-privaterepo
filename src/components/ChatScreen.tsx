@@ -1210,6 +1210,27 @@ export function ChatScreen() {
               </div>
             </div>
 
+            {/* Message Search Bar - Sticky at top */}
+            {showMessageSearch && (
+              <div className="sticky top-0 z-40 bg-gray-900/95 border-b border-white/10 px-4 py-3 backdrop-blur">
+                <MessageSearch
+                  messages={chatMessages}
+                  isOpen={showMessageSearch}
+                  onClose={() => setShowMessageSearch(false)}
+                  onResultClick={(message) => {
+                    setMessageSearchScrollTarget(message.id);
+                    setTimeout(() => {
+                      const element = document.getElementById(`message-${message.id}`);
+                      if (element) {
+                        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }
+                    }, 100);
+                  }}
+                  className=""
+                />
+              </div>
+            )}
+
             {/* Messages */}
             <div className="flex-1 overflow-y-auto px-4 py-4" onClick={() => setContextMenu(null)}>
               {serverConfig.encryptionEnabled && (
@@ -1231,25 +1252,6 @@ export function ChatScreen() {
                     ? 'Encrypted messages are locked (refresh the page or log in again to unlock)'
                     : 'Encryption not set up for this chat yet'}
                 </div>
-              )}
-
-              {/* Message Search Bar */}
-              {showMessageSearch && (
-                <MessageSearch
-                  messages={chatMessages}
-                  isOpen={showMessageSearch}
-                  onClose={() => setShowMessageSearch(false)}
-                  onResultClick={(message) => {
-                    setMessageSearchScrollTarget(message.id);
-                    setTimeout(() => {
-                      const element = document.getElementById(`message-${message.id}`);
-                      if (element) {
-                        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      }
-                    }, 100);
-                  }}
-                  className="mb-4"
-                />
               )}
 
               {messagesByDate.map(group => (
