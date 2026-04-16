@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0",
+  "required": false,
+  "downloadUrl": "https://github.com/FourMessenger/4messenger-android/releases/download/v1.0.0/4messenger.apk",
+  "releaseNotes": "Initial release of 4 Messenger Android app with WebView support, background push notifications, and file upload/download capabilities.",
+  "whatsNew": [
+    "Built-in WebView for rendering 4 Messenger web application",
+    "Background push notification system with periodic server polling",
+    "File upload with background continuation support",
+    "File download with background continuation support",
+    "Automatic update checking system",
+    "Local notification support for new messages"
+  ],
+  "minimumSdkVersion": 26,
+  "releaseDate": "2026-04-16"
+}
