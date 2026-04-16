@@ -6,3 +6,5 @@ dist/
 server/data/messenger.db
 server.tar.gz
 server/browsersdata.json
+*.md
+!README.md
