@@ -1,8 +1,3 @@
-# GitHub Actions Build Workflow for Android
-
-This workflow automatically builds the Android APK when you push to the repository.
-
-```yaml
 name: Build Android App
 
 on:
@@ -48,14 +43,5 @@ jobs:
           files: android/app/build/outputs/apk/debug/app-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-```
-
-Save this as: `.github/workflows/android-build.yml`
-
-The workflow will:
-1. Use Java 17 (compatible with AGP 8.1)
-2. Build the APK automatically
-3. Upload as artifact for download
-4. Release as GitHub Release for tagged versions
 
 This solves the Java 25 compatibility issue!
