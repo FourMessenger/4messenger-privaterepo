@@ -45,7 +45,6 @@ function AuthenticatedImage({
   useEffect(() => {
     let mounted = true;
     
-    // Check cache first
     const cacheKey = src;
     if (blobUrlCache.has(cacheKey)) {
       setBlobUrl(blobUrlCache.get(cacheKey)!);
@@ -139,6 +138,160 @@ function formatFileSize(bytes: number) {
 }
 
 const emojis = ['😀', '😂', '😍', '🤔', '👍', '👎', '❤️', '🔥', '🎉', '😢', '😮', '🙏', '💯', '✅', '🚀', '💡', '⭐', '🎵', '📎', '🔒'];
+
+// Poll component with local state for immediate UI updates
+function PollMessage({ 
+  poll: initialPoll, 
+  currentUserId, 
+  serverUrl, 
+  authToken,
+  onPollUpdate 
+}: { 
+  poll: any; 
+  currentUserId: string; 
+  serverUrl: string;
+  authToken: string | null;
+  onPollUpdate?: (updatedPoll: any) => void;
+}) {
+  const [poll, setPoll] = useState(initialPoll);
+  const [isVoting, setIsVoting] = useState(false);
+  const [voteError, setVoteError] = useState<string | null>(null);
+  
+  // Sync with parent if poll changes from outside
+  useEffect(() => {
+    setPoll(initialPoll);
+  }, [initialPoll]);
+  
+  const totalVotes = poll.options.reduce((sum: number, o: any) => sum + o.votes.length, 0);
+  const hasVoted = poll.options.some((o: any) => o.votes.includes(currentUserId));
+  const userVotes = poll.options.reduce((acc: number[], o: any, idx: number) => {
+    if (o.votes.includes(currentUserId)) acc.push(idx);
+    return acc;
+  }, []);
+  
+  const handleVote = async (optionIndex: number) => {
+    if (hasVoted && !poll.multipleChoice) return;
+    if (poll.closed) return;
+    if (isVoting) return;
+    
+    setIsVoting(true);
+    setVoteError(null);
+    
+    // Optimistic update
+    let newOptions = [...poll.options];
+    if (poll.multipleChoice) {
+      // Toggle vote for multiple choice
+      const hasVotedThis = newOptions[optionIndex].votes.includes(currentUserId);
+      if (hasVotedThis) {
+        newOptions[optionIndex] = {
+          ...newOptions[optionIndex],
+          votes: newOptions[optionIndex].votes.filter((id: string) => id !== currentUserId)
+        };
+      } else {
+        newOptions[optionIndex] = {
+          ...newOptions[optionIndex],
+          votes: [...newOptions[optionIndex].votes, currentUserId]
+        };
+      }
+    } else {
+      // Single choice - remove vote from all, add to selected
+      newOptions = newOptions.map(opt => ({
+        ...opt,
+        votes: opt.votes.filter((id: string) => id !== currentUserId)
+      }));
+      newOptions[optionIndex] = {
+        ...newOptions[optionIndex],
+        votes: [...newOptions[optionIndex].votes, currentUserId]
+      };
+    }
+    
+    setPoll({ ...poll, options: newOptions });
+    
+    try {
+      const response = await fetch(`${serverUrl.replace(/\/$/, '')}/api/polls/${poll.id}/vote`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ optionIndex }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to vote');
+      }
+      
+      const updatedPoll = await response.json();
+      setPoll(updatedPoll);
+      onPollUpdate?.(updatedPoll);
+      
+    } catch (err) {
+      // Rollback on error
+      setPoll(initialPoll);
+      setVoteError(err instanceof Error ? err.message : 'Failed to vote');
+      console.error('Failed to vote:', err);
+    } finally {
+      setIsVoting(false);
+    }
+  };
+  
+  return (
+    <div className="min-w-[160px] sm:min-w-[220px] md:min-w-[250px]">
+      <div className="flex items-center gap-2 mb-2">
+        <BarChart2 className="h-4 w-4 text-indigo-400" />
+        <span className="text-xs text-indigo-400 font-medium">Poll</span>
+        {poll.anonymous && <span className="text-xs text-gray-500">• Anonymous</span>}
+        {poll.closed && <span className="text-xs text-red-400">• Closed</span>}
+      </div>
+      <p className="font-medium mb-3">{poll.question}</p>
+      <div className="space-y-2">
+        {poll.options.map((option: any, idx: number) => {
+          const percentage = totalVotes > 0 ? Math.round((option.votes.length / totalVotes) * 100) : 0;
+          const hasVotedThis = option.votes.includes(currentUserId);
+          const isDisabled = (hasVoted && !poll.multipleChoice) || poll.closed || isVoting;
+          
+          return (
+            <button
+              key={idx}
+              onClick={() => handleVote(idx)}
+              disabled={isDisabled}
+              className={`w-full text-left rounded-lg p-2 transition relative overflow-hidden ${
+                hasVotedThis ? 'bg-indigo-500/30 border border-indigo-500/50' : 
+                isDisabled ? 'bg-white/5 opacity-60 cursor-not-allowed' : 'bg-white/5 hover:bg-white/10 cursor-pointer'
+              }`}
+            >
+              {/* Progress bar background */}
+              {hasVoted && (
+                <div 
+                  className="absolute inset-y-0 left-0 bg-indigo-500/20 transition-all duration-300"
+                  style={{ width: `${percentage}%` }}
+                />
+              )}
+              <div className="relative flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {hasVotedThis && <Check className="h-4 w-4 text-indigo-400" />}
+                  <span className="text-sm">{option.text}</span>
+                </div>
+                {hasVoted && (
+                  <span className="text-xs text-gray-400">
+                    {percentage}% ({option.votes.length})
+                  </span>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-2 text-xs text-gray-500">
+        {totalVotes} vote{totalVotes !== 1 ? 's' : ''}
+        {poll.multipleChoice && ' • Multiple choice'}
+        {isVoting && ' • Voting...'}
+        {voteError && <span className="text-red-400 block mt-1">Error: {voteError}</span>}
+      </div>
+    </div>
+  );
+}
 
 export function ChatScreen() {
   const {
@@ -285,12 +438,8 @@ export function ChatScreen() {
   };
 
   const isE2EELocked = () => {
-    // When session is restored without password, device keys cannot be unlocked,
-    // so encrypted messages will show as placeholders until a full login.
     return serverConfig.encryptionEnabled && !e2eeKeyPair;
   };
-
-  // getChatDisplayName is used instead of this
 
   const getChatAvatar = (c: Chat): { type: 'image' | 'letter'; value: string } => {
     if (c.type === 'group' || c.isChannel) {
@@ -299,7 +448,6 @@ export function ChatScreen() {
     const otherId = c.participants.find(p => p !== currentUser.id);
     const otherUser = users.find(u => u.id === otherId);
     const avatar = otherUser?.avatar;
-    // Check if avatar is a valid URL or data URI
     if (avatar && (avatar.startsWith('http') || avatar.startsWith('data:') || avatar.startsWith('/'))) {
       return { type: 'image', value: avatar };
     }
@@ -307,14 +455,12 @@ export function ChatScreen() {
   };
 
   const getChatDisplayName = (c: Chat) => {
-    // Groups and channels should display their name
     if (c.type === 'group' || c.type === 'channel' || c.isChannel) {
       return c.name || (c.isChannel ? 'Channel' : 'Group');
     }
-    // Direct chats show the other user's name
-      const otherId = c.participants.find(p => p !== currentUser.id);
-  const otherUser = users.find(u => u.id === otherId);
-  return (otherUser?.displayName || otherUser?.username || 'Unknown') + (otherUser?.isBot ? ' 🤖' : '');
+    const otherId = c.participants.find(p => p !== currentUser.id);
+    const otherUser = users.find(u => u.id === otherId);
+    return (otherUser?.displayName || otherUser?.username || 'Unknown') + (otherUser?.isBot ? ' 🤖' : '');
   };
 
   const getUserAvatar = (userId: string) => {
@@ -355,8 +501,7 @@ export function ChatScreen() {
     setUploadingFile(true);
     
     try {
-      // Check file size
-      const maxFileSize = serverConfig.maxFileSize || 10485760; // Default 10MB
+      const maxFileSize = serverConfig.maxFileSize || 10485760;
       if (file.size > maxFileSize) {
         const maxSizeMB = (maxFileSize / 1048576).toFixed(1);
         const fileSizeMB = (file.size / 1048576).toFixed(1);
@@ -368,7 +513,6 @@ export function ChatScreen() {
         return;
       }
 
-      // Encrypt file if E2EE is active
       let formData = new FormData();
       let encryptionMetadata = null;
       let isEncrypted = false;
@@ -384,11 +528,9 @@ export function ChatScreen() {
           }
         } catch (encryptError) {
           console.error('File encryption failed:', encryptError);
-          // Continue without encryption if it fails
         }
       }
 
-      // If not encrypted, add file normally
       if (!isEncrypted) {
         formData.append('file', file);
       }
@@ -408,12 +550,10 @@ export function ChatScreen() {
       
       const data = await response.json();
       
-      // Build file display info - use original name if available
       const fileName = encryptionMetadata?.originalName || data.fileName;
       const mimeType = encryptionMetadata?.mimeType || data.mimeType || file.type;
       let messageType: 'image' | 'video' | 'audio' | 'file' = 'file';
       
-      // Determine file type based on mime type or extension
       if (mimeType.startsWith('image/')) {
         messageType = 'image';
       } else if (mimeType.startsWith('video/')) {
@@ -422,7 +562,6 @@ export function ChatScreen() {
         messageType = 'audio';
       }
       
-      // Send message with file info and encryption metadata if applicable
       const messageContent = isEncrypted 
         ? JSON.stringify({
             fileUrl: data.fileUrl,
@@ -453,7 +592,6 @@ export function ChatScreen() {
     }
   };
   
-  // Helper functions for media type detection
   const isImageFile = (fileName: string, mimeType?: string) => {
     if (mimeType?.startsWith('image/')) return true;
     const ext = fileName.toLowerCase().split('.').pop();
@@ -538,13 +676,9 @@ export function ChatScreen() {
     }
     setIsSearching(true);
     const results = await searchUsers(userSearchQuery.trim());
-    // For admins, the server returns partial matches
-    // For others, the server returns exact matches only
     if (currentUser.role === 'admin') {
-      // Admin gets partial matches from server
       setSearchedUsers(results.filter(u => u.id !== currentUser?.id));
     } else {
-      // Moderators and users get exact match only (server already filters)
       setSearchedUsers(results.filter(u => 
         u.id !== currentUser?.id && u.role !== 'banned'
       ));
@@ -558,7 +692,6 @@ export function ChatScreen() {
     fetchUsers();
   };
 
-  // Voice recording functions
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -643,10 +776,8 @@ export function ChatScreen() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
   
-  // Poll functions
   const handleSendSticker = (sticker: { id: string; name: string; imageData: string }) => {
     if (!activeChat) return;
-    // Send sticker as a message with type 'sticker'
     sendMessage(activeChat, sticker.id, 'sticker' as any, sticker.name);
   };
   
@@ -687,20 +818,14 @@ export function ChatScreen() {
     }
   };
   
-  const handleVotePoll = async (pollId: string, optionIndex: number) => {
-    if (!authToken) return;
-    
-    try {
-      await fetch(`${serverUrl.replace(/\/$/, '')}/api/polls/${pollId}/vote`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ optionIndex }),
-      });
-    } catch (err) {
-      console.error('Failed to vote:', err);
+  const handlePollUpdate = (updatedPoll: any) => {
+    // Update the message in store when poll changes
+    const pollMessage = chatMessages.find(m => m.poll?.id === updatedPoll.id);
+    if (pollMessage && activeChat) {
+      const updatedMessages = messages.map(m =>
+        m.id === pollMessage.id ? { ...m, poll: updatedPoll } : m
+      );
+      useStore.setState({ messages: updatedMessages });
     }
   };
   
@@ -722,7 +847,6 @@ export function ChatScreen() {
     setPollOptions(newOptions);
   };
 
-  // Chat settings edit functions
   const startEditingChatSettings = () => {
     if (!chat) return;
     setEditChatName(chat.name || '');
@@ -757,7 +881,6 @@ export function ChatScreen() {
     const file = e.target.files?.[0];
     if (!file) return;
     
-    // Convert to base64
     const reader = new FileReader();
     reader.onload = () => {
       const base64 = reader.result as string;
@@ -767,7 +890,6 @@ export function ChatScreen() {
     e.target.value = '';
   };
   
-  // Check if user can edit chat settings
   const canEditChatSettings = (c: Chat) => {
     if (!c || c.type === 'direct') return false;
     if (currentUser.role === 'admin') return true;
@@ -792,7 +914,6 @@ export function ChatScreen() {
 
   const totalUnread = myChats.reduce((sum, c) => sum + c.unreadCount, 0);
 
-  // Get chat background class based on appearance
   const getChatBgClass = () => {
     switch (appearance.chatBackground) {
       case 'gradient1': return 'chat-bg-gradient1';
@@ -803,7 +924,6 @@ export function ChatScreen() {
     }
   };
 
-  // Get message style class
   const getMessageStyleClass = () => {
     switch (appearance.messageStyle) {
       case 'classic': return 'message-classic';
@@ -813,7 +933,6 @@ export function ChatScreen() {
     }
   };
 
-  // Get border radius for messages
   const getMessageRadius = () => {
     switch (appearance.roundedCorners) {
       case 'none': return 'rounded-none';
@@ -823,7 +942,6 @@ export function ChatScreen() {
     }
   };
 
-  // Get message spacing
   const getMessageSpacing = () => {
     switch (appearance.density) {
       case 'compact': return 'mb-1';
@@ -832,7 +950,6 @@ export function ChatScreen() {
     }
   };
 
-  // Format time based on 24-hour preference
   const formatTimeWithPreference = (ts: number) => {
     const d = new Date(ts);
     if (appearance.use24HourTime) {
@@ -841,7 +958,6 @@ export function ChatScreen() {
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  // Group messages by date
   const messagesByDate: { date: string; msgs: Message[] }[] = [];
   chatMessages.forEach(m => {
     const date = formatDate(m.timestamp);
@@ -857,7 +973,6 @@ export function ChatScreen() {
     <div className="flex h-screen bg-gray-900">
       {/* Sidebar */}
       <div className={`${showSidebar ? 'flex' : 'hidden'} ${activeChat && showMobileChat ? 'hidden md:flex' : 'flex'} w-full flex-col border-r border-white/10 bg-gray-900/80 md:w-80 lg:w-96 shrink-0`}>
-        {/* User header */}
         <div className="flex items-center gap-3 border-b border-white/10 p-4">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 font-bold text-white">
             {currentUser.username[0].toUpperCase()}
@@ -922,7 +1037,6 @@ export function ChatScreen() {
           </div>
         </div>
 
-        {/* Search + New */}
         <div className="flex items-center gap-2 p-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
@@ -939,7 +1053,6 @@ export function ChatScreen() {
           </button>
         </div>
 
-        {/* Chat list */}
         <div className="flex-1 overflow-y-auto">
           {filteredChats.length === 0 && (
             <div className="p-8 text-center text-gray-500">
@@ -989,7 +1102,6 @@ export function ChatScreen() {
           ))}
         </div>
 
-        {/* Bottom bar */}
         <div className="border-t border-white/10 p-3">
           <div className="flex items-center justify-between text-xs text-gray-500">
             <span className="flex items-center gap-1">
@@ -1160,57 +1272,57 @@ export function ChatScreen() {
                 <button onClick={() => setShowChatInfo(!showChatInfo)} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-white shrink-0" title="Chat info">
                   <Info className="h-5 w-5" />
                 </button>
-		<button 
-  onClick={async () => {
-    try {
-      const hasStore = await E2EE.keyStoreExists();
-      if (!hasStore) {
-        alert('No encrypted keys found. Please logout and login again.');
-        return;
-      }
-      
-      if (E2EE.isUnlocked()) {
-        alert('Already unlocked!');
-        return;
-      }
-      
-      const password = prompt('Enter your password to unlock encrypted messages:');
-      if (!password) return;
-      
-      const keyPair = await E2EE.unlockKeyStore(password);
-      if (!keyPair) {
-        alert('Wrong password!');
-        return;
-      }
-      
-      useStore.setState({ e2eeKeyPair: keyPair });
-      
-      const activeChat = useStore.getState().activeChat;
-      if (activeChat) {
-        const chatKey = await E2EE.loadChatKey(activeChat);
-        if (chatKey) {
-          useStore.setState(s => ({ 
-            chatKeys: { ...s.chatKeys, [activeChat]: chatKey } 
-          }));
-          await useStore.getState().fetchMessages(activeChat);
-          alert('✅ Messages unlocked!');
-        } else {
-          alert('No chat key found');
-        }
-      }
-    } catch (error: any) {
-      alert('Error: ' + error.message);
-    }
-  }}
-  className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-emerald-400 shrink-0"
-  title="Unlock E2EE"
->
-  <Lock className="h-5 w-5" />
-</button>
+                <button 
+                  onClick={async () => {
+                    try {
+                      const hasStore = await E2EE.keyStoreExists();
+                      if (!hasStore) {
+                        alert('No encrypted keys found. Please logout and login again.');
+                        return;
+                      }
+                      
+                      if (E2EE.isUnlocked()) {
+                        alert('Already unlocked!');
+                        return;
+                      }
+                      
+                      const password = prompt('Enter your password to unlock encrypted messages:');
+                      if (!password) return;
+                      
+                      const keyPair = await E2EE.unlockKeyStore(password);
+                      if (!keyPair) {
+                        alert('Wrong password!');
+                        return;
+                      }
+                      
+                      useStore.setState({ e2eeKeyPair: keyPair });
+                      
+                      const activeChat = useStore.getState().activeChat;
+                      if (activeChat) {
+                        const chatKey = await E2EE.loadChatKey(activeChat);
+                        if (chatKey) {
+                          useStore.setState(s => ({ 
+                            chatKeys: { ...s.chatKeys, [activeChat]: chatKey } 
+                          }));
+                          await useStore.getState().fetchMessages(activeChat);
+                          alert('✅ Messages unlocked!');
+                        } else {
+                          alert('No chat key found');
+                        }
+                      }
+                    } catch (error: any) {
+                      alert('Error: ' + error.message);
+                    }
+                  }}
+                  className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-emerald-400 shrink-0"
+                  title="Unlock E2EE"
+                >
+                  <Lock className="h-5 w-5" />
+                </button>
               </div>
             </div>
 
-            {/* Message Search Bar - Sticky at top */}
+            {/* Message Search Bar */}
             {showMessageSearch && (
               <div className="sticky top-0 z-40 bg-gray-900/95 border-b border-white/10 px-4 py-3 backdrop-blur">
                 <MessageSearch
@@ -1302,7 +1414,7 @@ export function ChatScreen() {
                               }
                             }}
                           >
-                            {/* File/media content - show if fileUrl exists OR type is file/image */}
+                            {/* File/media content */}
                             {(() => {
                               const hasFile = !!(
                                 m.fileUrl ||
@@ -1314,7 +1426,6 @@ export function ChatScreen() {
                               const fileName = m.fileName || m.content || m.fileUrl?.split('/').pop() || 'file';
                               let fileUrl = m.fileUrl || m.content || '';
                               
-                              // Check if message content has encryption metadata
                               let encryptionMetadata = null;
                               let isEncrypted = false;
                               try {
@@ -1334,7 +1445,6 @@ export function ChatScreen() {
                               
                               return (
                               <div className="mb-2">
-                                {/* Encryption indicator */}
                                 {isEncrypted && (
                                   <div className="mb-2 flex items-center gap-1.5 text-xs px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 w-fit">
                                     <Lock className="h-3 w-3" />
@@ -1342,7 +1452,6 @@ export function ChatScreen() {
                                   </div>
                                 )}
                                 
-                                {/* Preview for images */}
                                 {fileUrl && isImage && (
                                   <div 
                                     className="mb-2 cursor-pointer rounded-lg overflow-hidden w-full max-w-xs sm:max-w-sm md:max-w-md"
@@ -1359,7 +1468,6 @@ export function ChatScreen() {
                                   </div>
                                 )}
                                 
-                                {/* Video preview */}
                                 {fileUrl && isVideo && (
                                   <div 
                                     className="mb-2 cursor-pointer rounded-lg overflow-hidden w-full max-w-xs sm:max-w-sm md:max-w-md bg-black/20 p-4 flex items-center justify-center"
@@ -1374,7 +1482,6 @@ export function ChatScreen() {
                                   </div>
                                 )}
                                 
-                                {/* Audio preview */}
                                 {fileUrl && isAudio && (
                                   <div className="mb-2 rounded-lg overflow-hidden bg-gradient-to-r from-purple-500/20 to-indigo-500/20 p-3 w-full max-w-xs sm:max-w-sm md:max-w-md">
                                     <audio
@@ -1398,7 +1505,6 @@ export function ChatScreen() {
                                   </div>
                                 )}
                                 
-                                {/* Generic file preview - works for all file types */}
                                 {!isImage && !isVideo && !isAudio && (
                                   <div 
                                     className="mb-2 cursor-pointer rounded-lg overflow-hidden bg-gradient-to-r from-gray-500/20 to-gray-600/20 p-3 flex items-center gap-3 hover:from-gray-500/30 hover:to-gray-600/30 transition-colors w-full max-w-xs sm:max-w-sm md:max-w-md"
@@ -1420,7 +1526,6 @@ export function ChatScreen() {
                                   </div>
                                 )}
                                 
-                                {/* File info bar for media files */}
                                 {(isImage || isVideo || isAudio) && (
                                 <div className="flex items-center gap-2 text-xs">
                                   {getFileIcon(fileName)}
@@ -1443,7 +1548,8 @@ export function ChatScreen() {
                               </div>
                               );
                             })()}
-                            {/* Only show text content for text messages without files */}
+                            
+                            {/* Text content */}
                             {m.type === 'text' && !m.fileUrl && (() => {
                               const content = getMessageContent(m);
                               const youtubeMatch = content.match(/(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\S+/);
@@ -1464,6 +1570,7 @@ export function ChatScreen() {
                                 </>
                               );
                             })()}
+                            
                             {/* Sticker message */}
                             {m.type === 'sticker' && (
                               <div className="min-w-[80px] sm:min-w-[100px]">
@@ -1474,61 +1581,18 @@ export function ChatScreen() {
                                 />
                               </div>
                             )}
-                            {/* Poll message */}
+                            
+                            {/* Poll message - USING THE FIXED COMPONENT */}
                             {m.type === 'poll' && m.poll && (
-                              <div className="min-w-[160px] sm:min-w-[220px] md:min-w-[250px]">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <BarChart2 className="h-4 w-4 text-indigo-400" />
-                                  <span className="text-xs text-indigo-400 font-medium">Poll</span>
-                                  {m.poll.anonymous && <span className="text-xs text-gray-500">• Anonymous</span>}
-                                </div>
-                                <p className="font-medium mb-3">{m.poll.question}</p>
-                                <div className="space-y-2">
-                                  {m.poll.options.map((option, idx) => {
-                                    const totalVotes = m.poll!.options.reduce((sum, o) => sum + o.votes.length, 0);
-                                    const percentage = totalVotes > 0 ? Math.round((option.votes.length / totalVotes) * 100) : 0;
-                                    const hasVoted = option.votes.includes(currentUser.id);
-                                    const userHasVotedAny = m.poll!.options.some(o => o.votes.includes(currentUser.id));
-                                    
-                                    return (
-                                      <button
-                                        key={idx}
-                                        onClick={() => !userHasVotedAny && !m.poll!.closed && handleVotePoll(m.poll!.id, idx)}
-                                        disabled={userHasVotedAny || m.poll!.closed}
-                                        className={`w-full text-left rounded-lg p-2 transition relative overflow-hidden ${
-                                          hasVoted ? 'bg-indigo-500/30 border border-indigo-500/50' : 
-                                          userHasVotedAny || m.poll!.closed ? 'bg-white/5' : 'bg-white/5 hover:bg-white/10'
-                                        }`}
-                                      >
-                                        {/* Progress bar background */}
-                                        {userHasVotedAny && (
-                                          <div 
-                                            className="absolute inset-y-0 left-0 bg-indigo-500/20 transition-all"
-                                            style={{ width: `${percentage}%` }}
-                                          />
-                                        )}
-                                        <div className="relative flex items-center justify-between">
-                                          <div className="flex items-center gap-2">
-                                            {hasVoted && <Check className="h-4 w-4 text-indigo-400" />}
-                                            <span className="text-sm">{option.text}</span>
-                                          </div>
-                                          {userHasVotedAny && (
-                                            <span className="text-xs text-gray-400">
-                                              {percentage}% ({option.votes.length})
-                                            </span>
-                                          )}
-                                        </div>
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                                <div className="mt-2 text-xs text-gray-500">
-                                  {m.poll.options.reduce((sum, o) => sum + o.votes.length, 0)} votes
-                                  {m.poll.multipleChoice && ' • Multiple choice'}
-                                  {m.poll.closed && ' • Closed'}
-                                </div>
-                              </div>
+                              <PollMessage 
+                                poll={m.poll}
+                                currentUserId={currentUser.id}
+                                serverUrl={serverUrl}
+                                authToken={authToken}
+                                onPollUpdate={handlePollUpdate}
+                              />
                             )}
+                            
                             {appearance.showTimestamps && (
                             <div className={`mt-1 flex items-center gap-1.5 text-[10px] ${isMe ? 'text-white/70' : 'text-gray-500'}`}>
                               <span>{formatTimeWithPreference(m.timestamp)}</span>
@@ -1538,7 +1602,6 @@ export function ChatScreen() {
                             )}
                           </div>
 
-                          {/* Quick actions on hover */}
                           {(isMe || currentUser.role === 'admin' || currentUser.role === 'moderator') && (
                             <button
                               onClick={e => { e.stopPropagation(); setContextMenu({ msgId: m.id, x: e.clientX, y: e.clientY }); }}
@@ -1601,7 +1664,6 @@ export function ChatScreen() {
 
             {/* Input */}
             <div className="border-t border-white/10 bg-gray-900/50 p-4 backdrop-blur">
-              {/* File upload error notification */}
               {fileUploadError && (
                 <div className="mb-3 flex items-center gap-2 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400 border border-red-500/20">
                   <AlertCircle className="h-4 w-4 shrink-0" />
@@ -1615,7 +1677,6 @@ export function ChatScreen() {
                 </div>
               )}
               
-              {/* File uploading status */}
               {uploadingFile && (
                 <div className="mb-3 flex items-center gap-2 rounded-lg bg-indigo-500/10 px-3 py-2 text-sm text-indigo-400 border border-indigo-500/20">
                   <div className="w-3 h-3 rounded-full bg-indigo-400 animate-pulse" />
@@ -1623,14 +1684,12 @@ export function ChatScreen() {
                 </div>
               )}
               
-              {/* Channel restriction message */}
               {chat.isChannel && !chat.isChannelAdmin && currentUser.role !== 'admin' ? (
                 <div className="flex items-center justify-center gap-2 py-3 text-gray-400">
                   <Lock className="h-4 w-4" />
                   <span className="text-sm">Only channel admins can send messages</span>
                 </div>
               ) : isRecording ? (
-                /* Voice Recording UI */
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2 flex-1">
                     <div className="h-3 w-3 rounded-full bg-red-500 animate-pulse" />
@@ -1658,7 +1717,6 @@ export function ChatScreen() {
                 <button onClick={() => fileInputRef.current?.click()} disabled={uploadingFile} className="rounded-lg p-2.5 text-gray-400 transition hover:bg-white/10 hover:text-white shrink-0 disabled:opacity-50 disabled:cursor-not-allowed" title="Attach file">
                   <Paperclip className="h-5 w-5" />
                 </button>
-                {/* Poll button - only for groups and channels */}
                 {(chat.type === 'group' || chat.isChannel) && (
                   <button onClick={() => setShowPollModal(true)} className="rounded-lg p-2.5 text-gray-400 transition hover:bg-white/10 hover:text-white shrink-0" title="Create poll">
                     <BarChart2 className="h-5 w-5" />
@@ -1713,7 +1771,6 @@ export function ChatScreen() {
                     </div>
                   )}
                 </div>
-                {/* Voice message or Send button */}
                 {msgInput.trim() || editingId ? (
                   <button
                     onClick={editingId ? handleEditSave : handleSend}
@@ -1759,9 +1816,7 @@ export function ChatScreen() {
             </div>
 
             {editingChatSettings ? (
-              /* Edit Mode */
               <div className="mb-6">
-                {/* Avatar Upload */}
                 <div className="text-center mb-4">
                   <input 
                     ref={chatAvatarInputRef} 
@@ -1791,7 +1846,6 @@ export function ChatScreen() {
                   <p className="text-xs text-gray-500">Click to change icon</p>
                 </div>
                 
-                {/* Name Input */}
                 <div className="mb-3">
                   <label className="block text-xs font-medium text-gray-400 mb-1">{chat.isChannel ? 'Channel Name' : 'Group Name'}</label>
                   <input
@@ -1803,7 +1857,6 @@ export function ChatScreen() {
                   />
                 </div>
                 
-                {/* Description Input */}
                 <div className="mb-4">
                   <label className="block text-xs font-medium text-gray-400 mb-1">Description</label>
                   <textarea
@@ -1815,7 +1868,6 @@ export function ChatScreen() {
                   />
                 </div>
                 
-                {/* Save/Cancel buttons */}
                 <div className="flex gap-2">
                   <button
                     onClick={cancelEditingChatSettings}
@@ -1833,7 +1885,6 @@ export function ChatScreen() {
                 </div>
               </div>
             ) : (
-              /* View Mode */
               <div className="text-center mb-6">
                 <div className={`mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full text-2xl font-bold text-white overflow-hidden ${chat.isChannel ? 'bg-gradient-to-br from-amber-500 to-orange-600' : chat.type === 'group' ? 'bg-gradient-to-br from-emerald-500 to-teal-600' : 'bg-gradient-to-br from-indigo-500 to-purple-600'}`}>
                   {chat.avatar ? (
@@ -1854,7 +1905,6 @@ export function ChatScreen() {
                 {chat.description && <p className="text-sm text-gray-400 mt-2">{chat.description}</p>}
                 {(chat.type === 'group' || chat.isChannel) && <p className="text-xs text-gray-500 mt-1">{chat.participants.length} {chat.isChannel ? 'subscribers' : 'members'}</p>}
                 
-                {/* Block/Message/Call actions for Direct Chats */}
                 {chat.type !== 'group' && !chat.isChannel && otherUser && (
                   <div className="mt-4">
                     <p className="text-xs text-gray-300 mb-2">
@@ -1897,7 +1947,6 @@ export function ChatScreen() {
               </div>
             )}
 
-            {/* Channel Admins Section */}
             {chat.isChannel && (
               <div className="mb-6">
                 <h5 className="text-sm font-medium text-gray-300 mb-2">Channel Admins</h5>
@@ -2034,7 +2083,6 @@ export function ChatScreen() {
               </div>
             </button>
             
-            {/* User Search */}
             <div className="mb-3">
               <p className="mb-2 text-sm font-medium text-gray-400">Find User</p>
               <div className="flex gap-2">
@@ -2115,7 +2163,6 @@ export function ChatScreen() {
             </div>
           </div>
           
-          {/* Start Bot Button */}
           {chat?.type === 'direct' && (() => {
             const otherUserId = chat.participants.find(p => p !== currentUser.id);
             const otherUser = otherUserId ? users.find(u => u.id === otherUserId) : null;
@@ -2146,7 +2193,6 @@ export function ChatScreen() {
               <button onClick={() => { setShowNewGroup(false); setIsCreatingChannel(false); }} className="text-gray-400 hover:text-white"><X className="h-5 w-5" /></button>
             </div>
             
-            {/* Channel Toggle */}
             <div className="mb-4 flex items-center justify-between rounded-xl bg-white/5 p-3">
               <div className="flex items-center gap-2">
                 <span className="text-xl">{isCreatingChannel ? '📢' : '👥'}</span>
