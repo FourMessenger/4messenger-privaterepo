@@ -102,6 +102,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun initializeWebView() {
         try {
+            if (webView == null) {
+                Toast.makeText(this, "Error: WebView not initialized", Toast.LENGTH_LONG).show()
+                return
+            }
             webView.apply {
                 settings.apply {
                     javaScriptEnabled = true

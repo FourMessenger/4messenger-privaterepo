@@ -19,6 +19,7 @@ import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.File
 import java.io.FileInputStream
 import java.util.concurrent.TimeUnit
+import java.util.Collections
 
 class FileUploadService : Service() {
 
@@ -30,7 +31,7 @@ class FileUploadService : Service() {
         .writeTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    private val activeUploads = mutableMapOf<String, FileTransfer>()
+    private val activeUploads = Collections.synchronizedMap(mutableMapOf<String, FileTransfer>())
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -179,16 +180,16 @@ class FileUploadService : Service() {
     }
 
     private fun getRealPath(uri: Uri): String {
-        val cursor = contentResolver.query(uri, null, null, null, null)!!
-        cursor.moveToFirst()
-        val pathColumnIndex = cursor.getColumnIndex(MediaStore.MediaColumns.DATA)
-        if (pathColumnIndex < 0) {
+        val cursor = contentResolver.query(uri, null, null, null, null) ?: return ""
+        try {
+            if (!cursor.moveToFirst()) {
+                return ""
+            }
+            val pathColumnIndex = cursor.getColumnIndex(MediaStore.MediaColumns.DATA)
+            return if (pathColumnIndex < 0) "" else cursor.getString(pathColumnIndex)
+        } finally {
             cursor.close()
-            return ""
         }
-        val path = cursor.getString(pathColumnIndex)
-        cursor.close()
-        return path
     }
 
     private fun getFileName(uri: Uri): String {

@@ -15,11 +15,12 @@ import androidx.core.content.ContextCompat
 import com.messenger4.android.utils.NotificationUtil
 import com.messenger4.android.models.FileTransfer
 import com.google.gson.Gson
+import java.util.Collections
 
 class FileDownloadService : Service() {
 
     private lateinit var downloadManager: DownloadManager
-    private val activeDownloads = mutableMapOf<Long, FileTransfer>()
+    private val activeDownloads = Collections.synchronizedMap(mutableMapOf<Long, FileTransfer>())
     private val gson = Gson()
 
     override fun onCreate() {
@@ -152,35 +153,38 @@ class FileDownloadService : Service() {
             val query = DownloadManager.Query().setFilterById(downloadId)
             val cursor = downloadManager.query(query)
 
-            if (cursor.moveToFirst()) {
-                val statusColumnIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
-                val titleColumnIndex = cursor.getColumnIndex(DownloadManager.COLUMN_TITLE)
-                
-                if (statusColumnIndex < 0 || titleColumnIndex < 0) {
-                    cursor.close()
-                    return
-                }
-                
-                val status = cursor.getInt(statusColumnIndex)
-                val fileName = cursor.getString(titleColumnIndex)
+            if (!cursor.moveToFirst()) {
+                cursor.close()
+                return
+            }
 
-                when (status) {
-                    DownloadManager.STATUS_SUCCESSFUL -> {
-                        NotificationUtil.showNotification(
-                            this@FileDownloadService,
-                            "Download Complete",
-                            "$fileName downloaded successfully"
-                        )
-                        removeDownloadState(downloadId)
-                        activeDownloads.remove(downloadId)
-                    }
-                    DownloadManager.STATUS_FAILED -> {
-                        NotificationUtil.showNotification(
-                            this@FileDownloadService,
-                            "Download Failed",
-                            "Failed to download $fileName"
-                        )
-                    }
+            val statusColumnIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
+            val titleColumnIndex = cursor.getColumnIndex(DownloadManager.COLUMN_TITLE)
+
+            if (statusColumnIndex < 0 || titleColumnIndex < 0) {
+                cursor.close()
+                return
+            }
+
+            val status = cursor.getInt(statusColumnIndex)
+            val fileName = cursor.getString(titleColumnIndex)
+
+            when (status) {
+                DownloadManager.STATUS_SUCCESSFUL -> {
+                    NotificationUtil.showNotification(
+                        this@FileDownloadService,
+                        "Download Complete",
+                        "$fileName downloaded successfully"
+                    )
+                    removeDownloadState(downloadId)
+                    activeDownloads.remove(downloadId)
+                }
+                DownloadManager.STATUS_FAILED -> {
+                    NotificationUtil.showNotification(
+                        this@FileDownloadService,
+                        "Download Failed",
+                        "Failed to download $fileName"
+                    )
                 }
             }
             cursor.close()

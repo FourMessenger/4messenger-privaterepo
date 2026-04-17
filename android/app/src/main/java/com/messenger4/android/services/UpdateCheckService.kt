@@ -97,7 +97,7 @@ class UpdateCheckWorker(
 
     private suspend fun handleVersionUpdate(versionInfo: VersionInfo) {
         return withContext(Dispatchers.Main) {
-            val currentVersion = BuildConfig.VERSION_NAME
+            val currentVersion = BuildConfig.VERSION_NAME ?: "0.0.0"
             val latestVersion = versionInfo.version
 
             if (isNewVersionAvailable(currentVersion, latestVersion)) {
