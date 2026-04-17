@@ -172,7 +172,7 @@ class MainActivity : AppCompatActivity() {
         try {
             // Start periodic push notification check
             val pushNotificationRequest = PeriodicWorkRequestBuilder<PushNotificationWorker>(
-                30, TimeUnit.SECONDS  // Check every 30 seconds
+                15, TimeUnit.MINUTES  // Check every 15 minutes (WorkManager minimum)
             ).build()
 
             WorkManager.getInstance(this).enqueueUniquePeriodicWork(

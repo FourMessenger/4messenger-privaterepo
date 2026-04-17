@@ -19,7 +19,7 @@ class BootReceiver : BroadcastReceiver() {
             context?.let {
                 // Restart push notification service
                 val pushNotificationRequest = PeriodicWorkRequestBuilder<PushNotificationWorker>(
-                    30, TimeUnit.SECONDS
+                    15, TimeUnit.MINUTES  // WorkManager minimum interval
                 ).build()
 
                 WorkManager.getInstance(it).enqueueUniquePeriodicWork(
