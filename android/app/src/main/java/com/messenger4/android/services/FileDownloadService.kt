@@ -153,12 +153,16 @@ class FileDownloadService : Service() {
             val cursor = downloadManager.query(query)
 
             if (cursor.moveToFirst()) {
-                val status = cursor.getInt(
-                    cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
-                )
-                val fileName = cursor.getString(
-                    cursor.getColumnIndex(DownloadManager.COLUMN_TITLE)
-                )
+                val statusColumnIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
+                val titleColumnIndex = cursor.getColumnIndex(DownloadManager.COLUMN_TITLE)
+                
+                if (statusColumnIndex < 0 || titleColumnIndex < 0) {
+                    cursor.close()
+                    return
+                }
+                
+                val status = cursor.getInt(statusColumnIndex)
+                val fileName = cursor.getString(titleColumnIndex)
 
                 when (status) {
                     DownloadManager.STATUS_SUCCESSFUL -> {

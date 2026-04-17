@@ -181,7 +181,12 @@ class FileUploadService : Service() {
     private fun getRealPath(uri: Uri): String {
         val cursor = contentResolver.query(uri, null, null, null, null)!!
         cursor.moveToFirst()
-        val path = cursor.getString(cursor.getColumnIndex(MediaStore.MediaColumns.DATA))
+        val pathColumnIndex = cursor.getColumnIndex(MediaStore.MediaColumns.DATA)
+        if (pathColumnIndex < 0) {
+            cursor.close()
+            return ""
+        }
+        val path = cursor.getString(pathColumnIndex)
         cursor.close()
         return path
     }
@@ -193,7 +198,8 @@ class FileUploadService : Service() {
                 val cursor = contentResolver.query(uri, null, null, null, null)
                 cursor?.use {
                     it.moveToFirst()
-                    it.getString(it.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME))
+                    val nameColumnIndex = it.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME)
+                    if (nameColumnIndex < 0) "Unknown" else it.getString(nameColumnIndex)
                 } ?: "Unknown"
             }
             else -> "Unknown"
@@ -207,7 +213,8 @@ class FileUploadService : Service() {
                 val cursor = contentResolver.query(uri, null, null, null, null)
                 cursor?.use {
                     it.moveToFirst()
-                    it.getLong(it.getColumnIndex(MediaStore.MediaColumns.SIZE))
+                    val sizeColumnIndex = it.getColumnIndex(MediaStore.MediaColumns.SIZE)
+                    if (sizeColumnIndex < 0) 0L else it.getLong(sizeColumnIndex)
                 } ?: 0L
             }
             else -> 0L
