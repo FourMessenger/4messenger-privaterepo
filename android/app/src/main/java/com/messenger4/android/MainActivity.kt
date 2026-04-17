@@ -56,31 +56,34 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun requestPermissions() {
-        val permissions = mutableListOf(
-            Manifest.permission.INTERNET,
-            Manifest.permission.ACCESS_NETWORK_STATE,
+        // Runtime permissions only - install-time permissions are handled by AndroidManifest.xml
+        val runtimePermissions = mutableListOf(
             Manifest.permission.READ_EXTERNAL_STORAGE,
             Manifest.permission.WRITE_EXTERNAL_STORAGE
         )
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+            runtimePermissions.add(Manifest.permission.POST_NOTIFICATIONS)
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            permissions.add(Manifest.permission.SCHEDULE_EXACT_ALARM)
+            runtimePermissions.add(Manifest.permission.SCHEDULE_EXACT_ALARM)
         }
 
-        val deniedPermissions = permissions.filter {
+        val deniedPermissions = runtimePermissions.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
 
         if (deniedPermissions.isNotEmpty()) {
-            ActivityCompat.requestPermissions(
-                this,
-                deniedPermissions.toTypedArray(),
-                PERMISSION_REQUEST_CODE
-            )
+            try {
+                ActivityCompat.requestPermissions(
+                    this,
+                    deniedPermissions.toTypedArray(),
+                    PERMISSION_REQUEST_CODE
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("MainActivity", "Error requesting permissions", e)
+            }
         }
     }
 
