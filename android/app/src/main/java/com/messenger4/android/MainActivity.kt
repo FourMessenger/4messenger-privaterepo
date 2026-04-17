@@ -68,6 +68,19 @@ class MainActivity : AppCompatActivity() {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             runtimePermissions.add(Manifest.permission.SCHEDULE_EXACT_ALARM)
+            runtimePermissions.add(Manifest.permission.FOREGROUND_SERVICE)
+        }
+
+        // Android 14+ (API 34+) - Specific foreground service types
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            try {
+                // Use reflection to add FOREGROUND_SERVICE_DATA_SYNC since it's new in Android 14
+                val permClass = Class.forName("android.Manifest\$permission")
+                val dataSync = permClass.getDeclaredField("FOREGROUND_SERVICE_DATA_SYNC").get(null) as String
+                runtimePermissions.add(dataSync)
+            } catch (e: Exception) {
+                android.util.Log.w("MainActivity", "Could not add FOREGROUND_SERVICE_DATA_SYNC permission", e)
+            }
         }
 
         val deniedPermissions = runtimePermissions.filter {

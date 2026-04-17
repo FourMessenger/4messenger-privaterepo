@@ -16,6 +16,10 @@
     <!-- Notification Permission (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Foreground Service Permissions (Android 12+) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
     <!-- Wake Lock for background operations -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
@@ -46,7 +50,8 @@
         <service
             android:name=".services.PushNotificationService"
             android:enabled="true"
-            android:exported="false" />
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
         <!-- File Upload Service -->
         <service
@@ -64,7 +69,8 @@
         <service
             android:name=".services.UpdateCheckService"
             android:enabled="true"
-            android:exported="false" />
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
         <!-- Update Notification Receiver -->
         <receiver
