@@ -153,22 +153,68 @@ function PollMessage({
   authToken: string | null;
   onPollUpdate?: (updatedPoll: any) => void;
 }) {
-  const [poll, setPoll] = useState(initialPoll);
+  const [poll, setPoll] = useState<any>(null);
   const [isVoting, setIsVoting] = useState(false);
   const [voteError, setVoteError] = useState<string | null>(null);
-  
-  // Sync with parent if poll changes from outside
+  const isMounted = useRef(true);
+
   useEffect(() => {
-    setPoll(initialPoll);
-  }, [initialPoll]);
-  
-  const totalVotes = poll.options.reduce((sum: number, o: any) => sum + o.votes.length, 0);
-  const hasVoted = poll.options.some((o: any) => o.votes.includes(currentUserId));
-  const userVotes = poll.options.reduce((acc: number[], o: any, idx: number) => {
-    if (o.votes.includes(currentUserId)) acc.push(idx);
-    return acc;
+    return () => {
+      isMounted.current = false;
+    };
   }, []);
+
+  useEffect(() => {
+    if (initialPoll) {
+      console.log('Poll received:', initialPoll);
+      let normalizedPoll = { ...initialPoll };
+      
+      if (!normalizedPoll.options && normalizedPoll.choices) {
+        normalizedPoll.options = normalizedPoll.choices;
+      }
+      
+      if (!normalizedPoll.options) {
+        normalizedPoll.options = [];
+      }
+      
+      setPoll(normalizedPoll);
+    }
+  }, [initialPoll]);
+
+  if (!poll) {
+    return (
+      <div className="min-w-[160px] sm:min-w-[220px] md:min-w-[250px]">
+        <div className="flex items-center gap-2 mb-2">
+          <BarChart2 className="h-4 w-4 text-indigo-400" />
+          <span className="text-xs text-indigo-400 font-medium">Poll</span>
+        </div>
+        <p className="text-sm text-gray-400">Loading poll...</p>
+      </div>
+    );
+  }
+
+  if (!poll.options || !Array.isArray(poll.options) || poll.options.length === 0) {
+    console.warn('Poll has no options:', poll);
+    return (
+      <div className="min-w-[160px] sm:min-w-[220px] md:min-w-[250px]">
+        <div className="flex items-center gap-2 mb-2">
+          <BarChart2 className="h-4 w-4 text-indigo-400" />
+          <span className="text-xs text-indigo-400 font-medium">Poll</span>
+        </div>
+        <p className="text-sm text-gray-400">No options available</p>
+        <p className="text-xs text-gray-500 mt-1">Question: {poll.question || 'Unknown'}</p>
+      </div>
+    );
+  }
+
+  const totalVotes = poll.options.reduce((sum: number, o: any) => {
+    return sum + (o?.votes?.length || 0);
+  }, 0);
   
+  const hasVoted = poll.options.some((o: any) => {
+    return o?.votes?.includes(currentUserId);
+  });
+
   const handleVote = async (optionIndex: number) => {
     if (hasVoted && !poll.multipleChoice) return;
     if (poll.closed) return;
@@ -177,33 +223,38 @@ function PollMessage({
     setIsVoting(true);
     setVoteError(null);
     
-    // Optimistic update
-    let newOptions = [...poll.options];
-    if (poll.multipleChoice) {
-      // Toggle vote for multiple choice
-      const hasVotedThis = newOptions[optionIndex].votes.includes(currentUserId);
-      if (hasVotedThis) {
-        newOptions[optionIndex] = {
-          ...newOptions[optionIndex],
-          votes: newOptions[optionIndex].votes.filter((id: string) => id !== currentUserId)
-        };
-      } else {
-        newOptions[optionIndex] = {
-          ...newOptions[optionIndex],
-          votes: [...newOptions[optionIndex].votes, currentUserId]
+    const originalPoll = poll;
+    
+    // Оптимистичное обновление
+    const newOptions = poll.options.map((opt: any, idx: number) => {
+      const votes = opt?.votes || [];
+      
+      if (idx === optionIndex) {
+        if (poll.multipleChoice) {
+          const hasVotedThis = votes.includes(currentUserId);
+          return {
+            ...opt,
+            votes: hasVotedThis 
+              ? votes.filter((id: string) => id !== currentUserId)
+              : [...votes, currentUserId]
+          };
+        } else {
+          return {
+            ...opt,
+            votes: [currentUserId]
+          };
+        }
+      } else if (!poll.multipleChoice) {
+        return {
+          ...opt,
+          votes: []
         };
       }
-    } else {
-      // Single choice - remove vote from all, add to selected
-      newOptions = newOptions.map(opt => ({
+      return {
         ...opt,
-        votes: opt.votes.filter((id: string) => id !== currentUserId)
-      }));
-      newOptions[optionIndex] = {
-        ...newOptions[optionIndex],
-        votes: [...newOptions[optionIndex].votes, currentUserId]
+        votes: votes
       };
-    }
+    });
     
     setPoll({ ...poll, options: newOptions });
     
@@ -222,20 +273,37 @@ function PollMessage({
         throw new Error(errorData.error || 'Failed to vote');
       }
       
-      const updatedPoll = await response.json();
-      setPoll(updatedPoll);
-      onPollUpdate?.(updatedPoll);
+      const data = await response.json();
+      console.log('Server response after vote:', data);
+      
+      // ВАЖНО: берем poll из поля poll, а не сам response!
+      let normalizedPoll = data.poll || data;
+      
+      if (!normalizedPoll.options && normalizedPoll.choices) {
+        normalizedPoll.options = normalizedPoll.choices;
+      }
+      if (!normalizedPoll.options) {
+        normalizedPoll.options = [];
+      }
+      
+      if (isMounted.current) {
+        setPoll(normalizedPoll);
+        if (onPollUpdate) onPollUpdate(normalizedPoll);
+      }
       
     } catch (err) {
-      // Rollback on error
-      setPoll(initialPoll);
-      setVoteError(err instanceof Error ? err.message : 'Failed to vote');
-      console.error('Failed to vote:', err);
+      console.error('Vote error:', err);
+      if (isMounted.current) {
+        setPoll(originalPoll);
+        setVoteError(err instanceof Error ? err.message : 'Failed to vote');
+      }
     } finally {
-      setIsVoting(false);
+      if (isMounted.current) {
+        setIsVoting(false);
+      }
     }
   };
-  
+
   return (
     <div className="min-w-[160px] sm:min-w-[220px] md:min-w-[250px]">
       <div className="flex items-center gap-2 mb-2">
@@ -244,38 +312,36 @@ function PollMessage({
         {poll.anonymous && <span className="text-xs text-gray-500">• Anonymous</span>}
         {poll.closed && <span className="text-xs text-red-400">• Closed</span>}
       </div>
-      <p className="font-medium mb-3">{poll.question}</p>
+      <p className="font-medium mb-3 break-words">{poll.question || 'Poll'}</p>
       <div className="space-y-2">
         {poll.options.map((option: any, idx: number) => {
-          const percentage = totalVotes > 0 ? Math.round((option.votes.length / totalVotes) * 100) : 0;
-          const hasVotedThis = option.votes.includes(currentUserId);
+          const voteCount = option?.votes?.length || 0;
+          const percentage = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
+          const hasVotedThis = option?.votes?.includes(currentUserId) || false;
           const isDisabled = (hasVoted && !poll.multipleChoice) || poll.closed || isVoting;
           
           return (
             <button
-              key={idx}
+              key={`${poll.id}-opt-${idx}`}
               onClick={() => handleVote(idx)}
               disabled={isDisabled}
-              className={`w-full text-left rounded-lg p-2 transition relative overflow-hidden ${
+              className={`w-full text-left rounded-lg p-2 transition-all relative overflow-hidden ${
                 hasVotedThis ? 'bg-indigo-500/30 border border-indigo-500/50' : 
                 isDisabled ? 'bg-white/5 opacity-60 cursor-not-allowed' : 'bg-white/5 hover:bg-white/10 cursor-pointer'
               }`}
             >
-              {/* Progress bar background */}
-              {hasVoted && (
-                <div 
-                  className="absolute inset-y-0 left-0 bg-indigo-500/20 transition-all duration-300"
-                  style={{ width: `${percentage}%` }}
-                />
-              )}
-              <div className="relative flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {hasVotedThis && <Check className="h-4 w-4 text-indigo-400" />}
-                  <span className="text-sm">{option.text}</span>
+              <div 
+                className="absolute inset-y-0 left-0 bg-indigo-500/20 transition-all duration-300 pointer-events-none"
+                style={{ width: `${percentage}%` }}
+              />
+              <div className="relative flex items-center justify-between gap-2 z-10">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  {hasVotedThis && <Check className="h-4 w-4 text-indigo-400 shrink-0" />}
+                  <span className="text-sm break-words">{option?.text || `Option ${idx + 1}`}</span>
                 </div>
-                {hasVoted && (
-                  <span className="text-xs text-gray-400">
-                    {percentage}% ({option.votes.length})
+                {totalVotes > 0 && (
+                  <span className="text-xs text-gray-400 shrink-0">
+                    {percentage}% ({voteCount})
                   </span>
                 )}
               </div>
