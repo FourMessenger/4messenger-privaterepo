@@ -2,16 +2,34 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, X, RefreshCw } from 'lucide-react';
 import { useStore } from '../store';
 
-// Multiple public STUN servers for better NAT traversal
-const ICE_SERVERS: RTCIceServer[] = [
+// Get local STUN server URL from current host
+const getLocalStunServer = (): RTCIceServer => {
+  const host = window.location.hostname || 'localhost';
+  return { urls: `stun:${host}:3478` };
+};
+
+// ICE servers: Local STUN (primary) + external fallbacks
+const getIceServers = (): RTCIceServer[] => [
+  // Local STUN server (primary - fastest & most reliable)
+  getLocalStunServer(),
+  
+  // Google STUN servers (fallback)
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
   { urls: 'stun:stun2.l.google.com:19302' },
   { urls: 'stun:stun3.l.google.com:19302' },
-  { urls: 'stun:stun4.l.google.com:19302' },
+  
+  // Twilio STUN servers (very reliable)
   { urls: 'stun:stun.stunprotocol.org:3478' },
+  { urls: 'stun:stun1.stunprotocol.org:3478' },
+  
+  // Mozilla STUN servers
+  { urls: 'stun:stun.services.mozilla.com:3478' },
+  
+  // Other reliable providers
   { urls: 'stun:stun.voip.blackberry.com:3478' },
   { urls: 'stun:stun.nextcloud.com:443' },
+  { urls: 'stun:stun.opentelekomcloud.com:3478' },
 ];
 
 interface IncomingCallData {
@@ -46,6 +64,7 @@ export function CallOverlay() {
   const isInitiatorRef = useRef(false);
   const callStartTimeRef = useRef<number>(0);
   const incomingAcceptedRef = useRef(false);
+  const initializationStartedRef = useRef(false);
 
   const chat = callState.chatId ? chats.find(c => c.id === callState.chatId) : null;
   const otherUserId = chat?.type === 'direct' 
@@ -80,7 +99,7 @@ export function CallOverlay() {
     console.log('[Call] Creating peer connection with STUN servers');
     
     const pc = new RTCPeerConnection({
-      iceServers: ICE_SERVERS,
+      iceServers: getIceServers(),
       iceCandidatePoolSize: 10,
     });
 
@@ -179,13 +198,21 @@ export function CallOverlay() {
 
   // Initialize outgoing call
   const initOutgoingCall = useCallback(async () => {
-    if (!websocket || !otherUserId || !currentUser) return;
+    if (!websocket || !otherUserId || !currentUser || !callState.chatId) return;
     
     console.log('[Call] Initializing outgoing call to:', otherUserId);
     isInitiatorRef.current = true;
     setCallStatus('ringing');
 
     try {
+      // Step 1: Notify server that a call is starting (so it can notify other participants)
+      console.log('[Call] Notifying server of call start');
+      websocket.send(JSON.stringify({
+        type: 'call_start',
+        chatId: callState.chatId,
+        callType: callState.type
+      }));
+
       // Get local media stream
       const stream = await navigator.mediaDevices.getUserMedia({
         video: callState.type === 'video',
@@ -218,7 +245,7 @@ export function CallOverlay() {
       await pc.setLocalDescription(offer);
       console.log('[Call] Created and set local offer');
 
-      // Send offer to peer
+      // Step 2: Send offer to peer
       websocket.send(JSON.stringify({
         type: 'call_offer',
         targetUserId: otherUserId,
@@ -385,16 +412,18 @@ export function CallOverlay() {
 
   // Initialize call on mount
   useEffect(() => {
-    // Only auto-start signaling for outgoing calls.
+    // Only auto-start signaling for outgoing calls if not already started
     // For incoming calls, we accept and create the peer connection in `handleAnswerCall`.
-    if (callState.active && !incomingCall && !incomingAcceptedRef.current) {
+    if (callState.active && !incomingCall && !incomingAcceptedRef.current && !initializationStartedRef.current) {
+      initializationStartedRef.current = true;
       initOutgoingCall();
     }
 
     return () => {
       cleanup();
+      initializationStartedRef.current = false;
     };
-  }, [callState.active]);
+  }, [callState.active, incomingCall, initOutgoingCall, cleanup]);
 
   // Handle WebSocket messages for call signaling
   useEffect(() => {

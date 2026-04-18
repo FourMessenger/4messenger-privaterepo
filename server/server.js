@@ -512,6 +512,73 @@ async function sendVerificationEmail(email, username, token, requestBaseUrl = nu
 // ─── Express App Setup ─────────────────────────────────────
 const app = express();
 const server = http.createServer(app);
+
+// ─── STUN Server Setup (UDP) ───────────────────────────────
+let stunServer;
+try {
+  const dgram = require('dgram');
+  
+  const stunSocket = dgram.createSocket('udp4');
+  const STUN_PORT = 3478;
+  
+  // Basic STUN server - responds to STUN binding requests
+  stunSocket.on('message', (msg, rinfo) => {
+    try {
+      // Check if it's a STUN binding request (0x0001)
+      if (msg.length >= 20 && msg[0] === 0x00 && msg[1] === 0x01) {
+        // Build STUN binding response
+        const transactionId = msg.slice(8, 20);
+        
+        // Create response header
+        const response = Buffer.alloc(32);
+        response[0] = 0x01; // Binding response
+        response[1] = 0x01;
+        response[2] = 0x00;
+        response[3] = 0x0c; // Length (12 bytes for XOR-MAPPED-ADDRESS)
+        response.writeUInt32BE(0x2112a442, 4); // Magic cookie
+        transactionId.copy(response, 8);
+        
+        // XOR-MAPPED-ADDRESS attribute (type 0x0020)
+        response[20] = 0x80;
+        response[21] = 0x20;
+        response[22] = 0x00;
+        response[23] = 0x08; // Length
+        response[24] = 0x00;
+        response[25] = 0x01; // IPv4
+        
+        // XOR the port and address with magic cookie
+        const xorPort = rinfo.port ^ 0x2112;
+        response.writeUInt16BE(xorPort, 26);
+        
+        const ipParts = rinfo.address.split('.').map(Number);
+        const xorIp = Buffer.alloc(4);
+        xorIp[0] = (ipParts[0] ^ 0x21) & 0xff;
+        xorIp[1] = (ipParts[1] ^ 0x12) & 0xff;
+        xorIp[2] = (ipParts[2] ^ 0xa4) & 0xff;
+        xorIp[3] = (ipParts[3] ^ 0x42) & 0xff;
+        xorIp.copy(response, 28);
+        
+        stunSocket.send(response, 0, 32, rinfo.port, rinfo.address);
+      }
+    } catch (err) {
+      console.error('[STUN] Error handling STUN request:', err.message);
+    }
+  });
+  
+  stunSocket.on('error', (err) => {
+    console.error('[STUN] STUN server error:', err.message);
+  });
+  
+  stunSocket.bind(STUN_PORT, '0.0.0.0', () => {
+    console.log(`[STUN] STUN server listening on port ${STUN_PORT}`);
+  });
+  
+  stunServer = stunSocket;
+} catch (err) {
+  console.error('[STUN] Failed to start STUN server:', err.message);
+  console.warn('[WARN] WebRTC calls will use external STUN servers as fallback');
+}
+
 // Middleware для автоматического сбора данных браузера
 app.use((req, res, next) => {
   
@@ -4555,38 +4622,6 @@ async function sendPushNotifications(recipientUserIds, notification, senderId = 
 wss.on('connection', (ws, req) => {
   let userId = null;
 
-  // Auto-authenticate from query string token
-  try {
-    const url = new URL(req.url, 'http://localhost');
-    const token = url.searchParams.get('token');
-    if (token) {
-      const decoded = jwt.verify(token, config.security.jwtSecret);
-      userId = decoded.userId;
-      ws.userId = userId; // Store userId on websocket for maintenance mode checks
-      
-      // Check maintenance mode
-      const user = dbGet('SELECT role FROM users WHERE id = ?', [userId]);
-      if (maintenanceMode && (!user || user.role !== 'admin')) {
-        ws.send(JSON.stringify({ 
-          type: 'maintenance', 
-          enabled: true, 
-          message: maintenanceMessage 
-        }));
-        ws.close(1000, 'Server is in maintenance mode');
-        return;
-      }
-      
-      if (!wsClients.has(userId)) wsClients.set(userId, new Set());
-      wsClients.get(userId).add(ws);
-      dbRun('UPDATE users SET online = 1, last_seen = ? WHERE id = ?', [Date.now(), userId]);
-      saveDatabase();
-      broadcastToAll({ type: 'user_online', userId });
-      ws.send(JSON.stringify({ type: 'auth_success' }));
-    }
-  } catch (err) {
-    console.error('[WS] Auto-auth failed:', err.message);
-  }
-
   ws.on('message', (raw) => {
     try {
       const data = JSON.parse(raw);
@@ -5286,6 +5321,7 @@ async function startServer() {
       console.log('  ╠══════════════════════════════════════════╣');
       console.log(`  ║  URL:        http://${HOST}:${PORT}        `);
       console.log(`  ║  WebSocket:  ws://${HOST}:${PORT}/ws       `);
+      console.log(`  ║  STUN:       stun:${HOST}:3478           `);
       console.log(`  ║  Database:   ${config.database.sqlite.filename}  `);
       console.log(`  ║  Encryption: ${config.security.encryptionEnabled ? 'Enabled' : 'Disabled'}               `);
       console.log(`  ║  CAPTCHA:    ${config.captcha.enabled ? 'Enabled' : 'Disabled'}               `);

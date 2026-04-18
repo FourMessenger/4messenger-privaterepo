@@ -826,10 +826,12 @@ export const useStore = create<AppState>((set, get) => ({
       
       // Setup WebSocket connection
       const wsUrl = serverUrl.replace(/^http/, 'ws').replace(/\/$/, '');
-      const ws = new WebSocket(`${wsUrl}/ws?token=${data.token}`);
+      const ws = new WebSocket(`${wsUrl}/ws`);
       
       ws.onopen = () => {
         console.log('[WS] Connected');
+        // Send token as message (NOT in URL) for security
+        ws.send(JSON.stringify({ type: 'auth', token: data.token }));
       };
       
       ws.onmessage = (event) => {
@@ -3836,10 +3838,12 @@ export const useStore = create<AppState>((set, get) => ({
       
       // Setup WebSocket connection
       const wsUrl = serverUrl.replace(/^http/, 'ws').replace(/\/$/, '');
-      const ws = new WebSocket(`${wsUrl}/ws?token=${authToken}`);
+      const ws = new WebSocket(`${wsUrl}/ws`);
       
       ws.onopen = () => {
         console.log('[WS] Connected (session restored)');
+        // Send token as message (NOT in URL) for security
+        ws.send(JSON.stringify({ type: 'auth', token: authToken }));
       };
       
       ws.onmessage = (event) => {
