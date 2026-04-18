@@ -43,20 +43,25 @@
   },
   "dependencies": {
     "@marsidev/react-turnstile": "^1.4.2",
-    "@rollup/rollup-android-arm64": "^4.59.0",
     "clsx": "2.1.1",
     "concurrently": "^9.2.1",
     "cross-env": "^7.0.3",
     "gh-pages": "^6.3.0",
     "idb": "^8.0.3",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.563.0",
+    "pyodide": "^0.24.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "tailwind-merge": "3.4.0",
     "tweetnacl": "^1.0.3",
     "tweetnacl-util": "^0.15.1",
-    "wait-on": "^9.0.4",
+    "wait-on": "^9.0.5",
     "zustand": "^5.0.11"
+  },
+  "optionalDependencies": {
+    "electron": "^40.6.1",
+    "electron-builder": "^26.8.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.1.17",
@@ -66,7 +71,7 @@
     "@vitejs/plugin-react": "5.1.1",
     "tailwindcss": "4.1.17",
     "typescript": "5.9.3",
-    "vite": "7.2.4",
+    "vite": ">=7.3.2",
     "vite-plugin-singlefile": "^2.3.0"
   }
 }
