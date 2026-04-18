@@ -363,7 +363,7 @@ export function ChatScreen() {
   const {
     currentUser, users, chats, messages, activeChat, searchQuery,
     showSidebar, showChatInfo, showNewChat, showNewGroup, serverConfig,
-    setActiveChat, sendMessage, editMessage, deleteMessage, createDirectChat,
+    setActiveChat, sendMessage, sendPollMessage, editMessage, deleteMessage, createDirectChat,
     createGroup, leaveGroup, addToGroup, removeFromGroup,
     startCall, toggleSidebar, setShowChatInfo, setShowNewChat, setShowNewGroup,
     setSearchQuery, setScreen, logout, leaveServer, decryptMessage, markAsRead,
@@ -852,37 +852,48 @@ export function ChatScreen() {
   };
 
   const handleCreatePoll = async () => {
-    if (!activeChat || !authToken || !pollQuestion.trim()) return;
+  if (!activeChat || !authToken || !pollQuestion.trim()) return;
+  
+  const validOptions = pollOptions.filter(o => o.trim());
+  if (validOptions.length < 2) return;
+  
+  try {
+    const response = await fetch(`${serverUrl.replace(/\/$/, '')}/api/chats/${activeChat}/polls`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        question: pollQuestion.trim(),
+        options: validOptions,
+        multipleChoice: pollMultipleChoice,
+        anonymous: pollAnonymous,
+      }),
+    });
     
-    const validOptions = pollOptions.filter(o => o.trim());
-    if (validOptions.length < 2) return;
+    if (!response.ok) throw new Error('Failed to create poll');
     
-    try {
-      const response = await fetch(`${serverUrl.replace(/\/$/, '')}/api/chats/${activeChat}/polls`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          question: pollQuestion.trim(),
-          options: validOptions,
-          multipleChoice: pollMultipleChoice,
-          anonymous: pollAnonymous,
-        }),
-      });
-      
-      if (!response.ok) throw new Error('Failed to create poll');
-      
-      setShowPollModal(false);
-      setPollQuestion('');
-      setPollOptions(['', '']);
-      setPollMultipleChoice(false);
-      setPollAnonymous(false);
-    } catch (err) {
-      console.error('Failed to create poll:', err);
+    const data = await response.json();
+    
+    // 🔥 КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: отправляем сообщение с опросом в чат
+    if (data.poll) {
+      // Используем новую функцию sendPollMessage из store
+      sendPollMessage(activeChat, data.poll);
     }
-  };
+    
+    // Закрываем модальное окно и сбрасываем состояние
+    setShowPollModal(false);
+    setPollQuestion('');
+    setPollOptions(['', '']);
+    setPollMultipleChoice(false);
+    setPollAnonymous(false);
+    
+  } catch (err) {
+    console.error('Failed to create poll:', err);
+    addNotification('Failed to create poll', 'error');
+  }
+};
   
   const handlePollUpdate = (updatedPoll: any) => {
     // Update the message in store when poll changes

@@ -378,6 +378,7 @@ interface AppState {
   generateCaptcha: () => Promise<void>;
   setActiveChat: (chatId: string | null) => void;
   sendMessage: (chatId: string, content: string, type?: Message['type'], fileName?: string, fileSize?: number, fileUrl?: string) => void;
+  sendPollMessage: (chatId: string, poll: any) => void;
   editMessage: (messageId: string, newContent: string) => void;
   deleteMessage: (messageId: string) => void;
   createDirectChat: (userId: string) => Promise<string>;
@@ -1916,6 +1917,97 @@ export const useStore = create<AppState>((set, get) => ({
     
     return key;
   },
+
+  sendPollMessage: async (chatId, poll) => {
+  const { currentUser, serverUrl, authToken } = get();
+  if (!currentUser || !authToken) return;
+
+  // Create local message for immediate display
+  const localMessage: Message = {
+    id: generateId(),
+    chatId,
+    senderId: currentUser.id,
+    content: JSON.stringify(poll),
+    type: 'poll',
+    poll: poll,
+    encrypted: false,
+    timestamp: Date.now(),
+    edited: false,
+    readBy: [currentUser.id],
+  };
+
+  // Optimistically add to store
+  set(state => {
+    const chatMessages = state.allMessages[chatId] || [];
+    return {
+      messages: [...state.messages, localMessage],
+      allMessages: {
+        ...state.allMessages,
+        [chatId]: [...chatMessages, localMessage],
+      },
+      chats: state.chats.map(c =>
+        c.id === chatId ? { ...c, lastMessage: localMessage, unreadCount: 0 } : c
+      ),
+    };
+  });
+
+  // Send to server
+  try {
+    const response = await fetch(`${serverUrl.replace(/\/$/, '')}/api/chats/${chatId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({
+        content: JSON.stringify(poll),
+        type: 'poll',
+        poll: poll,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      get().addNotification(errorData.error || 'Failed to send poll', 'error');
+      // Remove optimistic message on error
+      set(state => ({
+        messages: state.messages.filter(m => m.id !== localMessage.id),
+        allMessages: {
+          ...state.allMessages,
+          [chatId]: (state.allMessages[chatId] || []).filter(m => m.id !== localMessage.id),
+        },
+      }));
+    } else {
+      const serverMessage = await response.json();
+      // Update local message with server ID
+      if (serverMessage.id && serverMessage.id !== localMessage.id) {
+        set(state => ({
+          messages: state.messages.map(m =>
+            m.id === localMessage.id ? { ...m, id: serverMessage.id } : m
+          ),
+          allMessages: {
+            ...state.allMessages,
+            [chatId]: (state.allMessages[chatId] || []).map(m =>
+              m.id === localMessage.id ? { ...m, id: serverMessage.id } : m
+            ),
+          },
+        }));
+      }
+      get().addNotification('Poll sent!', 'success');
+    }
+  } catch (error) {
+    console.error('Failed to send poll:', error);
+    get().addNotification('Failed to send poll', 'error');
+    // Remove optimistic message on error
+    set(state => ({
+      messages: state.messages.filter(m => m.id !== localMessage.id),
+      allMessages: {
+        ...state.allMessages,
+        [chatId]: (state.allMessages[chatId] || []).filter(m => m.id !== localMessage.id),
+      },
+    }));
+  }
+},
 
   sendMessage: async (chatId, content, type = 'text', fileName, fileSize, fileUrl?: string) => {
     const { currentUser, serverUrl, authToken, users, chats, chatKeys, e2eeKeyPair } = get();
