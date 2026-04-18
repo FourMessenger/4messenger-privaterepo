@@ -2828,17 +2828,20 @@ app.post('/api/chats/:id/messages', authMiddleware, (req, res) => {
 
   // Broadcast to all chat members (including sender for real-time sync across devices)
   const members = dbAll('SELECT user_id FROM chat_members WHERE chat_id = ?', [chatId]);
+  console.log(`[MESSAGE] Broadcasting message ${msgId} to ${members.length} chat members`);
+  
   members.forEach(m => {
-    if (m.user_id === req.user.id) return; // sender skip
-
-    // Skip recipients who blocked the sender
-    const isBlocked = dbGet('SELECT 1 FROM blocked_users WHERE user_id = ? AND blocked_user_id = ?', [m.user_id, req.user.id]);
-    if (isBlocked) {
-      console.log(`[BLOCK] Skipped delivering message ${msgId} from ${req.user.id} to blocked recipient ${m.user_id}`);
-      return;
+    // Skip recipients who blocked the sender (but include sender for multi-device sync)
+    if (m.user_id !== req.user.id) {
+      const isBlocked = dbGet('SELECT 1 FROM blocked_users WHERE user_id = ? AND blocked_user_id = ?', [m.user_id, req.user.id]);
+      if (isBlocked) {
+        console.log(`[BLOCK] Skipped delivering message ${msgId} from ${req.user.id} to blocked recipient ${m.user_id}`);
+        return;
+      }
     }
 
     sendToUser(m.user_id, { type: 'message', data: message });
+    console.log(`[MESSAGE] Sent message ${msgId} via WebSocket to user ${m.user_id}`);
   });
 
   res.status(201).json(message);

@@ -1014,6 +1014,8 @@ export const useStore = create<AppState>((set, get) => ({
                 const existsInMessages = state.messages.some(m => m.id === mappedMsg.id);
                 const existsInAll = (state.allMessages[chatId] || []).some(m => m.id === mappedMsg.id);
 
+                console.log(`[MESSAGE_WS] Received message ${mappedMsg.id} from ${senderId} in chat ${chatId}, exists: ${existsInMessages || existsInAll}`);
+
                 if (!existsInMessages && !existsInAll) {
                   if (!isOwnMessage) {
                     set(state2 => {
