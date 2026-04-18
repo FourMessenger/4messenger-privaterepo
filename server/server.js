@@ -4722,11 +4722,17 @@ wss.on('connection', (ws, req) => {
         }
 
         case 'call_start': {
-          if (!userId) break;
-          const callChatMembers = dbAll('SELECT user_id FROM chat_members WHERE chat_id = ? AND user_id != ?', [data.chatId, userId]);
-          callChatMembers.forEach(m => {
-            sendToUser(m.user_id, { type: 'incoming_call', chatId: data.chatId, callType: data.callType, fromUserId: userId });
-          });
+          if (!userId || !data.chatId) break;
+          // Only for group chats - notify other members that a call has started
+          // For direct chats, the P2P offer/answer handles the actual call
+          const chat = dbGet('SELECT type FROM chats WHERE id = ?', [data.chatId]);
+          if (chat?.type !== 'direct') {
+            console.log(`[CALL] Call started in group ${data.chatId} by ${userId}`);
+            const callChatMembers = dbAll('SELECT user_id FROM chat_members WHERE chat_id = ? AND user_id != ?', [data.chatId, userId]);
+            callChatMembers.forEach(m => {
+              sendToUser(m.user_id, { type: 'call_started', chatId: data.chatId, callType: data.callType, fromUserId: userId });
+            });
+          }
           break;
         }
       }

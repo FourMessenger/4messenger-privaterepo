@@ -3,34 +3,38 @@ import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, X, RefreshCw } from 'luc
 import { useStore } from '../store';
 
 // Get local STUN server URL from current host
-const getLocalStunServer = (): RTCIceServer => {
-  const host = window.location.hostname || 'localhost';
-  return { urls: `stun:${host}:3478` };
+const getIceServers = (): RTCIceServer[] => {
+  const servers: RTCIceServer[] = [];
+  
+  // Only include local STUN server if we're not on localhost with no custom domain
+  const host = window.location.hostname;
+  if (host && host !== 'localhost' && host !== '127.0.0.1') {
+    servers.push({ urls: `stun:${host}:3478` });
+  }
+  
+  // Add external STUN servers as fallback
+  servers.push(
+    // Google STUN servers
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    
+    // Twilio STUN servers (very reliable)
+    { urls: 'stun:stun.stunprotocol.org:3478' },
+    { urls: 'stun:stun1.stunprotocol.org:3478' },
+    
+    // Mozilla STUN servers
+    { urls: 'stun:stun.services.mozilla.com:3478' },
+    
+    // Other reliable providers
+    { urls: 'stun:stun.voip.blackberry.com:3478' },
+    { urls: 'stun:stun.nextcloud.com:443' },
+    { urls: 'stun:stun.opentelekomcloud.com:3478' }
+  );
+  
+  return servers;
 };
-
-// ICE servers: Local STUN (primary) + external fallbacks
-const getIceServers = (): RTCIceServer[] => [
-  // Local STUN server (primary - fastest & most reliable)
-  getLocalStunServer(),
-  
-  // Google STUN servers (fallback)
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
-  { urls: 'stun:stun2.l.google.com:19302' },
-  { urls: 'stun:stun3.l.google.com:19302' },
-  
-  // Twilio STUN servers (very reliable)
-  { urls: 'stun:stun.stunprotocol.org:3478' },
-  { urls: 'stun:stun1.stunprotocol.org:3478' },
-  
-  // Mozilla STUN servers
-  { urls: 'stun:stun.services.mozilla.com:3478' },
-  
-  // Other reliable providers
-  { urls: 'stun:stun.voip.blackberry.com:3478' },
-  { urls: 'stun:stun.nextcloud.com:443' },
-  { urls: 'stun:stun.opentelekomcloud.com:3478' },
-];
 
 interface IncomingCallData {
   from: string;
@@ -58,6 +62,7 @@ export function CallOverlay() {
   
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
@@ -78,15 +83,37 @@ export function CallOverlay() {
     console.log('[Call] Cleaning up...');
     incomingAcceptedRef.current = false;
     
+    // Stop all local media tracks (camera, mic)
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => {
         track.stop();
-        console.log('[Call] Stopped track:', track.kind);
+        console.log('[Call] Stopped local track:', track.kind);
       });
       localStreamRef.current = null;
     }
 
+    // Clear local video element
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = null;
+    }
+
+    // Stop all remote media streams (incoming audio/video)
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.srcObject = null;
+    }
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = null;
+    }
+
+    // Close peer connection
     if (peerConnectionRef.current) {
+      peerConnectionRef.current.getSenders?.()?.forEach(sender => {
+        try {
+          peerConnectionRef.current?.removeTrack(sender);
+        } catch (e) {
+          console.log('[Call] Error removing track:', e);
+        }
+      });
       peerConnectionRef.current.close();
       peerConnectionRef.current = null;
     }
@@ -94,90 +121,187 @@ export function CallOverlay() {
     pendingCandidatesRef.current = [];
   }, []);
 
+  // Helper function to detect which method to use for adding tracks
+  const getTrackAddMethod = (pc: any): string | null => {
+    if (typeof pc.addTrack === 'function') return 'addTrack';
+    if (typeof pc.addStream === 'function') return 'addStream';
+    if (typeof pc.addTransceiver === 'function') return 'addTransceiver';
+    return null;
+  };
+
   // Create peer connection with proper configuration
   const createPeerConnection = useCallback(() => {
     console.log('[Call] Creating peer connection with STUN servers');
     
-    const pc = new RTCPeerConnection({
-      iceServers: getIceServers(),
-      iceCandidatePoolSize: 10,
-    });
+    try {
+      // Log environment info
+      console.log('[Call] Browser info:', {
+        userAgent: navigator.userAgent.substring(0, 50),
+        platform: navigator.platform,
+        isSecureContext: window.isSecureContext,
+        location: window.location.protocol
+      });
 
-    // Log ICE connection state changes
-    pc.oniceconnectionstatechange = () => {
-      console.log('[Call] ICE connection state:', pc.iceConnectionState);
-      setConnectionInfo(`ICE: ${pc.iceConnectionState}`);
+      // Check if RTCPeerConnection is available
+      const RTCPeerConnectionClass = (window as any).RTCPeerConnection || 
+                                     (window as any).webkitRTCPeerConnection ||
+                                     (window as any).mozRTCPeerConnection;
       
-      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-        setCallStatus('connected');
-        if (callStartTimeRef.current === 0) {
-          callStartTimeRef.current = Date.now();
-        }
-      } else if (pc.iceConnectionState === 'failed') {
-        console.log('[Call] ICE connection failed, attempting restart...');
-        // Try ICE restart
-        pc.restartIce();
-      } else if (pc.iceConnectionState === 'disconnected') {
-        setConnectionInfo('Reconnecting...');
+      if (!RTCPeerConnectionClass) {
+        throw new Error('RTCPeerConnection is not supported in this browser');
       }
-    };
 
-    // Log ICE gathering state
-    pc.onicegatheringstatechange = () => {
-      console.log('[Call] ICE gathering state:', pc.iceGatheringState);
-    };
+      console.log('[Call] RTCPeerConnection class available, type:', typeof RTCPeerConnectionClass);
 
-    // Log signaling state
-    pc.onsignalingstatechange = () => {
-      console.log('[Call] Signaling state:', pc.signalingState);
-    };
-
-    // Handle connection state
-    pc.onconnectionstatechange = () => {
-      console.log('[Call] Connection state:', pc.connectionState);
+      const iceServers = getIceServers();
+      console.log('[Call] Using STUN servers:', iceServers.length, 'servers');
       
-      if (pc.connectionState === 'connected') {
-        setCallStatus('connected');
-      } else if (pc.connectionState === 'failed') {
-        setCallStatus('failed');
-      } else if (pc.connectionState === 'disconnected') {
-        // Give it a moment to reconnect
-        setTimeout(() => {
-          if (peerConnectionRef.current?.connectionState === 'disconnected') {
-            setCallStatus('failed');
-          }
-        }, 5000);
+      // Create with minimal config first to test
+      let pc: any;
+      try {
+        pc = new RTCPeerConnectionClass({
+          iceServers: iceServers,
+          iceCandidatePoolSize: 10,
+        });
+      } catch (constructorError) {
+        console.warn('[Call] Constructor with full config failed, trying minimal config:', constructorError);
+        // Fallback to minimal configuration
+        pc = new RTCPeerConnectionClass({
+          iceServers: iceServers,
+        });
       }
-    };
 
-    // Handle incoming tracks (remote stream)
-    pc.ontrack = (event) => {
-      console.log('[Call] Received remote track:', event.track.kind);
+      console.log('[Call] Peer connection created, type:', typeof pc);
+      console.log('[Call] Peer connection keys:', Object.keys(pc));
+      console.log('[Call] Peer connection has addTrack:', typeof pc?.addTrack);
+      console.log('[Call] Peer connection has addStream:', typeof pc?.addStream);
+      console.log('[Call] Peer connection has addTransceiver:', typeof pc?.addTransceiver);
       
-      if (remoteVideoRef.current && event.streams[0]) {
-        remoteVideoRef.current.srcObject = event.streams[0];
-        setCallStatus('connected');
+      if (!pc) {
+        throw new Error('RTCPeerConnection constructor returned null or undefined');
       }
-    };
-
-    // Handle ICE candidates - send to peer via signaling server
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        console.log('[Call] Got ICE candidate:', event.candidate.candidate.substring(0, 50) + '...');
+      
+      // Validate that we got a real peer connection object with at least one track method
+      if (Object.keys(pc).length === 0 && !pc.addTrack && !pc.addStream && !pc.addTransceiver) {
+        console.error('[Call] WARNING: Empty peer connection object detected!');
+        console.error('[Call] This may indicate:');
+        console.error('[Call] - Browser blocking WebRTC (due to permissions, security, or extensions)');
+        console.error('[Call] - Developer tools or debugger interference');
+        console.error('[Call] - Restricted browser environment (iframe with sandbox)');
+        console.error('[Call] - Security policy preventing WebRTC initialization');
+        console.error('[Call] Full object:', JSON.stringify(pc, null, 2));
         
-        if (websocket?.readyState === WebSocket.OPEN && signalingTargetUserId) {
-          websocket.send(JSON.stringify({
-            type: 'call_ice_candidate',
-            targetUserId: signalingTargetUserId,
-            candidate: event.candidate.toJSON()
-          }));
-        }
-      } else {
-        console.log('[Call] ICE gathering completed');
+        // Try to get more info
+        const descriptor = Object.getOwnPropertyDescriptor(pc, 'addTrack');
+        console.error('[Call] addTrack descriptor:', descriptor);
+        
+        throw new Error('RTCPeerConnection created but appears to be empty/blocked by browser security. Check console for details.');
       }
-    };
+      
+      // Store which method we'll use for adding tracks
+      const trackMethod = getTrackAddMethod(pc);
+      if (!trackMethod) {
+        console.error('[Call] Peer connection object:', pc);
+        console.error('[Call] Object.keys:', Object.keys(pc).slice(0, 20));
+        console.error('[Call] Prototype:', Object.getPrototypeOf(pc));
+        throw new Error('RTCPeerConnection does not support any method to add tracks (addTrack, addStream, or addTransceiver)');
+      }
+      (pc as any)._trackAddMethod = trackMethod;
+      console.log('[Call] Will use track method:', trackMethod);
 
-    return pc;
+      console.log('[Call] Peer connection created successfully');
+
+      // Log ICE connection state changes
+      pc.oniceconnectionstatechange = () => {
+        console.log('[Call] ICE connection state:', pc.iceConnectionState);
+        setConnectionInfo(`ICE: ${pc.iceConnectionState}`);
+        
+        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+          setCallStatus('connected');
+          if (callStartTimeRef.current === 0) {
+            callStartTimeRef.current = Date.now();
+          }
+        } else if (pc.iceConnectionState === 'failed') {
+          console.log('[Call] ICE connection failed, attempting restart...');
+          // Try ICE restart
+          pc.restartIce();
+        } else if (pc.iceConnectionState === 'disconnected') {
+          setConnectionInfo('Reconnecting...');
+        }
+      };
+
+      // Log ICE gathering state
+      pc.onicegatheringstatechange = () => {
+        console.log('[Call] ICE gathering state:', pc.iceGatheringState);
+      };
+
+      // Log signaling state
+      pc.onsignalingstatechange = () => {
+        console.log('[Call] Signaling state:', pc.signalingState);
+      };
+
+      // Handle connection state
+      pc.onconnectionstatechange = () => {
+        console.log('[Call] Connection state:', pc.connectionState);
+        
+        if (pc.connectionState === 'connected') {
+          setCallStatus('connected');
+        } else if (pc.connectionState === 'failed') {
+          setCallStatus('failed');
+        } else if (pc.connectionState === 'disconnected') {
+          // Give it a moment to reconnect
+          setTimeout(() => {
+            if (peerConnectionRef.current?.connectionState === 'disconnected') {
+              setCallStatus('failed');
+            }
+          }, 5000);
+        }
+      };
+
+      // Handle incoming tracks (remote stream)
+      pc.ontrack = (event) => {
+        console.log('[Call] Received remote track:', event.track.kind);
+        
+        // Handle audio tracks - attach to audio element for voice calls
+        if (event.track.kind === 'audio') {
+          if (remoteAudioRef.current && event.streams[0]) {
+            remoteAudioRef.current.srcObject = event.streams[0];
+            console.log('[Call] Audio stream attached to audio element');
+          }
+        }
+        // Handle video tracks - attach to video element
+        else if (event.track.kind === 'video') {
+          if (remoteVideoRef.current && event.streams[0]) {
+            remoteVideoRef.current.srcObject = event.streams[0];
+            console.log('[Call] Video stream attached to video element');
+          }
+        }
+        setCallStatus('connected');
+      };
+
+      // Handle ICE candidates - send to peer via signaling server
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          console.log('[Call] Got ICE candidate:', event.candidate.candidate.substring(0, 50) + '...');
+          
+          if (websocket?.readyState === WebSocket.OPEN && signalingTargetUserId) {
+            websocket.send(JSON.stringify({
+              type: 'call_ice_candidate',
+              targetUserId: signalingTargetUserId,
+              candidate: event.candidate.toJSON()
+            }));
+          }
+        } else {
+          console.log('[Call] ICE gathering completed');
+        }
+      };
+
+      return pc;
+    } catch (error) {
+      console.error('[Call] Failed to create RTCPeerConnection:', error);
+      setCallStatus('failed');
+      throw error;
+    }
   }, [websocket, signalingTargetUserId]);
 
   // Add pending ICE candidates
@@ -205,15 +329,7 @@ export function CallOverlay() {
     setCallStatus('ringing');
 
     try {
-      // Step 1: Notify server that a call is starting (so it can notify other participants)
-      console.log('[Call] Notifying server of call start');
-      websocket.send(JSON.stringify({
-        type: 'call_start',
-        chatId: callState.chatId,
-        callType: callState.type
-      }));
-
-      // Get local media stream
+      // Get local media stream first
       const stream = await navigator.mediaDevices.getUserMedia({
         video: callState.type === 'video',
         audio: true
@@ -227,15 +343,37 @@ export function CallOverlay() {
 
       // Create peer connection
       const pc = createPeerConnection();
+      if (!pc) {
+        throw new Error('Failed to create peer connection');
+      }
       peerConnectionRef.current = pc;
 
       // Add local tracks to connection
       stream.getTracks().forEach(track => {
+        if (!track) return;
         console.log('[Call] Adding local track:', track.kind);
-        pc.addTrack(track, stream);
+        
+        const method = (pc as any)._trackAddMethod;
+        try {
+          if (method === 'addTrack' && typeof pc.addTrack === 'function') {
+            pc.addTrack(track, stream);
+            console.log('[Call] Added track via addTrack');
+          } else if (method === 'addStream' && typeof pc.addStream === 'function') {
+            pc.addStream(stream);
+            console.log('[Call] Added track via addStream');
+          } else if (method === 'addTransceiver' && typeof pc.addTransceiver === 'function') {
+            pc.addTransceiver(track, { streams: [stream] });
+            console.log('[Call] Added track via addTransceiver');
+          } else {
+            throw new Error(`Cannot add track - no method available (detected: ${method})`);
+          }
+        } catch (err) {
+          console.error('[Call] Error adding track:', err);
+          throw err;
+        }
       });
 
-      // Create offer with ICE restart capability
+      // Create offer BEFORE notifying server
       const offer = await pc.createOffer({
         offerToReceiveAudio: true,
         offerToReceiveVideo: callState.type === 'video',
@@ -245,11 +383,20 @@ export function CallOverlay() {
       await pc.setLocalDescription(offer);
       console.log('[Call] Created and set local offer');
 
-      // Step 2: Send offer to peer
+      // Step 1: Send offer to peer (this implicitly starts the call with the offer ready)
+      console.log('[Call] Sending offer to peer');
       websocket.send(JSON.stringify({
         type: 'call_offer',
         targetUserId: otherUserId,
         offer: pc.localDescription,
+        callType: callState.type
+      }));
+
+      // Step 2: Notify server that a call is starting (redundant but kept for other participants in group chats)
+      console.log('[Call] Notifying server of call start');
+      websocket.send(JSON.stringify({
+        type: 'call_start',
+        chatId: callState.chatId,
         callType: callState.type
       }));
 
@@ -280,12 +427,26 @@ export function CallOverlay() {
 
   // Answer incoming call
   const handleAnswerCall = useCallback(async () => {
-    if (!incomingCall || !websocket || !incomingCall.offer) {
-      console.error('[Call] Missing data to answer call');
+    console.log('[Call] Accept button clicked');
+    console.log('[Call] incomingCall:', incomingCall);
+    console.log('[Call] websocket status:', websocket?.readyState);
+    
+    if (!incomingCall) {
+      console.error('[Call] No incoming call data');
+      return;
+    }
+    
+    if (!websocket) {
+      console.error('[Call] WebSocket not connected');
+      return;
+    }
+    
+    if (!incomingCall.offer) {
+      console.error('[Call] No offer in incoming call', incomingCall);
       return;
     }
 
-    console.log('[Call] Answering incoming call');
+    console.log('[Call] Answering incoming call from:', incomingCall.from);
     isInitiatorRef.current = false;
     incomingAcceptedRef.current = true;
     setCallStatus('connecting');
@@ -293,17 +454,23 @@ export function CallOverlay() {
     try {
       // Ensure call overlay stays mounted after accepting by activating callState for callee
       if (currentUser?.id) {
+        console.log('[Call] Current user:', currentUser.id);
         const directChat = chats.find(c => 
           c.type === 'direct' && c.participants.includes(currentUser.id) && c.participants.includes(incomingCall.from)
         );
+        console.log('[Call] Found direct chat:', directChat?.id);
         beginCall(directChat?.id || null, incomingCall.type, [currentUser.id, incomingCall.from]);
+      } else {
+        console.error('[Call] No current user');
       }
 
       // Get local media stream
+      console.log('[Call] Requesting media stream...');
       const stream = await navigator.mediaDevices.getUserMedia({
         video: incomingCall.type === 'video',
         audio: true
       });
+      console.log('[Call] Got media stream with tracks:', stream.getTracks().map(t => t.kind));
       
       localStreamRef.current = stream;
       
@@ -312,6 +479,7 @@ export function CallOverlay() {
       }
 
       // Create peer connection
+      console.log('[Call] Creating peer connection...');
       const pc = createPeerConnection();
       peerConnectionRef.current = pc;
 
@@ -322,32 +490,41 @@ export function CallOverlay() {
       });
 
       // Set remote description (the offer)
+      console.log('[Call] Setting remote description...');
       await pc.setRemoteDescription(new RTCSessionDescription(incomingCall.offer));
       console.log('[Call] Set remote offer');
 
       // Add any pending ICE candidates
+      console.log('[Call] Adding pending ICE candidates...');
       await addPendingCandidates(pc);
 
       // Create answer
+      console.log('[Call] Creating answer...');
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       console.log('[Call] Created and set local answer');
 
       // Send answer to caller
+      console.log('[Call] Sending answer to caller...');
       websocket.send(JSON.stringify({
         type: 'call_answer',
         targetUserId: incomingCall.from,
         answer: pc.localDescription
       }));
+      console.log('[Call] Answer sent successfully');
 
       setIncomingCall(null);
 
     } catch (error) {
       console.error('[Call] Failed to answer call:', error);
+      if (error instanceof Error) {
+        console.error('[Call] Error message:', error.message);
+        console.error('[Call] Error stack:', error.stack);
+      }
       setCallStatus('failed');
       setIncomingCall(null);
     }
-  }, [incomingCall, websocket, createPeerConnection, addPendingCandidates]);
+  }, [incomingCall, websocket, createPeerConnection, addPendingCandidates, currentUser, chats, beginCall]);
 
   // Reject incoming call
   const handleRejectCall = useCallback(() => {
@@ -410,7 +587,7 @@ export function CallOverlay() {
     }, 500);
   }, [cleanup, initOutgoingCall]);
 
-  // Initialize call on mount
+  // Initialize call on mount or when callState becomes active
   useEffect(() => {
     // Only auto-start signaling for outgoing calls if not already started
     // For incoming calls, we accept and create the peer connection in `handleAnswerCall`.
@@ -418,12 +595,17 @@ export function CallOverlay() {
       initializationStartedRef.current = true;
       initOutgoingCall();
     }
-
+  }, [callState.active, incomingCall, initOutgoingCall]); // Added dependencies so effect re-runs when call becomes active
+  
+  // Cleanup when call ends or component unmounts
+  useEffect(() => {
     return () => {
-      cleanup();
-      initializationStartedRef.current = false;
+      if (callState.active === false) {
+        cleanup();
+        initializationStartedRef.current = false;
+      }
     };
-  }, [callState.active, incomingCall, initOutgoingCall, cleanup]);
+  }, [callState.active, cleanup]);
 
   // Handle WebSocket messages for call signaling
   useEffect(() => {
@@ -435,12 +617,21 @@ export function CallOverlay() {
         
         switch (data.type) {
           case 'incoming_call': {
-            console.log('[Call] Incoming call from:', data.fromUserId);
-            setIncomingCall({
-              from: data.fromUserId,
-              type: data.callType || 'voice',
-              offer: data.offer
-            });
+            console.log('[Call] Incoming call from:', data.fromUserId, 'with offer:', !!data.offer);
+            // Only set incoming call if we have an actual offer (P2P signaling)
+            if (data.offer) {
+              setIncomingCall({
+                from: data.fromUserId,
+                type: data.callType || 'voice',
+                offer: data.offer
+              });
+            }
+            break;
+          }
+          
+          case 'call_started': {
+            // Group call started notification (for future group call UI)
+            console.log('[Call] Group call started in', data.chatId, 'by', data.fromUserId);
             break;
           }
           
@@ -474,6 +665,7 @@ export function CallOverlay() {
           
           case 'call_reject': {
             console.log('[Call] Call rejected');
+            setIncomingCall(null);  // ✅ Clear incoming call UI
             cleanup();
             setCallStatus('ended');
             endCall();
@@ -482,6 +674,7 @@ export function CallOverlay() {
           
           case 'call_end': {
             console.log('[Call] Call ended by peer');
+            setIncomingCall(null);  // ✅ Clear incoming call UI
             cleanup();
             setCallStatus('ended');
             endCall();
@@ -574,9 +767,16 @@ export function CallOverlay() {
   // Active call UI
   return (
     <div className="fixed inset-0 z-[100] flex flex-col bg-gray-950 animate-fadeIn">
+      {/* Hidden audio element for remote audio (voice calls) */}
+      <audio
+        ref={remoteAudioRef}
+        autoPlay
+        playsInline
+      />
+      
       {/* Remote video / Avatar */}
       <div className="flex-1 relative bg-black flex items-center justify-center overflow-hidden">
-        {callState.type === 'video' && callStatus === 'connected' ? (
+        {callState.type === 'video' && (callStatus === 'connected' || callStatus === 'ringing' || callStatus === 'connecting') ? (
           <video
             ref={remoteVideoRef}
             autoPlay
