@@ -1,6 +1,7 @@
 package com.messenger4.android
 
 import android.app.Activity
+import android.content.pm.PackageManager
 import android.widget.Toast
 
 class WebAppInterface(private val activity: Activity) {
@@ -17,7 +18,8 @@ class WebAppInterface(private val activity: Activity) {
     @android.webkit.JavascriptInterface
     fun getAppVersion(): String {
         return try {
-            BuildConfig.VERSION_NAME
+            val packageInfo = activity.packageManager.getPackageInfo(activity.packageName, 0)
+            packageInfo.versionName ?: "1.0.0"
         } catch (e: Exception) {
             android.util.Log.e("WebAppInterface", "Error getting app version", e)
             "unknown"
@@ -34,7 +36,7 @@ class WebAppInterface(private val activity: Activity) {
                 "deviceModel": "${android.os.Build.MODEL}",
                 "manufacturer": "${android.os.Build.MANUFACTURER}"
             }
-        """.trimIndent()
+            """.trimIndent()
         } catch (e: Exception) {
             android.util.Log.e("WebAppInterface", "Error getting device info", e)
             "{}"

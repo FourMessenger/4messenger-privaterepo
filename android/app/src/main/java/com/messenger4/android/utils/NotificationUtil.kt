@@ -9,6 +9,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.messenger4.android.MainActivity
 import com.messenger4.android.models.VersionInfo
+import com.google.gson.Gson
 
 object NotificationUtil {
 
@@ -83,14 +84,17 @@ object NotificationUtil {
     }
 
     fun showRequiredUpdateNotification(context: Context, versionInfo: VersionInfo) {
+        // Convert VersionInfo to JSON string to pass as extra
+        val versionInfoJson = Gson().toJson(versionInfo)
+        
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             putExtra("update_available", true)
             putExtra("required_update", true)
-            putExtra("version_info", versionInfo)
+            putExtra("version_info_json", versionInfoJson)
         }
         val pendingIntent =
-            PendingIntent.getActivity(context, 1, intent, PendingIntent.FLAG_UPDATE_CURRENT)
+            PendingIntent.getActivity(context, 1, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
         val notification = NotificationCompat.Builder(context, UPDATE_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
@@ -99,7 +103,7 @@ object NotificationUtil {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
-            .setOngoing(true)  // Can't be dismissed
+            .setOngoing(true)
             .build()
 
         val notificationManager =
@@ -108,14 +112,17 @@ object NotificationUtil {
     }
 
     fun showOptionalUpdateNotification(context: Context, versionInfo: VersionInfo) {
+        // Convert VersionInfo to JSON string to pass as extra
+        val versionInfoJson = Gson().toJson(versionInfo)
+        
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             putExtra("update_available", true)
             putExtra("required_update", false)
-            putExtra("version_info", versionInfo)
+            putExtra("version_info_json", versionInfoJson)
         }
         val pendingIntent =
-            PendingIntent.getActivity(context, 2, intent, PendingIntent.FLAG_UPDATE_CURRENT)
+            PendingIntent.getActivity(context, 2, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
         val notification = NotificationCompat.Builder(context, UPDATE_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)

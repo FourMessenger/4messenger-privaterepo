@@ -1,5 +1,6 @@
 plugins {
     id("com.android.application")
+    id("org.jetbrains.kotlin.android")  // ЭТА СТРОКА КРИТИЧЕСКИ ВАЖНА!
 }
 
 android {
@@ -25,11 +26,19 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+    
+    kotlinOptions {  // ТОЖЕ ДОБАВЬТЕ
+        jvmTarget = "11"
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
 }
 
 dependencies {
     // Core Android
-    implementation("androidx.core:core:1.12.0")
+    implementation("androidx.core:core-ktx:1.12.0")  // Используйте core-ktx вместо core
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.multidex:multidex:2.0.1")
@@ -44,6 +53,9 @@ dependencies {
     // WorkManager for background tasks
     implementation("androidx.work:work-runtime-ktx:2.8.1")
     
+    // Coroutines (необходимы для CoroutineWorker)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    
     // Networking
     implementation("com.squareup.okhttp3:okhttp:4.11.0")
     implementation("com.google.code.gson:gson:2.10.1")
@@ -53,9 +65,6 @@ dependencies {
     
     // Local storage
     implementation("androidx.room:room-runtime:2.6.1")
-    
-    // Notifications
-    implementation("androidx.core:core:1.12.0")
     
     // Testing
     testImplementation("junit:junit:4.13.2")

@@ -1,6 +1,7 @@
 package com.messenger4.android.services
 
 import android.app.Service
+import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -8,6 +9,7 @@ import android.os.Build
 import android.os.IBinder
 import android.provider.MediaStore
 import android.util.Log
+import androidx.core.content.FileProvider
 import com.messenger4.android.models.FileTransfer
 import com.messenger4.android.utils.NotificationUtil
 import com.google.gson.Gson
@@ -16,8 +18,10 @@ import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
-import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.io.InputStream
 import java.util.concurrent.TimeUnit
 import java.util.Collections
 
@@ -67,11 +71,24 @@ class FileUploadService : Service() {
         Thread {
             try {
                 val fileName = getFileName(fileUri)
+                val fileSize = getFileSize(fileUri)
+                val file = getFileFromUri(fileUri)
+                
+                if (file == null) {
+                    Log.e("FileUploadService", "Failed to get file from URI")
+                    NotificationUtil.showNotification(
+                        this,
+                        "Upload Failed",
+                        "Could not access file"
+                    )
+                    return@Thread
+                }
+                
                 val fileTransfer = FileTransfer(
                     id = fileName,
                     fileName = fileName,
                     url = serverUrl,
-                    size = getFileSize(fileUri),
+                    size = fileSize,
                     progress = 0,
                     status = "uploading",
                     timestamp = System.currentTimeMillis()
@@ -86,21 +103,16 @@ class FileUploadService : Service() {
                     "Starting upload of $fileName"
                 )
 
-                // Get file content
-                val inputStream = FileInputStream(getRealPath(fileUri))
-                val fileBytes = inputStream.readBytes()
-                inputStream.close()
-
                 // Create multipart request
                 val requestBody = MultipartBody.Builder()
                     .setType(MultipartBody.FORM)
                     .addFormDataPart(
                         "file",
                         fileName,
-                        fileBytes.asRequestBody("*/*".toMediaType())
+                        file.asRequestBody("application/octet-stream".toMediaType())
                     )
                     .addFormDataPart("fileName", fileName)
-                    .addFormDataPart("fileSize", fileTransfer.size.toString())
+                    .addFormDataPart("fileSize", fileSize.toString())
                     .build()
 
                 val request = Request.Builder()
@@ -127,7 +139,7 @@ class FileUploadService : Service() {
                     NotificationUtil.showNotification(
                         this,
                         "Upload Failed",
-                        "Failed to upload $fileName"
+                        "Failed to upload $fileName: ${response.code}"
                     )
                 }
 
@@ -139,7 +151,7 @@ class FileUploadService : Service() {
                 NotificationUtil.showNotification(
                     this,
                     "Upload Error",
-                    "An error occurred during upload"
+                    "Error: ${e.message}"
                 )
             }
         }.start()
@@ -158,8 +170,6 @@ class FileUploadService : Service() {
     }
 
     private fun resumeUpload(fileTransfer: FileTransfer) {
-        // For simplicity, restart the upload
-        // In production, implement resumable uploads using Range headers
         try {
             val fileUri = Uri.parse(fileTransfer.url)
             startUpload(fileUri, fileTransfer.url, 0)
@@ -176,6 +186,32 @@ class FileUploadService : Service() {
                 "Upload Cancelled",
                 "Upload has been cancelled"
             )
+        }
+    }
+
+    private fun getFileFromUri(uri: Uri): File? {
+        return when {
+            uri.scheme == "file" -> {
+                File(uri.path ?: "")
+            }
+            uri.scheme == "content" -> {
+                try {
+                    // Create a temporary file
+                    val fileName = getFileName(uri)
+                    val tempFile = File(cacheDir, fileName)
+                    
+                    contentResolver.openInputStream(uri)?.use { inputStream ->
+                        FileOutputStream(tempFile).use { outputStream ->
+                            inputStream.copyTo(outputStream)
+                        }
+                    }
+                    tempFile
+                } catch (e: Exception) {
+                    Log.e("FileUploadService", "Error copying content URI to file", e)
+                    null
+                }
+            }
+            else -> null
         }
     }
 

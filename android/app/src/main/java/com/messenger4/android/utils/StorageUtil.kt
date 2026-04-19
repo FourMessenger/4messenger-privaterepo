@@ -48,9 +48,10 @@ object StorageUtil {
     }
 
     fun getAppCacheDir(): File {
+        // Используем DIRECTORY_DOWNLOADS вместо DIRECTORY_CACHE (который не существует)
         return File(
-            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_CACHE),
-            "4Messenger"
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+            "4Messenger/cache"
         )
     }
 }

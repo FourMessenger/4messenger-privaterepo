@@ -13,8 +13,8 @@ data class FileTransfer(
     val fileName: String,
     val url: String,
     val size: Long,
-    val progress: Int = 0,
-    val status: String = "pending", // pending, uploading, downloading, paused, completed, failed
+    var progress: Int = 0,  // changed from val to var
+    var status: String = "pending", // changed from val to var
     val timestamp: Long = System.currentTimeMillis(),
     val downloadId: Long = -1L
 )

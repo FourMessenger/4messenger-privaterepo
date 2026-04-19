@@ -9,12 +9,15 @@ import android.webkit.WebChromeClient
 import android.webkit.WebViewClient
 import android.widget.Toast
 import android.webkit.WebView
+import android.webkit.WebSettings
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.messenger4.android.services.PushNotificationService
+import com.messenger4.android.services.UpdateCheckService
 import com.messenger4.android.services.PushNotificationWorker
 import com.messenger4.android.services.UpdateCheckWorker
 import com.messenger4.android.utils.StorageUtil
@@ -113,7 +116,7 @@ class MainActivity : AppCompatActivity() {
                     databaseEnabled = true
                     mediaPlaybackRequiresUserGesture = false
                     allowFileAccess = true
-                    mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALLOW_ALL
+                    mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                 }
 
                 webViewClient = object : WebViewClient() {

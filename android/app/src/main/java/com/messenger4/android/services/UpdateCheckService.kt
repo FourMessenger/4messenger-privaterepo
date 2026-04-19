@@ -1,5 +1,4 @@
 package com.messenger4.android.services
-
 import android.app.Notification
 import android.app.Service
 import android.content.Context
@@ -20,6 +19,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
+import com.messenger4.android.BuildConfig
 
 class UpdateCheckService : Service() {
     companion object {
@@ -97,7 +97,7 @@ class UpdateCheckWorker(
 
     private suspend fun handleVersionUpdate(versionInfo: VersionInfo) {
         return withContext(Dispatchers.Main) {
-            val currentVersion = BuildConfig.VERSION_NAME ?: "0.0.0"
+            val currentVersion = applicationContext.packageManager.getPackageInfo(applicationContext.packageName, 0).versionName ?: "0.0.0" ?: "0.0.0"
             val latestVersion = versionInfo.version
 
             if (isNewVersionAvailable(currentVersion, latestVersion)) {
