@@ -159,21 +159,74 @@ export function ConnectScreen() {
         </div>
 
         {/* Selectors - Language, Theme, and Custom Themes */}
-        <div className="absolute top-4 right-4 flex items-center gap-2">
-          {/* Custom Theme Selector */}
-          <button
-            onClick={() => setShowThemeSelector(!showThemeSelector)}
-            className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${
-              isDarkTheme
-                ? 'border-white/10 bg-white/5 text-gray-300 hover:bg-white/10'
-                : 'border-gray-300 bg-white/60 text-gray-700 hover:bg-white/80'
-            }`}
-            title="Manage themes"
-          >
-            <Palette className="h-4 w-4" />
-          </button>
-          
-          {/* Theme Selector Dropdown */}
+        <div className="absolute top-4 left-4 right-4 flex items-center justify-between gap-2">
+          {/* Language Selector */}
+          <div className="relative">
+            <button
+              onClick={() => setShowLanguageMenu(!showLanguageMenu)}
+              className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${
+                isDarkTheme
+                  ? 'border-white/10 bg-white/5 text-gray-300 hover:bg-white/10'
+                  : 'border-gray-300 bg-white/60 text-gray-700 hover:bg-white/80'
+              }`}
+            >
+              <Languages className="h-4 w-4" />
+              {languages.find(l => l.code === language)?.flag}
+            </button>
+            
+            {showLanguageMenu && (
+              <>
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setShowLanguageMenu(false)}
+                />
+                <div className={`absolute left-0 mt-2 z-50 w-40 rounded-xl border shadow-xl overflow-hidden ${
+                  isDarkTheme
+                    ? 'border-white/10 bg-gray-900'
+                    : 'border-gray-300 bg-white'
+                }`}>
+                  {languages.map((lang) => (
+                    <button
+                      key={lang.code}
+                      onClick={() => {
+                        setLanguage(lang.code);
+                        setShowLanguageMenu(false);
+                      }}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm transition ${
+                        language === lang.code 
+                          ? isDarkTheme
+                            ? 'bg-indigo-500/20 text-indigo-300'
+                            : 'bg-indigo-100 text-indigo-700'
+                          : isDarkTheme
+                            ? 'text-gray-300 hover:bg-white/5'
+                            : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <span className="text-lg">{lang.flag}</span>
+                      <span>{lang.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Theme Buttons - positioned on the right */}
+          <div className="flex items-center gap-2">
+            {/* Custom Theme Selector */}
+            <button
+              onClick={() => setShowThemeSelector(!showThemeSelector)}
+              className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${
+                isDarkTheme
+                  ? 'border-white/10 bg-white/5 text-gray-300 hover:bg-white/10'
+                  : 'border-gray-300 bg-white/60 text-gray-700 hover:bg-white/80'
+              }`}
+              title="Manage themes"
+            >
+              <Palette className="h-4 w-4" />
+            </button>
+            
+            {/* Theme Selector Dropdown */}
             <button
               onClick={() => setShowThemeMenu(!showThemeMenu)}
               className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${
@@ -223,56 +276,6 @@ export function ConnectScreen() {
                         <theme.icon className="h-4 w-4" />
                       )}
                       <span>{theme.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-
-          {/* Language Selector */}
-          <div className="relative">
-            <button
-              onClick={() => setShowLanguageMenu(!showLanguageMenu)}
-              className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${
-                isDarkTheme
-                  ? 'border-white/10 bg-white/5 text-gray-300 hover:bg-white/10'
-                  : 'border-gray-300 bg-white/60 text-gray-700 hover:bg-white/80'
-              }`}
-            >
-              <Languages className="h-4 w-4" />
-              {languages.find(l => l.code === language)?.flag}
-            </button>
-            
-            {showLanguageMenu && (
-              <>
-                <div 
-                  className="fixed inset-0 z-40" 
-                  onClick={() => setShowLanguageMenu(false)}
-                />
-                <div className={`absolute right-0 mt-2 z-50 w-40 rounded-xl border shadow-xl overflow-hidden ${
-                  isDarkTheme
-                    ? 'border-white/10 bg-gray-900'
-                    : 'border-gray-300 bg-white'
-                }`}>
-                  {languages.map((lang) => (
-                    <button
-                      key={lang.code}
-                      onClick={() => {
-                        setLanguage(lang.code);
-                        setShowLanguageMenu(false);
-                      }}
-                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm transition ${
-                        language === lang.code 
-                          ? isDarkTheme
-                            ? 'bg-indigo-500/20 text-indigo-300'
-                            : 'bg-indigo-100 text-indigo-700'
-                          : isDarkTheme
-                            ? 'text-gray-300 hover:bg-white/5'
-                            : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    >
-                      <span className="text-lg">{lang.flag}</span>
-                      <span>{lang.name}</span>
                     </button>
                   ))}
                 </div>
