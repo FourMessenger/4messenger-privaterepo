@@ -63,8 +63,11 @@ export function CallOverlay() {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
+  
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const remoteStreamRef = useRef<MediaStream | null>(null); // ✅ Добавлен ref для удаленного потока
+  
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const isInitiatorRef = useRef(false);
   const callStartTimeRef = useRef<number>(0);
@@ -91,6 +94,9 @@ export function CallOverlay() {
       });
       localStreamRef.current = null;
     }
+
+    // ✅ Очищаем сохраненный удаленный поток
+    remoteStreamRef.current = null;
 
     // Clear local video element
     if (localVideoRef.current) {
@@ -262,18 +268,32 @@ export function CallOverlay() {
       pc.ontrack = (event) => {
         console.log('[Call] Received remote track:', event.track.kind);
         
+        // ✅ СОХРАНЯЕМ ПОТОК, чтобы он не потерялся во время смены UI экранов в React
+        if (event.streams && event.streams[0]) {
+          remoteStreamRef.current = event.streams[0];
+        } else {
+          if (!remoteStreamRef.current) {
+            remoteStreamRef.current = new MediaStream();
+          }
+          remoteStreamRef.current.addTrack(event.track);
+        }
+
         // Handle audio tracks - attach to audio element for voice calls
         if (event.track.kind === 'audio') {
-          if (remoteAudioRef.current && event.streams[0]) {
-            remoteAudioRef.current.srcObject = event.streams[0];
-            console.log('[Call] Audio stream attached to audio element');
+          if (remoteAudioRef.current) {
+            remoteAudioRef.current.srcObject = remoteStreamRef.current;
+            console.log('[Call] Audio stream attached to audio element immediately');
+          } else {
+            console.log('[Call] Audio ref is null (UI not rendered yet), will attach via effect');
           }
         }
         // Handle video tracks - attach to video element
         else if (event.track.kind === 'video') {
-          if (remoteVideoRef.current && event.streams[0]) {
-            remoteVideoRef.current.srcObject = event.streams[0];
-            console.log('[Call] Video stream attached to video element');
+          if (remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = remoteStreamRef.current;
+            console.log('[Call] Video stream attached to video element immediately');
+          } else {
+            console.log('[Call] Video ref is null (UI not rendered yet), will attach via effect');
           }
         }
         setCallStatus('connected');
@@ -483,10 +503,23 @@ export function CallOverlay() {
       const pc = createPeerConnection();
       peerConnectionRef.current = pc;
 
-      // Add local tracks
+      // ✅ Используем безопасное добавление треков, как при исходящем звонке
       stream.getTracks().forEach(track => {
         console.log('[Call] Adding local track:', track.kind);
-        pc.addTrack(track, stream);
+        const method = (pc as any)._trackAddMethod;
+        try {
+          if (method === 'addTrack' && typeof pc.addTrack === 'function') {
+            pc.addTrack(track, stream);
+          } else if (method === 'addStream' && typeof pc.addStream === 'function') {
+            pc.addStream(stream);
+          } else if (method === 'addTransceiver' && typeof pc.addTransceiver === 'function') {
+            pc.addTransceiver(track, { streams: [stream] });
+          } else {
+            pc.addTrack(track, stream); // Fallback
+          }
+        } catch (err) {
+          console.error('[Call] Error adding track:', err);
+        }
       });
 
       // Set remote description (the offer)
@@ -587,15 +620,37 @@ export function CallOverlay() {
     }, 500);
   }, [cleanup, initOutgoingCall]);
 
+  // ✅ НОВЫЙ ХУК: Синхронизирует потоки (refs) с HTML-элементами после рендера UI звонка.
+  // Это решает проблему одностороннего звука: когда incomingCall сбрасывается в null,
+  // появляется <audio> тег, и мы "докидываем" в него поток.
+  useEffect(() => {
+    if (!incomingCall) {
+      // Синхронизируем локальный видео-поток (чтобы мы видели сами себя после ответа)
+      if (localStreamRef.current && localVideoRef.current && localVideoRef.current.srcObject !== localStreamRef.current) {
+        localVideoRef.current.srcObject = localStreamRef.current;
+      }
+      
+      // Синхронизируем удаленные потоки (чтобы мы слышали/видели собеседника)
+      if (remoteStreamRef.current) {
+        if (remoteAudioRef.current && remoteAudioRef.current.srcObject !== remoteStreamRef.current) {
+          remoteAudioRef.current.srcObject = remoteStreamRef.current;
+          console.log('[Call] Effect: Audio stream attached');
+        }
+        if (remoteVideoRef.current && remoteVideoRef.current.srcObject !== remoteStreamRef.current) {
+          remoteVideoRef.current.srcObject = remoteStreamRef.current;
+          console.log('[Call] Effect: Video stream attached');
+        }
+      }
+    }
+  }, [incomingCall, callStatus]);
+
   // Initialize call on mount or when callState becomes active
   useEffect(() => {
-    // Only auto-start signaling for outgoing calls if not already started
-    // For incoming calls, we accept and create the peer connection in `handleAnswerCall`.
     if (callState.active && !incomingCall && !incomingAcceptedRef.current && !initializationStartedRef.current) {
       initializationStartedRef.current = true;
       initOutgoingCall();
     }
-  }, [callState.active, incomingCall, initOutgoingCall]); // Added dependencies so effect re-runs when call becomes active
+  }, [callState.active, incomingCall, initOutgoingCall]);
   
   // Cleanup when call ends or component unmounts
   useEffect(() => {
@@ -618,7 +673,6 @@ export function CallOverlay() {
         switch (data.type) {
           case 'incoming_call': {
             console.log('[Call] Incoming call from:', data.fromUserId, 'with offer:', !!data.offer);
-            // Only set incoming call if we have an actual offer (P2P signaling)
             if (data.offer) {
               setIncomingCall({
                 from: data.fromUserId,
@@ -630,7 +684,6 @@ export function CallOverlay() {
           }
           
           case 'call_started': {
-            // Group call started notification (for future group call UI)
             console.log('[Call] Group call started in', data.chatId, 'by', data.fromUserId);
             break;
           }
@@ -655,7 +708,6 @@ export function CallOverlay() {
                   console.warn('[Call] Failed to add ICE candidate:', e);
                 }
               } else {
-                // Queue candidate if remote description not set yet
                 console.log('[Call] Queuing ICE candidate');
                 pendingCandidatesRef.current.push(data.candidate);
               }
@@ -665,7 +717,7 @@ export function CallOverlay() {
           
           case 'call_reject': {
             console.log('[Call] Call rejected');
-            setIncomingCall(null);  // ✅ Clear incoming call UI
+            setIncomingCall(null);
             cleanup();
             setCallStatus('ended');
             endCall();
@@ -674,7 +726,7 @@ export function CallOverlay() {
           
           case 'call_end': {
             console.log('[Call] Call ended by peer');
-            setIncomingCall(null);  // ✅ Clear incoming call UI
+            setIncomingCall(null);
             cleanup();
             setCallStatus('ended');
             endCall();
