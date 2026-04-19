@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useStore, ServerShortcut } from '../store';
 import { Globe, ArrowRight, Shield, MessageSquare, AlertCircle, Loader2, Server, Plus, X, Star, Languages, FileText, CheckCircle, Moon, Sun, Github, Rss, Lock, Palette, Layers, Trash } from 'lucide-react';
-import PrivacyPolicy from './PrivacyPolicy';
 
 export function ConnectScreen() {
   const [url, setUrl] = useState('');
@@ -10,6 +9,8 @@ export function ConnectScreen() {
   const [shortcutUrl, setShortcutUrl] = useState('');
   const [showThemeSelector, setShowThemeSelector] = useState(false);
   const themeFileInputRef = useRef<HTMLInputElement>(null);
+  const [policyStage, setPolicyStage] = useState<'initial' | 'reading'>('initial');
+  const [policyContent, setPolicyContent] = useState<string>('');
   
   const { 
     setServerUrl, 
@@ -39,7 +40,6 @@ export function ConnectScreen() {
 
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [pendingServerUrl, setPendingServerUrl] = useState<string | null>(null);
-  const [showFullPolicy, setShowFullPolicy] = useState(false);
 
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
   const [showThemeMenu, setShowThemeMenu] = useState(false);
@@ -91,7 +91,8 @@ export function ConnectScreen() {
     // Save acceptance to localStorage - this ensures it only appears once globally
     acceptPrivacyPolicy();
     setShowPrivacyModal(false);
-    setShowFullPolicy(false);
+    setPolicyStage('initial');
+    setPolicyContent('');
     // If there was a pending connection, proceed with it
     if (pendingServerUrl) {
       const serverToConnect = pendingServerUrl;
@@ -101,9 +102,27 @@ export function ConnectScreen() {
   };
 
   const handleDeclinePrivacyPolicy = () => {
-    setShowPrivacyModal(false);
-    setPendingServerUrl(null);
-    setConnectionError(translate('connect.privacyDeclined'));
+    // If reading the full policy, go back to initial screen
+    if (policyStage === 'reading') {
+      setPolicyStage('initial');
+      setPolicyContent('');
+    }
+    // If on initial screen, stay on initial screen (user can try again)
+    // Modal stays open until they accept
+  };
+
+  const handleReadPolicy = async () => {
+    try {
+      const response = await fetch('/policy.txt');
+      if (response.ok) {
+        const content = await response.text();
+        setPolicyContent(content);
+        setPolicyStage('reading');
+      }
+    } catch (error) {
+      console.error('Failed to load policy:', error);
+      setConnectionError('Failed to load privacy policy');
+    }
   };
 
   const handleAddShortcut = () => {
@@ -158,9 +177,9 @@ export function ConnectScreen() {
           <p className={isDarkTheme ? 'text-gray-400' : 'text-gray-600'}>{translate('connect.tagline')}</p>
         </div>
 
-        {/* Selectors - Language, Theme, and Custom Themes */}
-        <div className="absolute top-4 left-4 right-4 flex items-center justify-between gap-2">
-          {/* Language Selector */}
+        {/* Selectors - Language at top-left, Theme at top-right */}
+        <div className="absolute top-4 left-4 right-4 flex items-start justify-between gap-2">
+          {/* Language Selector - top left */}
           <div className="relative">
             <button
               onClick={() => setShowLanguageMenu(!showLanguageMenu)}
@@ -211,7 +230,7 @@ export function ConnectScreen() {
             )}
           </div>
 
-          {/* Theme Buttons - positioned on the right */}
+          {/* Theme Buttons - top right */}
           <div className="flex items-center gap-2">
             {/* Custom Theme Selector */}
             <button
@@ -676,91 +695,122 @@ export function ConnectScreen() {
       {showPrivacyModal && (
         <div className={`fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm p-2 sm:p-4 ${isDarkTheme ? 'bg-black/70' : 'bg-black/50'}`}>
           <div className={`w-full max-w-lg rounded-xl sm:rounded-2xl border shadow-2xl overflow-hidden max-h-[95vh] flex flex-col ${isDarkTheme ? 'border-white/10 bg-gray-900' : 'border-white/60 bg-white'}`}>
-            {/* Header */}
-            <div className={`p-4 sm:p-6 border-b shrink-0 ${isDarkTheme ? 'border-white/10 bg-gradient-to-r from-indigo-900/50 to-purple-900/50' : 'border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50'}`}>
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0 ${isDarkTheme ? 'bg-indigo-600' : 'bg-indigo-200'}`}>
-                  <FileText className={`w-5 h-5 sm:w-6 sm:h-6 ${isDarkTheme ? 'text-white' : 'text-indigo-800'}`} />
+            
+            {policyStage === 'initial' ? (
+              <>
+                {/* Initial Acceptance Screen Header */}
+                <div className={`p-4 sm:p-6 border-b shrink-0 ${isDarkTheme ? 'border-white/10 bg-gradient-to-r from-indigo-900/50 to-purple-900/50' : 'border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50'}`}>
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0 ${isDarkTheme ? 'bg-indigo-600' : 'bg-indigo-200'}`}>
+                      <Shield className={`w-5 h-5 sm:w-6 sm:h-6 ${isDarkTheme ? 'text-white' : 'text-indigo-800'}`} />
+                    </div>
+                    <div className="min-w-0">
+                      <h2 className={`text-lg sm:text-xl font-bold ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>
+                        {translate('privacy.title')}
+                      </h2>
+                      <p className={`text-xs sm:text-sm truncate ${isDarkTheme ? 'text-gray-400' : 'text-gray-600'}`}>
+                        {serverConfig.serverName || pendingServerUrl || '4 Messenger'}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <h2 className={`text-lg sm:text-xl font-bold ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>
-                    {translate('privacy.title')}
-                  </h2>
-                  <p className={`text-xs sm:text-sm truncate ${isDarkTheme ? 'text-gray-400' : 'text-gray-600'}`}>
-                    {serverConfig.serverName || pendingServerUrl}
+
+                {/* Initial Screen Content */}
+                <div className="p-4 sm:p-6 flex-1 overflow-y-auto">
+                  <p className={`text-sm sm:text-base mb-6 ${isDarkTheme ? 'text-gray-300' : 'text-gray-700'}`}>
+                    You must accept the privacy policy to use this service. Please review the terms carefully before proceeding.
                   </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="p-4 sm:p-6 flex-1 overflow-y-auto">
-              <p className={`text-sm sm:text-base mb-4 ${isDarkTheme ? 'text-gray-300' : 'text-gray-700'}`}>
-                {translate('privacy.description')}
-              </p>
-              
-              <div className={`space-y-2 sm:space-y-3 mb-4 sm:mb-6`}>
-                <div className={`flex items-start gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg sm:rounded-xl border ${isDarkTheme ? 'bg-white/5 border-white/10' : 'bg-indigo-50 border-indigo-200'}`}>
-                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-400 shrink-0 mt-0.5" />
-                  <div>
-                    <p className={`text-xs sm:text-sm font-medium ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>{translate('privacy.dataCollection')}</p>
-                    <p className={`text-xs hidden sm:block ${isDarkTheme ? 'text-gray-400' : 'text-gray-600'}`}>{translate('privacy.dataCollectionDesc')}</p>
+                  
+                  <div className={`p-4 rounded-lg border mb-4 ${isDarkTheme ? 'bg-amber-900/20 border-amber-500/30' : 'bg-amber-50 border-amber-200'}`}>
+                    <p className={`text-sm ${isDarkTheme ? 'text-amber-300' : 'text-amber-700'}`}>
+                      ⚠️ Policy acceptance is required to connect to this server. You cannot proceed without accepting the terms.
+                    </p>
                   </div>
                 </div>
-                <div className={`flex items-start gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg sm:rounded-xl border ${isDarkTheme ? 'bg-white/5 border-white/10' : 'bg-indigo-50 border-indigo-200'}`}>
-                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-400 shrink-0 mt-0.5" />
-                  <div>
-                    <p className={`text-xs sm:text-sm font-medium ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>{translate('privacy.browserData')}</p>
-                    <p className={`text-xs hidden sm:block ${isDarkTheme ? 'text-gray-400' : 'text-gray-600'}`}>{translate('privacy.browserDataDesc')}</p>
+
+                {/* Initial Screen Footer */}
+                <div className={`p-4 sm:p-6 border-t shrink-0 space-y-3 ${isDarkTheme ? 'border-white/10' : 'border-gray-200'}`}>
+                  <button
+                    onClick={handleReadPolicy}
+                    className={`w-full rounded-lg sm:rounded-xl border py-2.5 sm:py-3 text-sm sm:text-base font-medium transition flex items-center justify-center gap-2 ${
+                      isDarkTheme
+                        ? 'border-indigo-500/50 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20'
+                        : 'border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                    }`}
+                  >
+                    <FileText className="w-4 h-4" />
+                    {translate('privacy.readFull')}
+                  </button>
+                  
+                  <div className="flex gap-2 sm:gap-3">
+                    <button
+                      onClick={handleDeclinePrivacyPolicy}
+                      className={`flex-1 rounded-lg sm:rounded-xl border py-2.5 sm:py-3 text-sm sm:text-base font-medium transition ${
+                        isDarkTheme
+                          ? 'border-white/10 bg-white/5 text-gray-300 hover:bg-white/10'
+                          : 'border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                      disabled
+                    >
+                      {translate('privacy.decline')}
+                    </button>
+                    <button
+                      onClick={handleAcceptPrivacyPolicy}
+                      className="flex-1 rounded-lg sm:rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 py-2.5 sm:py-3 text-sm sm:text-base font-medium text-white shadow-lg shadow-indigo-500/25 transition hover:shadow-indigo-500/40"
+                    >
+                      {translate('privacy.accept')}
+                    </button>
                   </div>
                 </div>
-                <div className={`flex items-start gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg sm:rounded-xl border ${isDarkTheme ? 'bg-white/5 border-white/10' : 'bg-indigo-50 border-indigo-200'}`}>
-                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-400 shrink-0 mt-0.5" />
-                  <div>
-                    <p className={`text-xs sm:text-sm font-medium ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>{translate('privacy.encryption')}</p>
-                    <p className={`text-xs hidden sm:block ${isDarkTheme ? 'text-gray-400' : 'text-gray-600'}`}>{translate('privacy.encryptionDesc')}</p>
-                  </div>
+              </>
+            ) : (
+              <>
+                {/* Full Policy Header */}
+                <div className={`p-4 sm:p-6 border-b shrink-0 flex items-center justify-between ${isDarkTheme ? 'border-white/10 bg-gradient-to-r from-indigo-900/50 to-purple-900/50' : 'border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50'}`}>
+                  <h2 className={`text-lg sm:text-xl font-bold ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>
+                    Privacy Policy
+                  </h2>
+                  <button
+                    onClick={() => {
+                      setPolicyStage('initial');
+                      setPolicyContent('');
+                    }}
+                    className={`p-2 rounded-lg transition ${
+                      isDarkTheme ? 'hover:bg-white/10' : 'hover:bg-gray-200'
+                    }`}
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
-              </div>
 
-              <button
-                onClick={() => setShowFullPolicy(true)}
-                className="w-full text-center text-xs sm:text-sm text-indigo-400 hover:text-indigo-300 mb-4 sm:mb-6 flex items-center justify-center gap-2"
-              >
-                <FileText className="w-4 h-4" />
-                {translate('privacy.readFull')}
-              </button>
+                {/* Full Policy Content */}
+                <div className={`p-4 sm:p-6 flex-1 overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed ${isDarkTheme ? 'text-gray-300' : 'text-gray-700'}`}>
+                  {policyContent}
+                </div>
 
-              <div className="flex gap-2 sm:gap-3">
-                <button
-                  onClick={handleDeclinePrivacyPolicy}
-                  className={`flex-1 rounded-lg sm:rounded-xl border py-2.5 sm:py-3 text-sm sm:text-base font-medium transition ${
-                    isDarkTheme
-                      ? 'border-white/10 bg-white/5 text-gray-300 hover:bg-white/10'
-                      : 'border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {translate('privacy.decline')}
-                </button>
-                <button
-                  onClick={handleAcceptPrivacyPolicy}
-                  className="flex-1 rounded-lg sm:rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 py-2.5 sm:py-3 text-sm sm:text-base font-medium text-white shadow-lg shadow-indigo-500/25 transition hover:shadow-indigo-500/40"
-                >
-                  {translate('privacy.accept')}
-                </button>
-              </div>
-            </div>
+                {/* Full Policy Footer */}
+                <div className={`p-4 sm:p-6 border-t shrink-0 flex gap-2 sm:gap-3 ${isDarkTheme ? 'border-white/10' : 'border-gray-200'}`}>
+                  <button
+                    onClick={handleDeclinePrivacyPolicy}
+                    className={`flex-1 rounded-lg sm:rounded-xl border py-2.5 sm:py-3 text-sm sm:text-base font-medium transition ${
+                      isDarkTheme
+                        ? 'border-white/10 bg-white/5 text-gray-300 hover:bg-white/10'
+                        : 'border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleAcceptPrivacyPolicy}
+                    className="flex-1 rounded-lg sm:rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 py-2.5 sm:py-3 text-sm sm:text-base font-medium text-white shadow-lg shadow-indigo-500/25 transition hover:shadow-indigo-500/40"
+                  >
+                    {translate('privacy.accept')}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
-      )}
-
-      {/* Full Privacy Policy Modal */}
-      {showFullPolicy && (
-        <PrivacyPolicy 
-          onClose={() => setShowFullPolicy(false)}
-          serverName={serverConfig.serverName || pendingServerUrl || '4 Messenger Server'}
-          language={language}
-        />
       )}
     </div>
   );
