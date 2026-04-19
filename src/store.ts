@@ -807,6 +807,22 @@ export const useStore = create<AppState>((set, get) => ({
       
       // Save WS token to cookies for auto-login when rejoining same server
       saveWsTokenToCookie(serverUrl, data.token, data.user);
+
+      // Notify Android app of successful login for background notifications
+      try {
+        if (typeof (window as any).AndroidApp !== 'undefined' && (window as any).AndroidApp.onLogin) {
+          const authData = {
+            token: data.token,
+            userId: data.user.id,
+            username: data.user.username,
+            email: data.user.email,
+            serverUrl: serverUrl
+          };
+          (window as any).AndroidApp.onLogin(JSON.stringify(authData));
+        }
+      } catch (e) {
+        console.warn('[Android Integration] Could not notify app of login:', e);
+      }
       
       // Fetch initial data
       await Promise.all([
@@ -1286,6 +1302,15 @@ export const useStore = create<AppState>((set, get) => ({
     // Clear WS token from cookies when logging out completely
     if (serverUrl) {
       clearWsTokenFromCookie(serverUrl);
+    }
+
+    // Notify Android app of logout
+    try {
+      if (typeof (window as any).AndroidApp !== 'undefined' && (window as any).AndroidApp.onLogout) {
+        (window as any).AndroidApp.onLogout();
+      }
+    } catch (e) {
+      console.warn('[Android Integration] Could not notify app of logout:', e);
     }
     
     // Do NOT clear encryption keys from IndexedDB - they are tied to this device.

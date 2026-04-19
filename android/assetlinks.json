@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "org.dpdns.me4.twa",
+        "sha256_cert_fingerprints": ["92:D8:35:61:37:58:CC:4E:54:AC:15:E7:B4:98:40:4A:12:62:4D:30:A0:03:7C:76:DE:A7:83:1A:2E:B8:02:83"]
+      }
+    }]
