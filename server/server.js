@@ -720,8 +720,8 @@ function authMiddleware(req, res, next) {
     if (!user) return res.status(401).json({ error: 'User not found' });
     if (user.role === 'banned') return res.status(403).json({ error: 'Account banned' });
     
-    // Check maintenance mode - only owners and admins can access during maintenance
-    if (maintenanceMode && user.role !== 'admin' && user.role !== 'owner') {
+    // Check maintenance mode - only owners can access during maintenance
+    if (maintenanceMode && user.role !== 'owner') {
       return res.status(503).json({ error: 'Server is under maintenance', maintenanceMessage });
     }
     
@@ -1021,10 +1021,10 @@ app.post('/api/register', (req, res) => {
 app.post('/api/login', (req, res) => {
   const { username, password, captchaToken, publicKey } = req.body;
 
-  // Check maintenance mode - allow admin login
+  // Check maintenance mode - allow owner login only
   const checkUser = dbGet('SELECT role FROM users WHERE username = ? OR email = ?', [username, username]);
-  if (maintenanceMode && (!checkUser || checkUser.role !== 'admin')) {
-    return res.status(503).json({ error: 'Server is under maintenance. Only admins can login.', maintenanceMessage });
+  if (maintenanceMode && (!checkUser || checkUser.role !== 'owner')) {
+    return res.status(503).json({ error: 'Server is under maintenance. Only the owner can login.', maintenanceMessage });
   }
 
   // Validate captcha token (pre-verified on auth screen)
@@ -2038,7 +2038,7 @@ function safeParseKey(key) {
 // Get all users - admins can search partial, others need exact username
 app.get('/api/users', authMiddleware, (req, res) => {
   const { search } = req.query;
-  const isAdmin = req.user.role === 'admin';
+  const isAdmin = req.user.role === 'admin' || req.user.role === 'owner';
   
   if (search && search.trim()) {
     let users;

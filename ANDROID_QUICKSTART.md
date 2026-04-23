@@ -91,7 +91,7 @@ npm run build
 
 ### 🔔 Push Notifications - NEW!
 - **Automatic background polling** (every 15 minutes)
-- **Secure token storage** using CookieManager  
+- **Secure token storage** using CookieManager
 - **Smart message detection** - only notifies for new messages
 - **Per-chat tracking** - remembers last checked time per chat
 - **Authentication validation** - verifies token before checking

@@ -25,12 +25,11 @@ export function Notifications() {
         return (
           <div
             key={n.id}
-            className={`flex items-center gap-3 rounded-xl border px-4 py-3 shadow-lg backdrop-blur-xl animate-in slide-in-from-right ${colors[n.type]}`}
-            style={{ animation: 'slideIn 0.3s ease-out' }}
+            className={`flex items-center gap-3 rounded-xl border px-4 py-3 shadow-lg backdrop-blur-xl animate-slide-up-modal hover:scale-105 transition-all duration-300 ${colors[n.type]}`}
           >
-            <Icon className="h-5 w-5 shrink-0" />
-            <span className="text-sm flex-1">{n.text}</span>
-            <button onClick={() => removeNotification(n.id)} className="shrink-0 opacity-60 hover:opacity-100">
+            <Icon className="h-5 w-5 shrink-0 animate-checkmark" />
+            <span className="text-sm flex-1 font-medium">{n.text}</span>
+            <button onClick={() => removeNotification(n.id)} className="shrink-0 opacity-60 hover:opacity-100 transition-opacity">
               <X className="h-4 w-4" />
             </button>
           </div>

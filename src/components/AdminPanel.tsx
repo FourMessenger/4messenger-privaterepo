@@ -550,14 +550,14 @@ export function AdminPanel() {
             <button
               key={item.id}
               onClick={() => { setTab(item.id); setShowMobileMenu(false); }}
-              className={`flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-sm transition ${
-                tab === item.id ? 'bg-indigo-500/10 text-indigo-400' : 'text-gray-400 hover:bg-white/5 hover:text-white'
+              className={`flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-sm transition-all duration-300 hover:scale-105 active:scale-95 ${
+                tab === item.id ? 'bg-indigo-500/10 text-indigo-400 shadow-lg shadow-indigo-500/20' : 'text-gray-400 hover:bg-white/10 hover:text-white'
               }`}
             >
               <item.icon className="h-5 w-5" />
               {item.label}
               {item.id === 'botApprovals' && (isAdmin || isOwner) && pendingBots.length > 0 && (
-                <span className="ml-auto rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-400">
+                <span className="ml-auto rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-400 animate-pulse-glow">
                   {pendingBots.length}
                 </span>
               )}
@@ -591,9 +591,9 @@ export function AdminPanel() {
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="flex items-center gap-2 rounded-xl bg-white/5 px-4 py-2 text-sm text-gray-400 transition hover:bg-white/10 hover:text-white disabled:opacity-50"
+            className="flex items-center gap-2 rounded-xl bg-white/5 px-4 py-2 text-sm text-gray-400 transition-all duration-300 hover:bg-white/10 hover:text-white hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin-slow' : 'group-hover:animate-spin'}`} />
             Refresh
           </button>
         </div>
@@ -608,10 +608,10 @@ export function AdminPanel() {
                 { label: 'Banned', value: bannedUsers, icon: Ban, color: 'from-red-500 to-rose-600' },
                 { label: 'Total Messages', value: totalMessages, icon: MessageSquare, color: 'from-blue-500 to-cyan-600' },
               ].map(stat => (
-                <div key={stat.label} className="rounded-2xl border border-white/10 bg-white/5 p-5 hover:bg-white/[0.07] transition">
+                <div key={stat.label} className="rounded-2xl border border-white/10 bg-white/5 p-5 hover:bg-white/[0.07] transition-all duration-300 hover:scale-105 hover:border-indigo-500/30 hover:shadow-lg hover:shadow-indigo-500/10">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-sm text-gray-400">{stat.label}</span>
-                    <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${stat.color}`}>
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${stat.color} animate-pulse`}>
                       <stat.icon className="h-5 w-5 text-white" />
                     </div>
                   </div>
@@ -795,7 +795,7 @@ export function AdminPanel() {
                 {(isAdmin || isOwner) && (
                   <button
                     onClick={exportUsers}
-                    className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-gray-400 transition hover:bg-white/10 hover:text-white"
+                    className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-gray-400 transition-all duration-300 hover:bg-white/10 hover:text-white hover:scale-105 active:scale-95 hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/20"
                   >
                     <Download className="h-4 w-4" />
                     <span className="hidden sm:inline">Export</span>

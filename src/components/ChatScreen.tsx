@@ -1062,18 +1062,18 @@ export function ChatScreen() {
             <span className="text-xs text-green-400">Online</span>
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={() => setShowSettings(true)} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-white" title="Settings">
+            <button onClick={() => setShowSettings(true)} className="rounded-lg p-2 text-gray-400 transition-all duration-300 hover:bg-white/10 hover:text-white hover:scale-110 active:scale-95" title="Settings">
               <Settings className="h-5 w-5" />
             </button>
             {(currentUser.role === 'owner' || currentUser.role === 'admin' || currentUser.role === 'moderator') && (
-              <button onClick={() => setScreen('admin')} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10" style={{color: currentUser.role === 'owner' ? '#fbbf24' : '#fcd34d'}} title={currentUser.role === 'owner' ? 'Owner Panel' : currentUser.role === 'admin' ? 'Admin Panel' : 'Moderation Panel'}>
+              <button onClick={() => setScreen('admin')} className="rounded-lg p-2 text-gray-400 transition-all duration-300 hover:bg-white/10 hover:scale-110 active:scale-95" style={{color: currentUser.role === 'owner' ? '#fbbf24' : '#fcd34d'}} title={currentUser.role === 'owner' ? 'Owner Panel' : currentUser.role === 'admin' ? 'Admin Panel' : 'Moderation Panel'}>
                 <Crown className="h-5 w-5" />
               </button>
             )}
             <div className="relative">
-              <button 
+              <button
                 onClick={() => setShowLogoutMenu(!showLogoutMenu)} 
-                className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-red-400" 
+                className="rounded-lg p-2 text-gray-400 transition-all duration-300 hover:bg-white/10 hover:text-red-400 hover:scale-110 active:scale-95" 
                 title="Server or Logout"
               >
                 <LogOut className="h-5 w-5" />
@@ -1122,10 +1122,10 @@ export function ChatScreen() {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search chats..."
-              className="w-full rounded-lg border border-white/10 bg-white/5 py-2 pl-9 pr-3 text-sm text-white placeholder-gray-500 outline-none focus:border-indigo-500"
+              className="w-full rounded-lg border border-white/10 bg-white/5 py-2 pl-9 pr-3 text-sm text-white placeholder-gray-500 outline-none transition-all duration-300 focus:border-indigo-500 focus:bg-white/10 focus:ring-2 focus:ring-indigo-500/30"
             />
           </div>
-          <button onClick={() => setShowNewChat(true)} className="rounded-lg bg-indigo-500/20 p-2 text-indigo-400 transition hover:bg-indigo-500/30" title="New Chat">
+          <button onClick={() => setShowNewChat(true)} className="rounded-lg bg-indigo-500/20 p-2 text-indigo-400 transition-all duration-300 hover:bg-indigo-500/40 hover:scale-110 active:scale-95 hover:shadow-lg hover:shadow-indigo-500/50 animate-pulse-glow" title="New Chat">
             <Plus className="h-5 w-5" />
           </button>
         </div>
@@ -1141,9 +1141,9 @@ export function ChatScreen() {
             <button
               key={c.id}
               onClick={() => { setActiveChat(c.id); setShowMobileChat(true); markAsRead(c.id); }}
-              className={`flex w-full items-center gap-3 px-4 py-3 transition hover:bg-white/5 ${activeChat === c.id ? 'bg-indigo-500/10 border-l-2 border-indigo-500' : 'border-l-2 border-transparent'}`}
+              className={`flex w-full items-center gap-3 px-4 py-3 transition-all duration-300 hover:bg-white/10 hover:scale-102 group ${activeChat === c.id ? 'bg-indigo-500/10 border-l-2 border-indigo-500' : 'border-l-2 border-transparent hover:border-indigo-500/50'}`}
             >
-              <div className="relative">
+              <div className="relative transform transition-transform duration-300 group-hover:scale-110">
                 <div className={`flex h-12 w-12 items-center justify-center rounded-full font-bold text-white ${c.isChannel ? 'bg-gradient-to-br from-amber-500 to-orange-600' : c.type === 'group' ? 'bg-gradient-to-br from-emerald-500 to-teal-600' : 'bg-gradient-to-br from-indigo-500 to-purple-600'}`}>
                   {c.isChannel ? '📢' : c.type === 'group' ? <Users className="h-5 w-5" /> : (() => {
                     const av = getChatAvatar(c);
@@ -1151,7 +1151,7 @@ export function ChatScreen() {
                   })()}
                 </div>
                 {getChatOnline(c) && (
-                  <div className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-gray-900 bg-green-500" />
+                  <div className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-gray-900 bg-green-500 animate-pulse" />
                 )}
               </div>
               <div className="flex-1 min-w-0 text-left">
@@ -1220,7 +1220,7 @@ export function ChatScreen() {
                   })()}
                 </div>
                 {getChatOnline(chat) && (
-                  <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-gray-900 bg-green-500" />
+                  <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-gray-900 bg-green-500 animate-online-pulse shadow-lg shadow-green-500/50" />
                 )}
               </div>
               <div className="flex-1 min-w-0">
@@ -1337,13 +1337,13 @@ export function ChatScreen() {
                     </div>
                   )}
                 </div>
-                <button onClick={() => startCall(chat.id, 'voice')} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-white shrink-0" title="Voice call">
+                <button onClick={() => startCall(chat.id, 'voice')} className="rounded-lg p-2 text-gray-400 transition-all duration-300 hover:bg-white/10 hover:text-white hover:scale-110 active:scale-95 shrink-0" title="Voice call">
                   <Phone className="h-5 w-5" />
                 </button>
-                <button onClick={() => startCall(chat.id, 'video')} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-white shrink-0" title="Video call">
+                <button onClick={() => startCall(chat.id, 'video')} className="rounded-lg p-2 text-gray-400 transition-all duration-300 hover:bg-white/10 hover:text-white hover:scale-110 active:scale-95 shrink-0" title="Video call">
                   <Video className="h-5 w-5" />
                 </button>
-                <button onClick={() => setShowMessageSearch(!showMessageSearch)} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-white shrink-0" title="Search messages">
+                <button onClick={() => setShowMessageSearch(!showMessageSearch)} className="rounded-lg p-2 text-gray-400 transition-all duration-300 hover:bg-white/10 hover:text-white hover:scale-110 active:scale-95 shrink-0" title="Search messages">
                   <Search className="h-5 w-5" />
                 </button>
                 <button onClick={() => setShowChatInfo(!showChatInfo)} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/10 hover:text-white shrink-0" title="Chat info">
@@ -1462,8 +1462,8 @@ export function ChatScreen() {
                     }
 
                     return (
-                      <div key={m.id} id={`message-${m.id}`} className={`${getMessageSpacing()} flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`group relative max-w-[90%] sm:max-w-[75%] ${isMe ? 'order-2' : ''}`}>
+                      <div key={m.id} id={`message-${m.id}`} className={`${getMessageSpacing()} flex ${isMe ? 'justify-end' : 'justify-start'} animate-${isMe ? 'message-slide-left' : 'message-slide-right'}`}>
+                        <div className={`group relative max-w-[90%] sm:max-w-[75%] ${isMe ? 'order-2' : ''} transition-all duration-300 hover:scale-105`}>
                           {!isMe && (chat.type === 'group' || chat.isChannel) && appearance.showAvatars && (() => {
                             const avatar = getUserAvatar(m.senderId);
                             const isAvatarUrl = avatar && (avatar.startsWith('http') || avatar.startsWith('data:') || avatar.startsWith('/'));
