@@ -19,6 +19,7 @@ const getIceServers = (): RTCIceServer[] => {
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
     { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
     
     // Twilio STUN servers (very reliable)
     { urls: 'stun:stun.stunprotocol.org:3478' },
@@ -50,7 +51,8 @@ export function CallOverlay() {
     callState, 
     endCall,
     beginCall,
-    websocket
+    websocket,
+    addNotification
   } = useStore();
   
   const [isMuted, setIsMuted] = useState(false);
@@ -66,7 +68,7 @@ export function CallOverlay() {
   
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
-  const remoteStreamRef = useRef<MediaStream | null>(null); // ✅ Добавлен ref для удаленного потока
+  const remoteStreamRef = useRef<MediaStream | null>(null);
   
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const isInitiatorRef = useRef(false);
@@ -95,8 +97,13 @@ export function CallOverlay() {
       localStreamRef.current = null;
     }
 
-    // ✅ Очищаем сохраненный удаленный поток
-    remoteStreamRef.current = null;
+    // Clear remote stream reference
+    if (remoteStreamRef.current) {
+      remoteStreamRef.current.getTracks().forEach(track => {
+        console.log('[Call] Remote track stopped:', track.kind);
+      });
+      remoteStreamRef.current = null;
+    }
 
     // Clear local video element
     if (localVideoRef.current) {
@@ -157,7 +164,7 @@ export function CallOverlay() {
         throw new Error('RTCPeerConnection is not supported in this browser');
       }
 
-      console.log('[Call] RTCPeerConnection class available, type:', typeof RTCPeerConnectionClass);
+      console.log('[Call] RTCPeerConnection class available');
 
       const iceServers = getIceServers();
       console.log('[Call] Using STUN servers:', iceServers.length, 'servers');
@@ -177,45 +184,20 @@ export function CallOverlay() {
         });
       }
 
-      console.log('[Call] Peer connection created, type:', typeof pc);
-      console.log('[Call] Peer connection keys:', Object.keys(pc));
-      console.log('[Call] Peer connection has addTrack:', typeof pc?.addTrack);
-      console.log('[Call] Peer connection has addStream:', typeof pc?.addStream);
-      console.log('[Call] Peer connection has addTransceiver:', typeof pc?.addTransceiver);
+      console.log('[Call] Peer connection created');
       
       if (!pc) {
         throw new Error('RTCPeerConnection constructor returned null or undefined');
       }
       
-      // Validate that we got a real peer connection object with at least one track method
-      if (Object.keys(pc).length === 0 && !pc.addTrack && !pc.addStream && !pc.addTransceiver) {
-        console.error('[Call] WARNING: Empty peer connection object detected!');
-        console.error('[Call] This may indicate:');
-        console.error('[Call] - Browser blocking WebRTC (due to permissions, security, or extensions)');
-        console.error('[Call] - Developer tools or debugger interference');
-        console.error('[Call] - Restricted browser environment (iframe with sandbox)');
-        console.error('[Call] - Security policy preventing WebRTC initialization');
-        console.error('[Call] Full object:', JSON.stringify(pc, null, 2));
-        
-        // Try to get more info
-        const descriptor = Object.getOwnPropertyDescriptor(pc, 'addTrack');
-        console.error('[Call] addTrack descriptor:', descriptor);
-        
-        throw new Error('RTCPeerConnection created but appears to be empty/blocked by browser security. Check console for details.');
-      }
-      
-      // Store which method we'll use for adding tracks
+      // Validate that we got a real peer connection object
       const trackMethod = getTrackAddMethod(pc);
       if (!trackMethod) {
         console.error('[Call] Peer connection object:', pc);
-        console.error('[Call] Object.keys:', Object.keys(pc).slice(0, 20));
-        console.error('[Call] Prototype:', Object.getPrototypeOf(pc));
-        throw new Error('RTCPeerConnection does not support any method to add tracks (addTrack, addStream, or addTransceiver)');
+        throw new Error('RTCPeerConnection does not support any method to add tracks');
       }
       (pc as any)._trackAddMethod = trackMethod;
       console.log('[Call] Will use track method:', trackMethod);
-
-      console.log('[Call] Peer connection created successfully');
 
       // Log ICE connection state changes
       pc.oniceconnectionstatechange = () => {
@@ -229,8 +211,13 @@ export function CallOverlay() {
           }
         } else if (pc.iceConnectionState === 'failed') {
           console.log('[Call] ICE connection failed, attempting restart...');
+          setConnectionInfo('ICE failed, reconnecting...');
           // Try ICE restart
-          pc.restartIce();
+          try {
+            pc.restartIce();
+          } catch (e) {
+            console.error('[Call] ICE restart failed:', e);
+          }
         } else if (pc.iceConnectionState === 'disconnected') {
           setConnectionInfo('Reconnecting...');
         }
@@ -252,51 +239,65 @@ export function CallOverlay() {
         
         if (pc.connectionState === 'connected') {
           setCallStatus('connected');
+          setConnectionInfo('Connected');
         } else if (pc.connectionState === 'failed') {
           setCallStatus('failed');
+          setConnectionInfo('Connection failed');
         } else if (pc.connectionState === 'disconnected') {
           // Give it a moment to reconnect
           setTimeout(() => {
             if (peerConnectionRef.current?.connectionState === 'disconnected') {
               setCallStatus('failed');
+              setConnectionInfo('Disconnected');
             }
           }, 5000);
         }
       };
 
-      // Handle incoming tracks (remote stream)
+      // Handle incoming tracks (remote stream) - FIXED VERSION
       pc.ontrack = (event) => {
-        console.log('[Call] Received remote track:', event.track.kind);
+        console.log('[Call] Received remote track:', event.track.kind, 'Streams:', event.streams?.length);
         
-        // ✅ СОХРАНЯЕМ ПОТОК, чтобы он не потерялся во время смены UI экранов в React
-        if (event.streams && event.streams[0]) {
-          remoteStreamRef.current = event.streams[0];
-        } else {
+        // Ensure we always have a stream to attach
+        let stream = event.streams?.[0];
+        
+        if (!stream) {
+          console.log('[Call] No stream in event, creating one');
           if (!remoteStreamRef.current) {
             remoteStreamRef.current = new MediaStream();
           }
           remoteStreamRef.current.addTrack(event.track);
+          stream = remoteStreamRef.current;
+        } else {
+          // Store the stream reference
+          remoteStreamRef.current = stream;
         }
-
-        // Handle audio tracks - attach to audio element for voice calls
-        if (event.track.kind === 'audio') {
-          if (remoteAudioRef.current) {
-            remoteAudioRef.current.srcObject = remoteStreamRef.current;
-            console.log('[Call] Audio stream attached to audio element immediately');
-          } else {
-            console.log('[Call] Audio ref is null (UI not rendered yet), will attach via effect');
+        
+        console.log('[Call] Stream has tracks:', stream.getTracks().length);
+        
+        // Attach to appropriate element with a delay to ensure DOM is ready
+        setTimeout(() => {
+          if (event.track.kind === 'audio') {
+            if (remoteAudioRef.current) {
+              remoteAudioRef.current.srcObject = stream;
+              remoteAudioRef.current.play().catch(e => console.warn('[Call] Audio play error:', e));
+              console.log('[Call] Audio stream attached to element, tracks:', stream.getTracks().length);
+            } else {
+              console.log('[Call] Audio ref not ready yet');
+            }
+          } else if (event.track.kind === 'video') {
+            if (remoteVideoRef.current) {
+              remoteVideoRef.current.srcObject = stream;
+              remoteVideoRef.current.play().catch(e => console.warn('[Call] Video play error:', e));
+              console.log('[Call] Video stream attached to element, tracks:', stream.getTracks().length);
+            } else {
+              console.log('[Call] Video ref not ready yet');
+            }
           }
-        }
-        // Handle video tracks - attach to video element
-        else if (event.track.kind === 'video') {
-          if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = remoteStreamRef.current;
-            console.log('[Call] Video stream attached to video element immediately');
-          } else {
-            console.log('[Call] Video ref is null (UI not rendered yet), will attach via effect');
-          }
-        }
+        }, 100);
+        
         setCallStatus('connected');
+        setConnectionInfo('Connected');
       };
 
       // Handle ICE candidates - send to peer via signaling server
@@ -320,6 +321,7 @@ export function CallOverlay() {
     } catch (error) {
       console.error('[Call] Failed to create RTCPeerConnection:', error);
       setCallStatus('failed');
+      setConnectionInfo(`Error: ${error instanceof Error ? error.message : 'Unknown'}`);
       throw error;
     }
   }, [websocket, signalingTargetUserId]);
@@ -347,21 +349,32 @@ export function CallOverlay() {
     console.log('[Call] Initializing outgoing call to:', otherUserId);
     isInitiatorRef.current = true;
     setCallStatus('ringing');
+    setConnectionInfo('Requesting camera/microphone...');
 
     try {
       // Get local media stream first
+      setConnectionInfo('Getting camera/microphone access...');
       const stream = await navigator.mediaDevices.getUserMedia({
         video: callState.type === 'video',
         audio: true
       });
       
+      console.log('[Call] Got local stream with tracks:', stream.getTracks().map(t => `${t.kind} (${t.enabled})`));
       localStreamRef.current = stream;
       
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-      }
+      // Set local video with delay to ensure element exists
+      setTimeout(() => {
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+          if (callState.type === 'video') {
+            localVideoRef.current.play().catch(e => console.warn('[Call] Local video play error:', e));
+          }
+          console.log('[Call] Local video attached');
+        }
+      }, 100);
 
       // Create peer connection
+      setConnectionInfo('Creating connection...');
       const pc = createPeerConnection();
       if (!pc) {
         throw new Error('Failed to create peer connection');
@@ -369,23 +382,31 @@ export function CallOverlay() {
       peerConnectionRef.current = pc;
 
       // Add local tracks to connection
+      setConnectionInfo('Setting up streams...');
+      const trackMethod = (pc as any)._trackAddMethod;
+      
       stream.getTracks().forEach(track => {
         if (!track) return;
         console.log('[Call] Adding local track:', track.kind);
         
-        const method = (pc as any)._trackAddMethod;
         try {
-          if (method === 'addTrack' && typeof pc.addTrack === 'function') {
+          if (trackMethod === 'addTrack' && typeof pc.addTrack === 'function') {
             pc.addTrack(track, stream);
             console.log('[Call] Added track via addTrack');
-          } else if (method === 'addStream' && typeof pc.addStream === 'function') {
+          } else if (trackMethod === 'addStream' && typeof pc.addStream === 'function') {
             pc.addStream(stream);
             console.log('[Call] Added track via addStream');
-          } else if (method === 'addTransceiver' && typeof pc.addTransceiver === 'function') {
+          } else if (trackMethod === 'addTransceiver' && typeof pc.addTransceiver === 'function') {
             pc.addTransceiver(track, { streams: [stream] });
             console.log('[Call] Added track via addTransceiver');
           } else {
-            throw new Error(`Cannot add track - no method available (detected: ${method})`);
+            // Fallback to addTrack
+            if (typeof pc.addTrack === 'function') {
+              pc.addTrack(track, stream);
+              console.log('[Call] Added track via fallback addTrack');
+            } else {
+              throw new Error(`Cannot add track - no method available`);
+            }
           }
         } catch (err) {
           console.error('[Call] Error adding track:', err);
@@ -394,6 +415,7 @@ export function CallOverlay() {
       });
 
       // Create offer BEFORE notifying server
+      setConnectionInfo('Creating offer...');
       const offer = await pc.createOffer({
         offerToReceiveAudio: true,
         offerToReceiveVideo: callState.type === 'video',
@@ -403,7 +425,8 @@ export function CallOverlay() {
       await pc.setLocalDescription(offer);
       console.log('[Call] Created and set local offer');
 
-      // Step 1: Send offer to peer (this implicitly starts the call with the offer ready)
+      // Send offer to peer
+      setConnectionInfo('Sending call request...');
       console.log('[Call] Sending offer to peer');
       websocket.send(JSON.stringify({
         type: 'call_offer',
@@ -412,19 +435,23 @@ export function CallOverlay() {
         callType: callState.type
       }));
 
-      // Step 2: Notify server that a call is starting (redundant but kept for other participants in group chats)
+      // Notify server that a call is starting
       console.log('[Call] Notifying server of call start');
       websocket.send(JSON.stringify({
         type: 'call_start',
         chatId: callState.chatId,
         callType: callState.type
       }));
+      
+      setConnectionInfo('Waiting for answer...');
 
     } catch (error) {
       console.error('[Call] Failed to initialize call:', error);
       setCallStatus('failed');
+      setConnectionInfo(`Error: ${error instanceof Error ? error.message : 'Unknown'}`);
+      addNotification(`Failed to start call: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
     }
-  }, [websocket, otherUserId, currentUser, callState.type, createPeerConnection]);
+  }, [websocket, otherUserId, currentUser, callState.type, callState.chatId, createPeerConnection, addNotification]);
 
   // Handle incoming call answer
   const handleAnswer = useCallback(async (answer: RTCSessionDescriptionInit) => {
@@ -436,12 +463,31 @@ export function CallOverlay() {
 
     try {
       console.log('[Call] Received answer, setting remote description');
+      setConnectionInfo('Processing answer...');
       await pc.setRemoteDescription(new RTCSessionDescription(answer));
       await addPendingCandidates(pc);
+      
+      // Verify video stream after a delay
+      setTimeout(() => {
+        if (remoteStreamRef.current && remoteVideoRef.current) {
+          console.log('[Call] Verifying video stream after answer');
+          if (remoteVideoRef.current.srcObject !== remoteStreamRef.current) {
+            remoteVideoRef.current.srcObject = remoteStreamRef.current;
+            remoteVideoRef.current.play().catch(e => console.warn('[Call] Play error:', e));
+            console.log('[Call] Video stream reattached after answer');
+          }
+        }
+      }, 200);
+      
       setCallStatus('connected');
+      setConnectionInfo('Connected');
+      if (callStartTimeRef.current === 0) {
+        callStartTimeRef.current = Date.now();
+      }
     } catch (error) {
       console.error('[Call] Failed to set remote description:', error);
       setCallStatus('failed');
+      setConnectionInfo(`Error: ${error instanceof Error ? error.message : 'Unknown'}`);
     }
   }, [addPendingCandidates]);
 
@@ -449,7 +495,6 @@ export function CallOverlay() {
   const handleAnswerCall = useCallback(async () => {
     console.log('[Call] Accept button clicked');
     console.log('[Call] incomingCall:', incomingCall);
-    console.log('[Call] websocket status:', websocket?.readyState);
     
     if (!incomingCall) {
       console.error('[Call] No incoming call data');
@@ -470,52 +515,72 @@ export function CallOverlay() {
     isInitiatorRef.current = false;
     incomingAcceptedRef.current = true;
     setCallStatus('connecting');
+    setConnectionInfo('Starting call...');
 
     try {
-      // Ensure call overlay stays mounted after accepting by activating callState for callee
+      // Activate call state first so UI elements are rendered
       if (currentUser?.id) {
         console.log('[Call] Current user:', currentUser.id);
         const directChat = chats.find(c => 
-          c.type === 'direct' && c.participants.includes(currentUser.id) && c.participants.includes(incomingCall.from)
+          c.type === 'direct' && 
+          c.participants.includes(currentUser.id) && 
+          c.participants.includes(incomingCall.from)
         );
         console.log('[Call] Found direct chat:', directChat?.id);
         beginCall(directChat?.id || null, incomingCall.type, [currentUser.id, incomingCall.from]);
-      } else {
-        console.error('[Call] No current user');
       }
 
       // Get local media stream
+      setConnectionInfo('Requesting camera/microphone...');
       console.log('[Call] Requesting media stream...');
       const stream = await navigator.mediaDevices.getUserMedia({
         video: incomingCall.type === 'video',
         audio: true
       });
-      console.log('[Call] Got media stream with tracks:', stream.getTracks().map(t => t.kind));
+      console.log('[Call] Got media stream with tracks:', stream.getTracks().map(t => `${t.kind} (${t.enabled})`));
       
       localStreamRef.current = stream;
       
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-      }
+      // Set local video with delay
+      setTimeout(() => {
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+          if (incomingCall.type === 'video') {
+            localVideoRef.current.play().catch(e => console.warn('[Call] Local video play error:', e));
+          }
+          console.log('[Call] Local video attached');
+        }
+      }, 100);
 
       // Create peer connection
+      setConnectionInfo('Creating connection...');
       console.log('[Call] Creating peer connection...');
       const pc = createPeerConnection();
+      if (!pc) {
+        throw new Error('Failed to create peer connection');
+      }
       peerConnectionRef.current = pc;
 
-      // ✅ Используем безопасное добавление треков, как при исходящем звонке
+      // Add local tracks
+      setConnectionInfo('Setting up streams...');
+      const trackMethod = (pc as any)._trackAddMethod;
+      
       stream.getTracks().forEach(track => {
         console.log('[Call] Adding local track:', track.kind);
-        const method = (pc as any)._trackAddMethod;
         try {
-          if (method === 'addTrack' && typeof pc.addTrack === 'function') {
+          if (trackMethod === 'addTrack' && typeof pc.addTrack === 'function') {
             pc.addTrack(track, stream);
-          } else if (method === 'addStream' && typeof pc.addStream === 'function') {
+          } else if (trackMethod === 'addStream' && typeof pc.addStream === 'function') {
             pc.addStream(stream);
-          } else if (method === 'addTransceiver' && typeof pc.addTransceiver === 'function') {
+          } else if (trackMethod === 'addTransceiver' && typeof pc.addTransceiver === 'function') {
             pc.addTransceiver(track, { streams: [stream] });
           } else {
-            pc.addTrack(track, stream); // Fallback
+            // Fallback
+            if (typeof pc.addTrack === 'function') {
+              pc.addTrack(track, stream);
+            } else {
+              throw new Error('Cannot add track');
+            }
           }
         } catch (err) {
           console.error('[Call] Error adding track:', err);
@@ -523,21 +588,28 @@ export function CallOverlay() {
       });
 
       // Set remote description (the offer)
+      setConnectionInfo('Processing call data...');
       console.log('[Call] Setting remote description...');
       await pc.setRemoteDescription(new RTCSessionDescription(incomingCall.offer));
-      console.log('[Call] Set remote offer');
+      console.log('[Call] Remote description set');
 
       // Add any pending ICE candidates
       console.log('[Call] Adding pending ICE candidates...');
       await addPendingCandidates(pc);
 
       // Create answer
+      setConnectionInfo('Creating answer...');
       console.log('[Call] Creating answer...');
-      const answer = await pc.createAnswer();
+      const answer = await pc.createAnswer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: incomingCall.type === 'video'
+      });
+      
       await pc.setLocalDescription(answer);
-      console.log('[Call] Created and set local answer');
+      console.log('[Call] Answer created and set');
 
       // Send answer to caller
+      setConnectionInfo('Sending answer...');
       console.log('[Call] Sending answer to caller...');
       websocket.send(JSON.stringify({
         type: 'call_answer',
@@ -547,17 +619,33 @@ export function CallOverlay() {
       console.log('[Call] Answer sent successfully');
 
       setIncomingCall(null);
+      setConnectionInfo('Connecting...');
+      
+      // Verify video is working
+      if (incomingCall.type === 'video') {
+        setTimeout(() => {
+          if (remoteVideoRef.current) {
+            if (!remoteVideoRef.current.srcObject) {
+              console.warn('[Call] Video not playing after 2 seconds');
+              setConnectionInfo('Waiting for video...');
+            } else {
+              console.log('[Call] Video stream confirmed on element');
+            }
+          }
+        }, 2000);
+      }
 
     } catch (error) {
       console.error('[Call] Failed to answer call:', error);
-      if (error instanceof Error) {
-        console.error('[Call] Error message:', error.message);
-        console.error('[Call] Error stack:', error.stack);
-      }
       setCallStatus('failed');
+      setConnectionInfo(`Error: ${error instanceof Error ? error.message : 'Unknown'}`);
       setIncomingCall(null);
+      addNotification(`Failed to start call: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+      
+      // Cleanup on error
+      cleanup();
     }
-  }, [incomingCall, websocket, createPeerConnection, addPendingCandidates, currentUser, chats, beginCall]);
+  }, [incomingCall, websocket, createPeerConnection, addPendingCandidates, currentUser, chats, beginCall, addNotification, cleanup]);
 
   // Reject incoming call
   const handleRejectCall = useCallback(() => {
@@ -590,20 +678,24 @@ export function CallOverlay() {
   // Toggle mute
   const toggleMute = useCallback(() => {
     if (localStreamRef.current) {
+      const newMutedState = !isMuted;
       localStreamRef.current.getAudioTracks().forEach(track => {
-        track.enabled = isMuted;
+        track.enabled = !newMutedState;
       });
-      setIsMuted(!isMuted);
+      setIsMuted(newMutedState);
+      console.log('[Call] Mute toggled:', newMutedState);
     }
   }, [isMuted]);
 
   // Toggle video
   const toggleVideo = useCallback(() => {
     if (localStreamRef.current) {
+      const newVideoState = !isVideoOff;
       localStreamRef.current.getVideoTracks().forEach(track => {
-        track.enabled = isVideoOff;
+        track.enabled = !newVideoState;
       });
-      setIsVideoOff(!isVideoOff);
+      setIsVideoOff(newVideoState);
+      console.log('[Call] Video toggled:', newVideoState);
     }
   }, [isVideoOff]);
 
@@ -614,35 +706,12 @@ export function CallOverlay() {
     setCallStatus('connecting');
     setCallDuration(0);
     callStartTimeRef.current = 0;
+    setConnectionInfo('Retrying...');
     
     setTimeout(() => {
       initOutgoingCall();
     }, 500);
   }, [cleanup, initOutgoingCall]);
-
-  // ✅ НОВЫЙ ХУК: Синхронизирует потоки (refs) с HTML-элементами после рендера UI звонка.
-  // Это решает проблему одностороннего звука: когда incomingCall сбрасывается в null,
-  // появляется <audio> тег, и мы "докидываем" в него поток.
-  useEffect(() => {
-    if (!incomingCall) {
-      // Синхронизируем локальный видео-поток (чтобы мы видели сами себя после ответа)
-      if (localStreamRef.current && localVideoRef.current && localVideoRef.current.srcObject !== localStreamRef.current) {
-        localVideoRef.current.srcObject = localStreamRef.current;
-      }
-      
-      // Синхронизируем удаленные потоки (чтобы мы слышали/видели собеседника)
-      if (remoteStreamRef.current) {
-        if (remoteAudioRef.current && remoteAudioRef.current.srcObject !== remoteStreamRef.current) {
-          remoteAudioRef.current.srcObject = remoteStreamRef.current;
-          console.log('[Call] Effect: Audio stream attached');
-        }
-        if (remoteVideoRef.current && remoteVideoRef.current.srcObject !== remoteStreamRef.current) {
-          remoteVideoRef.current.srcObject = remoteStreamRef.current;
-          console.log('[Call] Effect: Video stream attached');
-        }
-      }
-    }
-  }, [incomingCall, callStatus]);
 
   // Initialize call on mount or when callState becomes active
   useEffect(() => {
@@ -661,6 +730,45 @@ export function CallOverlay() {
       }
     };
   }, [callState.active, cleanup]);
+
+  // Sync streams when call status becomes connected
+  useEffect(() => {
+    if (callStatus === 'connected') {
+      console.log('[Call] Connected - ensuring streams are attached');
+      
+      // Sync local video
+      if (localStreamRef.current && localVideoRef.current) {
+        if (localVideoRef.current.srcObject !== localStreamRef.current) {
+          localVideoRef.current.srcObject = localStreamRef.current;
+          localVideoRef.current.play().catch(e => console.warn('[Call] Local video play on sync:', e));
+          console.log('[Call] Local video synced');
+        }
+      }
+      
+      // Sync remote video
+      if (remoteStreamRef.current) {
+        if (remoteVideoRef.current && remoteVideoRef.current.srcObject !== remoteStreamRef.current) {
+          remoteVideoRef.current.srcObject = remoteStreamRef.current;
+          remoteVideoRef.current.play().catch(e => console.warn('[Call] Remote video play on sync:', e));
+          console.log('[Call] Remote video synced');
+        }
+        if (remoteAudioRef.current && remoteAudioRef.current.srcObject !== remoteStreamRef.current) {
+          remoteAudioRef.current.srcObject = remoteStreamRef.current;
+          remoteAudioRef.current.play().catch(e => console.warn('[Call] Remote audio play on sync:', e));
+          console.log('[Call] Remote audio synced');
+        }
+      } else if (peerConnectionRef.current) {
+        // If no stream yet, wait and try again
+        setTimeout(() => {
+          if (remoteStreamRef.current && remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = remoteStreamRef.current;
+            remoteVideoRef.current.play().catch(e => console.warn('[Call] Remote video play delayed:', e));
+            console.log('[Call] Remote video attached after delay');
+          }
+        }, 500);
+      }
+    }
+  }, [callStatus]);
 
   // Handle WebSocket messages for call signaling
   useEffect(() => {
@@ -721,6 +829,7 @@ export function CallOverlay() {
             cleanup();
             setCallStatus('ended');
             endCall();
+            addNotification('Call was rejected', 'info');
             break;
           }
           
@@ -730,6 +839,7 @@ export function CallOverlay() {
             cleanup();
             setCallStatus('ended');
             endCall();
+            addNotification('Call ended', 'info');
             break;
           }
         }
@@ -742,7 +852,7 @@ export function CallOverlay() {
     return () => {
       websocket.removeEventListener('message', handleMessage);
     };
-  }, [websocket, handleAnswer, cleanup, endCall]);
+  }, [websocket, handleAnswer, cleanup, endCall, addNotification]);
 
   // Call duration timer
   useEffect(() => {
@@ -833,6 +943,7 @@ export function CallOverlay() {
             ref={remoteVideoRef}
             autoPlay
             playsInline
+            muted={false}
             className="h-full w-full object-cover"
           />
         ) : (
