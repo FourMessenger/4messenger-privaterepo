@@ -27,7 +27,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'connect.save': 'Save',
     'connect.official': 'Official',
     'server.officialGlobal': 'Official 4 Messenger Server',
-    'server.officialRussia': 'Official 4 Messenger Server (Russia users)',
+    'server.officialRussia': 'Second official 4 Messenger Server',
     
     // Auth Screen
     'auth.serverPassword': 'Server Password',
@@ -406,7 +406,7 @@ export const translations: Record<Language, Record<string, string>> = {
   
   ru: {
     // Экран подключения
-    'connect.title': '4 Мессенджер',
+    'connect.title': '4 Messenger',
     'connect.tagline': 'Безопасный и приватный обмен сообщениями',
     'connect.subtitle': 'Безопасный и приватный обмен сообщениями',
     'connect.connectionFailed': 'Не удалось подключиться',
@@ -430,7 +430,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'connect.save': 'Сохранить',
     'connect.official': 'Официальный',
     'server.officialGlobal': 'Официальный сервер 4 Messenger',
-    'server.officialRussia': 'Официальный сервер 4 Messenger (для пользователей из России)',
+    'server.officialRussia': 'Второй официальный сервер 4 Messenger',
     
     // Экран авторизации
     'auth.serverPassword': 'Пароль сервера',
