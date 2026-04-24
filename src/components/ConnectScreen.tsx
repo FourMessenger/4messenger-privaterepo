@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useStore, ServerShortcut } from '../store';
-import { Globe, ArrowRight, Shield, MessageSquare, AlertCircle, Loader2, Server, Plus, X, Star, Languages, FileText, CheckCircle, Moon, Sun, Github, Rss, Lock, Palette, Layers, Trash } from 'lucide-react';
+import { Globe, ArrowRight, Shield, MessageSquare, AlertCircle, Loader2, Server, Plus, X, Star, Languages, FileText, CheckCircle, Moon, Sun, Github, Rss, Lock, Palette, Layers, Trash, MessageCircle } from 'lucide-react';
+import { SuggestionModal } from './SuggestionModal';
 
 export function ConnectScreen() {
   const [url, setUrl] = useState('');
@@ -43,6 +44,7 @@ export function ConnectScreen() {
 
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
   const [showThemeMenu, setShowThemeMenu] = useState(false);
+  const [showSuggestionModal, setShowSuggestionModal] = useState(false);
 
   const languages = [
     { code: 'en', name: 'English', flag: '🇬🇧' },
@@ -602,18 +604,26 @@ export function ConnectScreen() {
           </a>
 
           <button
-            onClick={() => setScreen('policy')}
+            onClick={() => setShowSuggestionModal(true)}
             className={`flex flex-col items-center gap-2 rounded-lg border p-3 transition ${
               isDarkTheme
                 ? 'border-white/10 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white'
                 : 'border-gray-300 bg-white/50 hover:bg-white text-gray-700'
             }`}
+            title="Send us your suggestions and feedback"
           >
-            <Lock className="h-5 w-5" />
-            <span className="text-xs font-medium text-center">Privacy Policy</span>
+            <MessageCircle className="h-5 w-5" />
+            <span className="text-xs font-medium text-center">Suggest</span>
           </button>
         </div>
       </div>
+
+      {/* Suggestion Modal */}
+      <SuggestionModal 
+        isOpen={showSuggestionModal} 
+        onClose={() => setShowSuggestionModal(false)}
+        location="server-selection"
+      />
 
       {/* Add Shortcut Modal */}
       {showAddShortcut && (

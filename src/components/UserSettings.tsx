@@ -7,8 +7,9 @@ import {
   Layout, Bell, Volume2, VolumeX, RotateCcw, Clock,
   CircleDot, Square, Maximize2, Minimize2, Globe, Bot, Code, Trash2,
   Moon as MoonIcon, AlertCircle, Smartphone, Mail, QrCode, Copy, Shield,
-  Layers, Download, Trash
+  Layers, Download, Trash, MessageCircle
 } from 'lucide-react';
+import { SuggestionModal } from './SuggestionModal';
 
 interface UserSettingsProps {
   onClose: () => void;
@@ -38,6 +39,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
   const [tab, setTab] = useState<'profile' | 'appearance' | 'security' | '2fa' | 'language' | 'notifications' | 'bots' | 'themes'>('profile');
   const [loading, setLoading] = useState(false);
   const [unmutingUserId, setUnmutingUserId] = useState<string | null>(null);
+  const [showSuggestionModal, setShowSuggestionModal] = useState(false);
   
   // Profile state
   const [displayName, setDisplayName] = useState(currentUser?.displayName || currentUser?.username || '');
@@ -439,9 +441,18 @@ export function UserSettings({ onClose }: UserSettingsProps) {
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-white/10 shrink-0">
           <h2 className="text-xl font-bold text-white">Settings</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white p-1">
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setShowSuggestionModal(true)}
+              className="text-gray-400 hover:text-white p-1 transition"
+              title="Send us your suggestions and feedback"
+            >
+              <MessageCircle className="h-5 w-5" />
+            </button>
+            <button onClick={onClose} className="text-gray-400 hover:text-white p-1">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -1789,6 +1800,14 @@ export function UserSettings({ onClose }: UserSettingsProps) {
             </div>
           )}
         </div>
+
+        {/* Suggestion Modal */}
+        <SuggestionModal 
+          isOpen={showSuggestionModal} 
+          onClose={() => setShowSuggestionModal(false)}
+          location="user-settings"
+          username={currentUser?.username}
+        />
       </div>
     </div>
   );
