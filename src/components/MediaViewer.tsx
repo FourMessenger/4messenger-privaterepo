@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Download, Play, Pause, Volume2, VolumeX, Maximize, Minimize, SkipBack, SkipForward, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw, RefreshCw } from 'lucide-react';
 import { useStore } from '../store';
+import { deriveCacheKey, getCachedFile, storeFileInCache } from '../utils/fileCache';
 
 interface MediaViewerProps {
   type: 'image' | 'video' | 'audio';
@@ -30,6 +31,10 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const blobUrlRef = useRef<string | null>(null);
+  const [cacheStatus, setCacheStatus] = useState<'checking' | 'downloading' | 'ready' | 'error' | null>(null);
+  const [cacheMessage, setCacheMessage] = useState<string | null>(null);
+  const [isCached, setIsCached] = useState(false);
   
   // Image specific
   const [zoom, setZoom] = useState(1);
@@ -43,17 +48,34 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
   const currentFileName = gallery ? gallery[currentIndex].fileName : fileName;
 
   // Fetch media as blob to handle encrypted files
-  const fetchMedia = useCallback(async (mediaUrl: string) => {
+  const fetchMedia = useCallback(async (mediaUrl: string, fileName: string) => {
     setIsLoading(true);
     setError(null);
-    
+    setCacheStatus('checking');
+    setCacheMessage(null);
+    setIsCached(false);
+
     // Clean up previous blob URL
-    if (blobUrl) {
-      URL.revokeObjectURL(blobUrl);
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current);
+      blobUrlRef.current = null;
       setBlobUrl(null);
     }
 
+    const cacheKey = deriveCacheKey(mediaUrl, fileName);
+
     try {
+      const cached = await getCachedFile(cacheKey);
+      if (cached) {
+        const url = URL.createObjectURL(cached.blob);        blobUrlRef.current = url;        setBlobUrl(url);
+        setIsCached(true);
+        setCacheStatus('ready');
+        setIsLoading(false);
+        return;
+      }
+
+      setCacheStatus('downloading');
+
       let fetchUrl = mediaUrl;
       const headers: Record<string, string> = {};
       
@@ -79,8 +101,7 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
       // Determine correct MIME type
       let mimeType = blob.type;
       if (!mimeType || mimeType === 'application/octet-stream') {
-        // Infer from file extension
-        const ext = currentFileName.split('.').pop()?.toLowerCase();
+        const ext = fileName.split('.').pop()?.toLowerCase();
         const mimeTypes: Record<string, string> = {
           // Images
           'jpg': 'image/jpeg',
@@ -109,28 +130,42 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
         mimeType = mimeTypes[ext || ''] || blob.type;
       }
 
-      // Create new blob with correct MIME type
       const typedBlob = new Blob([blob], { type: mimeType });
+
+      try {
+        await storeFileInCache(cacheKey, typedBlob, fileName, mimeType);
+        setIsCached(true);
+        setCacheStatus('ready');
+      } catch (cacheError) {
+        console.warn('Failed to store file in cache:', cacheError);
+        setCacheStatus('error');
+        setCacheMessage('Не удалось сохранить файл в хранилище сайта');
+      }
+
       const url = URL.createObjectURL(typedBlob);
+      blobUrlRef.current = url;
       setBlobUrl(url);
       setIsLoading(false);
     } catch (err) {
       console.error('Failed to load media:', err);
       setError(err instanceof Error ? err.message : 'Failed to load media');
+      setCacheStatus('error');
+      setCacheMessage('Не удалось загрузить файл в хранилище сайта');
       setIsLoading(false);
     }
-  }, [serverUrl, authToken, currentFileName, blobUrl]);
+  }, [serverUrl, authToken]);
 
   // Fetch media when source changes
   useEffect(() => {
-    fetchMedia(currentSrc);
+    fetchMedia(currentSrc, currentFileName);
     
     return () => {
-      if (blobUrl) {
-        URL.revokeObjectURL(blobUrl);
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
       }
     };
-  }, [currentSrc]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentSrc, currentFileName, fetchMedia]);
 
   // Handle keyboard shortcuts
   useEffect(() => {
@@ -256,27 +291,46 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
 
   const handleDownload = async () => {
     try {
-      let fetchUrl = currentSrc;
-      const headers: Record<string, string> = {};
-      
-      if (currentSrc.startsWith('/api/files/') || currentSrc.startsWith('/uploads/')) {
-        const baseUrl = serverUrl.replace(/\/$/, '');
-        // Use download endpoint
-        const fileId = currentSrc.split('/').pop()?.split('?')[0];
-        fetchUrl = `${baseUrl}/api/files/${fileId}/download`;
-      }
-      
-      if (authToken) {
-        headers['Authorization'] = `Bearer ${authToken}`;
+      const cacheKey = deriveCacheKey(currentSrc, currentFileName);
+      const cached = await getCachedFile(cacheKey);
+      let blob: Blob | null = null;
+      let mimeType: string | undefined;
+
+      if (cached) {
+        blob = cached.blob;
+        mimeType = cached.mimeType;
+      } else {
+        let fetchUrl = currentSrc;
+        const headers: Record<string, string> = {};
+        
+        if (currentSrc.startsWith('/api/files/') || currentSrc.startsWith('/uploads/')) {
+          const baseUrl = serverUrl.replace(/\/$/, '');
+          const fileId = currentSrc.split('/').pop()?.split('?')[0];
+          fetchUrl = `${baseUrl}/api/files/${fileId}/download`;
+        }
+        
+        if (authToken) {
+          headers['Authorization'] = `Bearer ${authToken}`;
+        }
+
+        const response = await fetch(fetchUrl, { headers });
+        if (!response.ok) {
+          throw new Error('Download failed');
+        }
+
+        const fetchedBlob = await response.blob();
+        blob = fetchedBlob;
+        mimeType = fetchedBlob.type || undefined;
+
+        if (!cached) {
+          try {
+            await storeFileInCache(cacheKey, fetchedBlob, currentFileName, mimeType || 'application/octet-stream');
+          } catch (cacheError) {
+            console.warn('Failed to cache file during download:', cacheError);
+          }
+        }
       }
 
-      const response = await fetch(fetchUrl, { headers });
-      
-      if (!response.ok) {
-        throw new Error('Download failed');
-      }
-      
-      const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -299,7 +353,7 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
   };
 
   const handleRetry = () => {
-    fetchMedia(currentSrc);
+    fetchMedia(currentSrc, currentFileName);
   };
 
   return (
@@ -337,6 +391,14 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
           </button>
         </div>
       </div>
+      {cacheStatus && (
+        <div className="px-4 pt-1 text-xs">
+          {cacheStatus === 'checking' && <span className="text-gray-400">Проверка файла в хранилище сайта...</span>}
+          {cacheStatus === 'downloading' && <span className="text-gray-300">Скачивается в хранилище сайта...</span>}
+          {cacheStatus === 'ready' && isCached && <span className="text-emerald-300">Файл готов к просмотру из хранилища сайта</span>}
+          {cacheStatus === 'error' && <span className="text-red-400">{cacheMessage || 'Не удалось подготовить файл в хранилище сайта'}</span>}
+        </div>
+      )}
 
       {/* Main content */}
       <div className="flex-1 flex items-center justify-center relative overflow-hidden">

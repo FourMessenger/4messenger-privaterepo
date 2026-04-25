@@ -576,8 +576,9 @@ export const useStore = create<AppState>((set, get) => ({
     
     // Add protocol if missing
     if (normalizedUrl && !normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
-      // Use https by default, but http for localhost and local IPs
-      if (normalizedUrl.includes('localhost') || normalizedUrl.match(/^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)/)) {
+      const localHostPattern = /^(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|::1)(:\d+)?$/i;
+      const localNetworkPattern = /^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)/;
+      if (localHostPattern.test(normalizedUrl) || localNetworkPattern.test(normalizedUrl)) {
         normalizedUrl = 'http://' + normalizedUrl;
       } else {
         normalizedUrl = 'https://' + normalizedUrl;

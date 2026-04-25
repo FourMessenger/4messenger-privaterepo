@@ -8,6 +8,7 @@ import {
   Mic, Square, BarChart2, Check, Bot, Bell, BellOff, AlertCircle
 } from 'lucide-react';
 import { MediaViewer } from './MediaViewer';
+import { MiniAudioPlayer } from './MiniAudioPlayer';
 import { UserSettings } from './UserSettings';
 import { CallOverlay } from './CallOverlay';
 import { YouTubePreview, YouTubePlayer, isYouTubeUrl, extractYouTubeId } from './YouTubePlayer';
@@ -392,9 +393,14 @@ export function ChatScreen() {
   const [showMessageSearch, setShowMessageSearch] = useState(false);
   const [messageSearchScrollTarget, setMessageSearchScrollTarget] = useState<string | null>(null);
   const [mediaViewer, setMediaViewer] = useState<{
-    type: 'image' | 'video' | 'audio';
+    type: 'image' | 'video';
     src: string;
     fileName: string;
+  } | null>(null);
+  const [audioPlayer, setAudioPlayer] = useState<{
+    src: string;
+    fileName: string;
+    fileUrl: string;
   } | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [fileUploadError, setFileUploadError] = useState<string | null>(null);
@@ -685,14 +691,14 @@ export function ChatScreen() {
   
   const handleMediaClick = (message: Message) => {
     const fileName = message.fileName || 'file';
-    const fileUrl = message.fileUrl || message.content;
+    const fileUrl = message.fileUrl || message.content || '';
     
     if (isImageFile(fileName)) {
       setMediaViewer({ type: 'image', src: fileUrl, fileName });
     } else if (isVideoFile(fileName)) {
       setMediaViewer({ type: 'video', src: fileUrl, fileName });
     } else if (isAudioFile(fileName)) {
-      setMediaViewer({ type: 'audio', src: fileUrl, fileName });
+      setAudioPlayer({ src: fileUrl, fileName, fileUrl });
     }
   };
   
@@ -1561,20 +1567,17 @@ export function ChatScreen() {
                                 
                                 {fileUrl && isAudio && (
                                   <div className="mb-2 rounded-lg overflow-hidden bg-gradient-to-r from-purple-500/20 to-indigo-500/20 p-3 w-full max-w-xs sm:max-w-sm md:max-w-md">
-                                    <audio
-                                      controls
-                                      className="w-full"
-                                      src={fileUrl}
-                                      onClick={(e) => e.stopPropagation()}
-                                    />
-                                    <div className="mt-2 flex items-center justify-between">
-                                      <span className="text-sm font-medium truncate">{m.type === 'voice' ? '🎤 Voice message' : fileName}</span>
+                                    <div className="flex items-center justify-between gap-3">
+                                      <div>
+                                        <p className="text-sm font-medium truncate">{m.type === 'voice' ? '🎤 Voice message' : fileName}</p>
+                                        <p className="text-xs opacity-70 mt-1">Сначала файл загружается в данные сайта, затем доступен для прослушивания.</p>
+                                      </div>
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           handleMediaClick(m);
                                         }}
-                                        className="px-2 py-1 text-xs rounded-md bg-white/10 hover:bg-white/20"
+                                        className="px-3 py-2 text-xs rounded-md bg-white/10 hover:bg-white/20"
                                       >
                                         Open player
                                       </button>
@@ -2421,6 +2424,15 @@ export function ChatScreen() {
           src={mediaViewer.src}
           fileName={mediaViewer.fileName}
           onClose={() => setMediaViewer(null)}
+        />
+      )}
+
+      {audioPlayer && (
+        <MiniAudioPlayer
+          src={audioPlayer.src}
+          fileName={audioPlayer.fileName}
+          fileUrl={audioPlayer.fileUrl}
+          onClose={() => setAudioPlayer(null)}
         />
       )}
 
