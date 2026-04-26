@@ -4470,6 +4470,10 @@ const errorPageMap = {
 
 // Catch 404 errors for unknown routes
 app.use((req, res) => {
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({ error: 'Not Found', code: 404 });
+  }
+
   const errorPagePath = path.join(__dirname, '..', 'public', 'errors', '404.html');
   if (fs.existsSync(errorPagePath)) {
     res.status(404).sendFile(errorPagePath);
@@ -4483,8 +4487,7 @@ app.use((err, req, res, next) => {
   const statusCode = err.statusCode || err.status || 500;
   console.error(`[ERROR] ${statusCode}: ${err.message} (${req.method} ${req.path})`);
   
-  // Check if it's an API request (Accept: application/json)
-  const isApiRequest = req.accepts('application/json') && !req.accepts('html');
+  const isApiRequest = req.path.startsWith('/api/');
   
   if (isApiRequest) {
     // Return JSON for API requests

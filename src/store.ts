@@ -2209,8 +2209,15 @@ export const useStore = create<AppState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
-        get().addNotification(errorData.error || 'Failed to send message', 'error');
+        let errorText = 'Failed to send message';
+        try {
+          const errorData = await response.json();
+          errorText = errorData.error || errorText;
+        } catch {
+          const text = await response.text();
+          if (text) errorText = text;
+        }
+        get().addNotification(errorText, 'error');
         set(state => ({
           messages: state.messages.filter(m => m.id !== localMessage.id),
           allMessages: {
@@ -2220,7 +2227,21 @@ export const useStore = create<AppState>((set, get) => ({
         }));
       } else {
         // Server successfully created the message - update local message with server ID
-        const serverMessage = await response.json();
+        let serverMessage: any;
+        try {
+          serverMessage = await response.json();
+        } catch (jsonError) {
+          console.error('Failed to parse sendMessage response as JSON:', jsonError);
+          get().addNotification('Failed to send message', 'error');
+          set(state => ({
+            messages: state.messages.filter(m => m.id !== localMessage.id),
+            allMessages: {
+              ...state.allMessages,
+              [chatId]: (state.allMessages[chatId] || []).filter(m => m.id !== localMessage.id),
+            },
+          }));
+          return;
+        }
         const serverId = serverMessage.id || serverMessage._id;
         
         if (serverId && serverId !== localMessage.id) {
